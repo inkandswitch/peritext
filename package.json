@@ -1,0 +1,35 @@
+{
+    "name": "peritext",
+    "version": "0.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "parcel index.html",
+        "build": "parcel build index.html --public-url='./' --out-dir='docs'",
+        "typecheck": "tsc --noEmit --watch"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@typescript-eslint/eslint-plugin": "^4.0.1",
+        "@typescript-eslint/parser": "^4.0.1",
+        "eslint": "^7.8.1",
+        "parcel-bundler": "^1.12.4",
+        "prettier": "^2.2.1",
+        "typescript": "^4.3.2"
+    },
+    "dependencies": {
+        "@types/prosemirror-commands": "1.0.4",
+        "@types/prosemirror-keymap": "1.0.4",
+        "@types/prosemirror-model": "1.13.0",
+        "@types/prosemirror-schema-list": "1.0.3",
+        "@types/prosemirror-state": "1.2.6",
+        "@types/prosemirror-view": "1.17.1",
+        "prosemirror-commands": "1.1.8",
+        "prosemirror-keymap": "1.1.4",
+        "prosemirror-model": "1.14.1",
+        "prosemirror-schema-list": "1.1.4",
+        "prosemirror-state": "1.3.4",
+        "prosemirror-view": "1.18.7"
+    }
+}

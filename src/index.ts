@@ -1,14 +1,17 @@
-import { EditorState, Transaction } from "prosemirror-state"
+import Automerge from "automerge"
+import { EditorState, Transaction, Selection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Node, SchemaSpec } from "prosemirror-model"
+import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 
-// declare global {
-//     interface Window {
-//         view: EditorView;
-//     }
-// }
+import type { Foo } from "./test"
+
+declare global {
+    interface Window {
+        view: EditorView
+    }
+}
 
 const editorNode = document.querySelector("#editor")
 
@@ -59,11 +62,14 @@ export const schemaDescription: SchemaSpec<NodeType, MarkType> = {
 }
 
 const testSchema = new Schema(schemaDescription)
+let doc = Automerge.from<{ content: Automerge.Text }>({
+    content: new Automerge.Text(""),
+})
 
 if (editorNode) {
     // Generate an empty document conforming to the schema,
     // and a default selection at the start of the document.
-    const state = EditorState.create({
+    let state = EditorState.create({
         schema: testSchema,
         plugins: [keymap(baseKeymap)],
     })
@@ -74,7 +80,6 @@ if (editorNode) {
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             const newState = view.state.apply(txn)
-            view.updateState(newState)
 
             // state.doc is a read-only data structure using a node hierarchy
             // A node contains a fragment with zero or more child nodes.
@@ -86,9 +91,45 @@ if (editorNode) {
                 txn.steps.map(s => s.toJSON()),
                 newState.doc.toJSON(),
             )
+
+            if (txn.steps.length === 1) {
+                const [_step] = txn.steps
+                const step = _step.toJSON()
+                if (step.stepType === "replace" && step.from === step.to) {
+                    const insertedContent = step.slice.content
+                        .map(c => c.text)
+                        .join("")
+
+                    doc = Automerge.change(doc, doc => {
+                        if (doc.content.insertAt) {
+                            doc.content.insertAt(step.from - 1, insertedContent)
+                        }
+                    })
+
+                    const anchor = txn.doc.resolve(
+                        step.from + insertedContent.length,
+                    )
+                    state = EditorState.create({
+                        schema: testSchema,
+                        plugins: [keymap(baseKeymap)],
+                        doc: testSchema.node("doc", undefined, [
+                            testSchema.node("paragraph", undefined, [
+                                testSchema.text(doc.content.toString()),
+                            ]),
+                        ]),
+                        selection: new Selection(anchor, anchor),
+                    })
+                    view.updateState(state)
+                }
+            } else {
+                view.updateState(newState)
+            }
         },
     })
     window.view = view
 }
 
-console.log("hi")
+// 1. Get text string from doc
+// 2. Automerge mutation
+// 3. Get new state from Automerge
+// 4. Apply new state to ProseMirror

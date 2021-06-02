@@ -67,6 +67,8 @@ let doc = Automerge.from<RichTextDoc>({
     content: new Automerge.Text(""),
 })
 
+// Given an automerge doc representation, produce a prosemirror doc.
+// In the future, will handle fancier stuff like formatting.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     return testSchema.node("doc", undefined, [
         testSchema.node("paragraph", undefined, [
@@ -75,8 +77,61 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     ])
 }
 
-function applyProsemirrorStepToAutomergeDoc(doc: RichTextDoc) {
+// Given an Automerge Doc and a Prosemirror Transaction, returns:
+// - an updated Automerge Doc
+// - a new Prosemirror Selection
+function applyTransaction(doc: RichTextDoc, txn: Transaction): [RichTextDoc, Selection] {
+    // Normally one would generate a new PM state with the line below;
+    // instead, we run our own logic to produce a new state.
+    // const newState = view.state.apply(txn)
 
+    // Default to leaving the selection alone; we might mutate it as we apply the txn.
+    let selection = txn.selection
+    let newDoc = doc
+
+    txn.steps.forEach(_step => {
+        const step = _step.toJSON()
+
+        // handle insertion
+        if (step.stepType === "replace" && step.slice) {
+            // If the insertion is replacing existing text, first delete that text
+            if(step.from !== step.to) {
+                doc = Automerge.change(doc, doc => {
+                    if (doc.content.deleteAt) {
+                        doc.content.deleteAt(step.from - 1, step.to - step.from)
+                    }
+                })
+            }
+
+            const insertedContent = step.slice.content
+                .map(c => c.text)
+                .join("")
+
+            newDoc = Automerge.change(doc, doc => {
+                if (doc.content.insertAt) {
+                    doc.content.insertAt(step.from - 1, insertedContent)
+                }
+            })
+
+            const anchor = txn.doc.resolve(
+                step.from + insertedContent.length,
+            )
+            selection = new TextSelection(anchor, anchor)
+        }
+
+        // handle deletion
+        if (step.stepType === "replace" && !step.slice) {
+            newDoc = Automerge.change(doc, doc => {
+                if (doc.content.deleteAt) {
+                    doc.content.deleteAt(step.from - 1, step.to - step.from)
+                }
+            })
+
+            // Interesting that we don't need to update the selection here -- why?
+        }
+    })
+
+    return [newDoc, selection]
 }
 
 if (editorNode) {
@@ -89,54 +144,34 @@ if (editorNode) {
 
     // Create a view for the state and generate transactions when the user types.
     const view = new EditorView(editorNode, {
+        // state.doc is a read-only data structure using a node hierarchy
+        // A node contains a fragment with zero or more child nodes.
+        // Text is modeled as a flat sequence of tokens.
+        // Each document has a unique valid representation.
+        // Order of marks specified by schema.
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            // Normally one would generate a new PM state with the line below;
-            // instead, we create our own new PM state thru an Automerge doc
-            // const newState = view.state.apply(txn)
+            const [newDoc, newSelection] = applyTransaction(doc, txn)
 
-            // state.doc is a read-only data structure using a node hierarchy
-            // A node contains a fragment with zero or more child nodes.
-            // Text is modeled as a flat sequence of tokens.
-            // Each document has a unique valid representation.
-            // Order of marks specified by schema.
+            // store our updated Automerge doc in our global mutable state
+            doc = newDoc
 
-            let selection = txn.selection
-
-            txn.steps.forEach(_step => {
-                const step = _step.toJSON()
-                if (step.stepType === "replace" && step.from === step.to) {
-                    const insertedContent = step.slice.content
-                        .map(c => c.text)
-                        .join("")
-
-                    doc = Automerge.change(doc, doc => {
-                        if (doc.content.insertAt) {
-                            doc.content.insertAt(step.from - 1, insertedContent)
-                        }
-                    })
-
-                    const anchor = txn.doc.resolve(
-                        step.from + insertedContent.length,
-                    )
-                    selection = new TextSelection(anchor, anchor)
-                }
-            })
-
-            console.log(
-                {
-                    steps: txn.steps.map(s => s.toJSON()),
-                    newState: state
-                }
-            )
+            const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
 
             const newState = EditorState.create({
                 schema: testSchema,
                 plugins: [keymap(baseKeymap)],
-                doc: prosemirrorDocFromAutomergeDoc(doc),
-                selection
+                doc: newProsemirrorDoc,
+                selection: newSelection
             })
+
+            console.log(
+                "steps",
+                txn.steps.map(s => s.toJSON()),
+                "newState",
+                newState
+            )
 
             view.updateState(newState)
         },

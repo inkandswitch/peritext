@@ -5,8 +5,6 @@ import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 
-import type { Foo } from "./test"
-
 declare global {
     interface Window {
         view: EditorView
@@ -62,9 +60,24 @@ export const schemaDescription: SchemaSpec<NodeType, MarkType> = {
 }
 
 const testSchema = new Schema(schemaDescription)
-let doc = Automerge.from<{ content: Automerge.Text }>({
+
+type RichTextDoc = { content: Automerge.Text }
+
+let doc = Automerge.from<RichTextDoc>({
     content: new Automerge.Text(""),
 })
+
+function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
+    return testSchema.node("doc", undefined, [
+        testSchema.node("paragraph", undefined, [
+            testSchema.text(doc.content.toString()),
+        ]),
+    ])
+}
+
+function applyProsemirrorStepToAutomergeDoc(doc: RichTextDoc) {
+
+}
 
 if (editorNode) {
     // Generate an empty document conforming to the schema,
@@ -79,21 +92,19 @@ if (editorNode) {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            const newState = view.state.apply(txn)
+            // Normally one would generate a new PM state with the line below;
+            // instead, we create our own new PM state thru an Automerge doc
+            // const newState = view.state.apply(txn)
 
             // state.doc is a read-only data structure using a node hierarchy
             // A node contains a fragment with zero or more child nodes.
             // Text is modeled as a flat sequence of tokens.
             // Each document has a unique valid representation.
             // Order of marks specified by schema.
-            console.log(
-                "newState",
-                txn.steps.map(s => s.toJSON()),
-                newState.doc.toJSON(),
-            )
 
-            if (txn.steps.length === 1) {
-                const [_step] = txn.steps
+            let selection = state.selection
+
+            txn.steps.forEach(_step => {
                 const step = _step.toJSON()
                 if (step.stepType === "replace" && step.from === step.to) {
                     const insertedContent = step.slice.content
@@ -109,21 +120,25 @@ if (editorNode) {
                     const anchor = txn.doc.resolve(
                         step.from + insertedContent.length,
                     )
-                    state = EditorState.create({
-                        schema: testSchema,
-                        plugins: [keymap(baseKeymap)],
-                        doc: testSchema.node("doc", undefined, [
-                            testSchema.node("paragraph", undefined, [
-                                testSchema.text(doc.content.toString()),
-                            ]),
-                        ]),
-                        selection: new Selection(anchor, anchor),
-                    })
-                    view.updateState(state)
+                    selection = new Selection(anchor, anchor)
                 }
-            } else {
-                view.updateState(newState)
-            }
+            })
+
+            console.log(
+                {
+                    steps: txn.steps.map(s => s.toJSON()),
+                    newState: state
+                }
+            )
+
+            const newState = EditorState.create({
+                schema: testSchema,
+                plugins: [keymap(baseKeymap)],
+                doc: prosemirrorDocFromAutomergeDoc(doc),
+                selection
+            })
+
+            view.updateState(newState)
         },
     })
     window.view = view

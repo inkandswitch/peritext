@@ -9,62 +9,10 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-
-declare global {
-    interface Window {
-        view: EditorView
-    }
-}
+import { schemaSpec } from "./schema"
 
 const editorNode = document.querySelector("#editor")
-
-type Assert<T1 extends T2, T2> = T1
-
-const nodes = {
-    doc: {
-        content: "block+",
-    },
-    paragraph: {
-        content: "text*",
-        group: "block",
-        toDOM: (node: Node<Schema<NodeType, MarkType>>) => {
-            return ["p", 0]
-        },
-    },
-    text: {},
-} as const
-
-type Nodes = typeof nodes
-export type NodeType = keyof Nodes
-export type GroupType = {
-    [T in NodeType]: Nodes[T] extends { group: string }
-        ? Nodes[T]["group"]
-        : never
-}[NodeType]
-type Quantifier = "+" | "*" | "?"
-export type ContentType =
-    | NodeType
-    | GroupType
-    | `${NodeType | GroupType}${Quantifier}`
-
-interface NodeSpec {
-    content?: ContentType
-    group?: GroupType
-}
-type _ = Assert<Nodes, { [T in NodeType]: NodeSpec }>
-
-const marks = {
-    strong: {},
-    em: {},
-} as const
-export type MarkType = keyof typeof marks
-
-export const schemaDescription: SchemaSpec<NodeType, MarkType> = {
-    nodes,
-    marks,
-}
-
-const testSchema = new Schema(schemaDescription)
+const schema = new Schema(schemaSpec)
 
 type RichTextDoc = { content: Automerge.Text }
 
@@ -75,9 +23,9 @@ let doc = Automerge.from<RichTextDoc>({
 // Given an automerge doc representation, produce a prosemirror doc.
 // In the future, will handle fancier stuff like formatting.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
-    return testSchema.node("doc", undefined, [
-        testSchema.node("paragraph", undefined, [
-            testSchema.text(doc.content.toString()),
+    return schema.node("doc", undefined, [
+        schema.node("paragraph", undefined, [
+            schema.text(doc.content.toString()),
         ]),
     ])
 }
@@ -87,7 +35,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 // - a new Prosemirror Selection
 function applyTransaction(
     doc: RichTextDoc,
-    txn: Transaction
+    txn: Transaction,
 ): [RichTextDoc, Selection] {
     // Normally one would generate a new PM state with the line below;
     // instead, we run our own logic to produce a new state.
@@ -142,7 +90,7 @@ if (editorNode) {
     // Generate an empty document conforming to the schema,
     // and a default selection at the start of the document.
     let state = EditorState.create({
-        schema: testSchema,
+        schema,
         plugins: [keymap(baseKeymap)],
     })
 
@@ -164,7 +112,7 @@ if (editorNode) {
             const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
 
             const newState = EditorState.create({
-                schema: testSchema,
+                schema,
                 plugins: [keymap(baseKeymap)],
                 doc: newProsemirrorDoc,
                 selection: newSelection,
@@ -174,7 +122,7 @@ if (editorNode) {
                 "steps",
                 txn.steps.map(s => s.toJSON()),
                 "newState",
-                newState
+                newState,
             )
 
             view.updateState(newState)
@@ -182,8 +130,3 @@ if (editorNode) {
     })
     window.view = view
 }
-
-// 1. Get text string from doc
-// 2. Automerge mutation
-// 3. Get new state from Automerge
-// 4. Apply new state to ProseMirror

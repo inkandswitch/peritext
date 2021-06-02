@@ -1,47 +1,72 @@
-import { Schema, Node, SchemaSpec } from "prosemirror-model"
+import {
+    MarkSpec,
+    Node,
+    Schema,
+    SchemaSpec,
+    DOMOutputSpec,
+    DOMOutputSpecArray,
+} from "prosemirror-model"
 
-type Assert<T1 extends T2, T2> = T1
+/***********************************************
+ * Nodes.
+ ***********************************************/
 
-const nodes = {
+const nodeSpec = {
     doc: {
         content: "block+",
     },
     paragraph: {
         content: "text*",
         group: "block",
-        toDOM: (node: Node<Schema<NodeType, MarkType>>) => {
-            return ["p", 0]
-        },
+        toDOM: (node: Node): DOMOutputSpecArray => ["p", 0],
     },
     text: {},
 } as const
 
-type Nodes = typeof nodes
+type Nodes = typeof nodeSpec
+
 export type NodeType = keyof Nodes
 export type GroupType = {
     [T in NodeType]: Nodes[T] extends { group: string }
         ? Nodes[T]["group"]
         : never
 }[NodeType]
+
 type Quantifier = "+" | "*" | "?"
-export type ContentType =
+
+export type ContentDescription =
     | NodeType
     | GroupType
     | `${NodeType | GroupType}${Quantifier}`
 
 interface NodeSpec {
-    content?: ContentType
+    content?: ContentDescription
     group?: GroupType
+    toDOM?: (node: Node) => DOMOutputSpec | DOMOutputSpecArray
 }
-type _ = Assert<Nodes, { [T in NodeType]: NodeSpec }>
 
-const marks = {
+type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
+
+/***********************************************
+ * Marks.
+ ***********************************************/
+
+const markSpec = {
     strong: {},
     em: {},
 } as const
-export type MarkType = keyof typeof marks
 
-export const schemaDescription: SchemaSpec<NodeType, MarkType> = {
-    nodes,
-    marks,
+export type MarkType = keyof typeof markSpec
+type AssertMarksMatchSpec = Assert<
+    typeof markSpec,
+    { [T in MarkType]: MarkSpec }
+>
+
+/***********************************************
+ * Schema.
+ ***********************************************/
+
+export const schemaSpec: SchemaSpec<NodeType, MarkType> = {
+    nodes: nodeSpec,
+    marks: markSpec,
 }

@@ -1,5 +1,5 @@
 import Automerge from "automerge"
-import { EditorState, Transaction, Selection } from "prosemirror-state"
+import { EditorState, Transaction, Selection, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
@@ -102,7 +102,7 @@ if (editorNode) {
             // Each document has a unique valid representation.
             // Order of marks specified by schema.
 
-            let selection = state.selection
+            let selection = txn.selection
 
             txn.steps.forEach(_step => {
                 const step = _step.toJSON()
@@ -120,7 +120,7 @@ if (editorNode) {
                     const anchor = txn.doc.resolve(
                         step.from + insertedContent.length,
                     )
-                    selection = new Selection(anchor, anchor)
+                    selection = new TextSelection(anchor, anchor)
                 }
             })
 

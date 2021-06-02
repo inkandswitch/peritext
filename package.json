@@ -6,7 +6,8 @@
     "scripts": {
         "start": "parcel index.html",
         "build": "parcel build index.html --public-url='./' --out-dir='docs'",
-        "typecheck": "tsc --noEmit --watch"
+        "typecheck": "tsc --noEmit --watch",
+        "prettier": "prettier -w src/**/* index.html"
     },
     "author": "",
     "license": "MIT",

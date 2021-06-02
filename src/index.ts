@@ -1,5 +1,10 @@
 import Automerge from "automerge"
-import { EditorState, Transaction, Selection, TextSelection } from "prosemirror-state"
+import {
+    EditorState,
+    Transaction,
+    Selection,
+    TextSelection,
+} from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
@@ -80,7 +85,10 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 // Given an Automerge Doc and a Prosemirror Transaction, returns:
 // - an updated Automerge Doc
 // - a new Prosemirror Selection
-function applyTransaction(doc: RichTextDoc, txn: Transaction): [RichTextDoc, Selection] {
+function applyTransaction(
+    doc: RichTextDoc,
+    txn: Transaction
+): [RichTextDoc, Selection] {
     // Normally one would generate a new PM state with the line below;
     // instead, we run our own logic to produce a new state.
     // const newState = view.state.apply(txn)
@@ -95,7 +103,7 @@ function applyTransaction(doc: RichTextDoc, txn: Transaction): [RichTextDoc, Sel
         // handle insertion
         if (step.stepType === "replace" && step.slice) {
             // If the insertion is replacing existing text, first delete that text
-            if(step.from !== step.to) {
+            if (step.from !== step.to) {
                 doc = Automerge.change(doc, doc => {
                     if (doc.content.deleteAt) {
                         doc.content.deleteAt(step.from - 1, step.to - step.from)
@@ -103,9 +111,7 @@ function applyTransaction(doc: RichTextDoc, txn: Transaction): [RichTextDoc, Sel
                 })
             }
 
-            const insertedContent = step.slice.content
-                .map(c => c.text)
-                .join("")
+            const insertedContent = step.slice.content.map(c => c.text).join("")
 
             newDoc = Automerge.change(doc, doc => {
                 if (doc.content.insertAt) {
@@ -113,9 +119,7 @@ function applyTransaction(doc: RichTextDoc, txn: Transaction): [RichTextDoc, Sel
                 }
             })
 
-            const anchor = txn.doc.resolve(
-                step.from + insertedContent.length,
-            )
+            const anchor = txn.doc.resolve(step.from + insertedContent.length)
             selection = new TextSelection(anchor, anchor)
         }
 
@@ -163,7 +167,7 @@ if (editorNode) {
                 schema: testSchema,
                 plugins: [keymap(baseKeymap)],
                 doc: newProsemirrorDoc,
-                selection: newSelection
+                selection: newSelection,
             })
 
             console.log(

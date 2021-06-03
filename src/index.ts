@@ -2,11 +2,10 @@ import Automerge from "automerge"
 import {
     EditorState,
     Transaction,
-    Selection,
     TextSelection,
 } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Node, SchemaSpec, ResolvedPos, Slice } from "prosemirror-model"
+import { Schema, Slice } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"

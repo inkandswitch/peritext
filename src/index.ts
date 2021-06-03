@@ -13,10 +13,32 @@ import { schemaSpec } from "./schema"
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
 
-type RichTextDoc = { content: Automerge.Text }
+type InlineFormatOp = {
+    start: Automerge.Cursor,
+    end: Automerge.Cursor,
+    format: { [key: string]: boolean }
+}
+
+type FormatOp = InlineFormatOp // more coming soon...
+
+type RichTextDoc = {
+    content: Automerge.Text
+    formatOps: Automerge.List<FormatOp>
+}
+
 
 let doc = Automerge.from<RichTextDoc>({
-    content: new Automerge.Text(""),
+    content: new Automerge.Text("Welcome to the Peritext editor!"),
+    formatOps: []
+})
+
+// Start off the doc with a single formatting span from characters 2 - 5.
+doc = Automerge.change(doc, d => {
+    d.formatOps.push({
+        start: d.content.getCursorAt(2),
+        end: d.content.getCursorAt(5),
+        format: { bold: true }
+    })
 })
 
 // Given an automerge doc representation, produce a prosemirror doc.
@@ -80,6 +102,7 @@ if (editorNode) {
     let state = EditorState.create({
         schema,
         plugins: [keymap(baseKeymap)],
+        doc: prosemirrorDocFromAutomergeDoc(doc)
     })
 
     // Create a view for the state and generate transactions when the user types.
@@ -99,6 +122,8 @@ if (editorNode) {
             // Compute a new automerge doc and selection point
             const newDoc = applyTransaction(doc, txn)
             doc = newDoc // store updated Automerge doc in our global mutable state
+
+            console.log("first span indexes:", doc.formatOps[0].start.index, doc.formatOps[0].end.index)
 
             // Derive a new PM doc from the new Automerge doc
             const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)

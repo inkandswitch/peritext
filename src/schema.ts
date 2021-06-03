@@ -5,6 +5,7 @@ import {
     SchemaSpec,
     DOMOutputSpec,
     DOMOutputSpecArray,
+    Mark,
 } from "prosemirror-model"
 
 /***********************************************
@@ -52,7 +53,11 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
  ***********************************************/
 
 const markSpec = {
-    strong: {},
+    strong: {
+        toDOM (mark: Mark) {
+            return ["strong"] as const
+        }
+    },
     em: {},
 } as const
 

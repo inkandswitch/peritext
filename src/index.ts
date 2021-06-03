@@ -5,10 +5,11 @@ import {
     TextSelection,
 } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice } from "prosemirror-model"
+import { Mark, Schema, Slice, Node } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
+import sortBy from 'lodash/sortBy'
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -25,7 +26,6 @@ type RichTextDoc = {
     content: Automerge.Text
     formatOps: Automerge.List<FormatOp>
 }
-
 
 let doc = Automerge.from<RichTextDoc>({
     content: new Automerge.Text("Welcome to the Peritext editor!"),
@@ -44,9 +44,37 @@ doc = Automerge.change(doc, d => {
 // Given an automerge doc representation, produce a prosemirror doc.
 // In the future, will handle fancier stuff like formatting.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
+    const textContent = doc.content.toString()
+    // for now, we assume spans don't overlap.
+    // in the future we will need to flatten to meet this assumption.
+    const sortedFormatOps = sortBy(doc.formatOps, (op: FormatOp) => op.start.index)
+
+    let current = 0
+    const nodes: Node[] = []
+
+    for (const formatOp of sortedFormatOps) {
+        const nodeBeforeSpan = schema.text(textContent.slice(current, (formatOp.start.index - current)))
+        const nodeInsideSpan =
+            schema.text(
+                textContent.slice(formatOp.start.index, (formatOp.end.index - formatOp.start.index)),
+                [schema.mark("strong")]
+            )
+        current = formatOp.end.index
+
+        nodes.concat([nodeBeforeSpan, nodeInsideSpan])
+    }
+
+    if(current < textContent.length) {
+        nodes.push(schema.text(textContent.slice(current, (textContent.length - current))))
+    }
+
+    return schema.node("doc", undefined, [
+        schema.node("paragraph", undefined, nodes),
+    ])
+
     return schema.node("doc", undefined, [
         schema.node("paragraph", undefined, [
-            schema.text(doc.content.toString()),
+            schema.text(doc.content.toString(), [schema.mark("strong")]),
         ]),
     ])
 }
@@ -165,3 +193,5 @@ if (editorNode) {
     })
     window.view = view
 }
+
+//

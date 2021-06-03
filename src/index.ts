@@ -6,7 +6,7 @@ import {
     TextSelection,
 } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Node, SchemaSpec, ResolvedPos } from "prosemirror-model"
+import { Schema, Node, SchemaSpec, ResolvedPos, Slice } from "prosemirror-model"
 import { baseKeymap } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
@@ -30,19 +30,13 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     ])
 }
 
-// Given an Automerge Doc and a Prosemirror Transaction, returns:
-// - an updated Automerge Doc
-// - a new Prosemirror Selection
+// Given an Automerge Doc and a Prosemirror Transaction, return an updated Automerge Doc
+// Note: need to derive a PM doc from the new Automerge doc later!
+// TODO: why don't we need to update the selection when we do insertions?
 function applyTransaction(
     doc: RichTextDoc,
     txn: Transaction,
-): [RichTextDoc, Selection] {
-    // Normally one would generate a new PM state with the line below;
-    // instead, we run our own logic to produce a new state.
-    // const newState = view.state.apply(txn)
-
-    // Default to leaving the selection alone; we might mutate it as we apply the txn.
-    let selection = txn.selection
+): RichTextDoc {
     let newDoc = doc
 
     txn.steps.forEach(_step => {
@@ -66,9 +60,6 @@ function applyTransaction(
                     doc.content.insertAt(step.from - 1, insertedContent)
                 }
             })
-
-            const anchor = txn.doc.resolve(step.from + insertedContent.length)
-            selection = new TextSelection(anchor, anchor)
         }
 
         // handle deletion
@@ -78,12 +69,10 @@ function applyTransaction(
                     doc.content.deleteAt(step.from - 1, step.to - step.from)
                 }
             })
-
-            // Interesting that we don't need to update the selection here -- why?
         }
     })
 
-    return [newDoc, selection]
+    return newDoc
 }
 
 if (editorNode) {
@@ -104,28 +93,50 @@ if (editorNode) {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            const [newDoc, newSelection] = applyTransaction(doc, txn)
+            console.log("")
+            console.log("dispatch", Math.random().toPrecision(3), txn)
+            let state = view.state
 
-            // store our updated Automerge doc in our global mutable state
-            doc = newDoc
+            // Compute a new automerge doc and selection point
+            const newDoc = applyTransaction(doc, txn)
+            doc = newDoc // store updated Automerge doc in our global mutable state
 
+            // Derive a new PM doc from the new Automerge doc
             const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
 
-            const newState = EditorState.create({
-                schema,
-                plugins: [keymap(baseKeymap)],
-                doc: newProsemirrorDoc,
-                selection: newSelection,
-            })
+            // Apply a transaction that swaps out the new doc in the editor state
+            state = state.apply(
+                state.tr.replace(
+                    0,
+                    state.doc.content.size,
+                    new Slice(newProsemirrorDoc.content, 0, 0)
+                )
+            )
+
+            // Now that we have a new doc, we can compute the new selection.
+            // We simply copy over the positions from the selection on the original txn,
+            // but resolve them into the new doc.
+            // (It doesn't work to just use the selection directly off the txn,
+            // because that has pointers into the old stale doc state)
+            const newSelection = new TextSelection(
+                state.doc.resolve(txn.selection.anchor),
+                state.doc.resolve(txn.selection.head)
+            )
+
+            // Apply a transaction that sets the new selection
+            state = state.apply(
+                state.tr.setSelection(newSelection)
+            )
+
+            // Great, now we have our final state! We finish by updating the view.
+            view.updateState(state)
 
             console.log(
                 "steps",
                 txn.steps.map(s => s.toJSON()),
                 "newState",
-                newState,
+                state
             )
-
-            view.updateState(newState)
         },
     })
     window.view = view

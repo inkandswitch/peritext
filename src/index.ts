@@ -85,11 +85,13 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     for (const formatOp of sortedFormatOps) {
         // temporary error conditions to clarify bounds of current prototype
         if(formatOp.type !== "addMark") {
-            throw new Error("The only currently supported formatOp is addMark")
+            console.error("The only currently supported formatOp is addMark")
+            continue
         }
 
         if(current > formatOp.start.index) {
-            throw new Error("We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)")
+            console.error("We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)")
+            continue
         }
 
         const nodeBeforeSpan = schema.text(textContent.slice(current, formatOp.start.index))
@@ -108,9 +110,13 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
         nodes.push(schema.text(textContent.slice(current, -1)))
     }
 
-    return schema.node("doc", undefined, [
+    const result =  schema.node("doc", undefined, [
         schema.node("paragraph", undefined, nodes),
     ])
+
+    console.log("prosemirror doc", result)
+
+    return result
 }
 
 // Given an Automerge Doc and a Prosemirror Transaction, return an updated Automerge Doc

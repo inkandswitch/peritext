@@ -5,8 +5,8 @@ import {
     TextSelection,
 } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Mark, Schema, Slice, Node } from "prosemirror-model"
-import { baseKeymap } from "prosemirror-commands"
+import { Mark, Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
+import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
 import sortBy from 'lodash/sortBy'
@@ -14,13 +14,29 @@ import sortBy from 'lodash/sortBy'
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
 
-type InlineFormatOp = {
-    start: Automerge.Cursor,
-    end: Automerge.Cursor,
-    format: { [key: string]: boolean }
+const richTextKeymap = {
+    ...baseKeymap,
+    "Mod-b": toggleMark(schema.marks.strong),
+    "Mod-i": toggleMark(schema.marks.em)
 }
 
-type FormatOp = InlineFormatOp // more coming soon...
+type MarkType = "strong" | "em"
+
+type AddMarkOp = {
+    type: "addMark",
+    markType: MarkType,
+    start: Automerge.Cursor,
+    end: Automerge.Cursor,
+}
+
+type RemoveMarkOp = {
+    type: "removeMark",
+    markType: MarkType,
+    start: Automerge.Cursor,
+    end: Automerge.Cursor,
+}
+
+type FormatOp = AddMarkOp | RemoveMarkOp // more coming soon...
 
 type RichTextDoc = {
     content: Automerge.Text
@@ -35,11 +51,35 @@ let doc = Automerge.from<RichTextDoc>({
 // Start off the doc with a single formatting span from characters 2 - 5.
 doc = Automerge.change(doc, d => {
     d.formatOps.push({
+        type: "addMark",
         start: d.content.getCursorAt(2),
         end: d.content.getCursorAt(5),
-        format: { bold: true }
+        markType: "strong"
     })
 })
+
+/**
+ * Converts a position in the Prosemirror doc to an offset in the Automerge content string.
+ * For now we only have a single node so this is relatively trivial.
+ * When things get more complicated with multiple nodes, we can probably take advantage
+ * of the additional metadata that Prosemirror can provide by "resolving" the position.
+ * @param position : an unresolved Prosemirror position in the doc;
+ * @returns
+ */
+function contentPosFromProsemirrorPos(position: number) {
+    return position - 1
+}
+
+// A simple stub for producing a PM doc from an Automerge doc.
+// Just temporary while the actual version is work-in-progress.
+function simpleProsemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
+    return schema.node("doc", undefined, [
+        schema.node("paragraph", undefined, [
+            // schema.text(doc.content.toString(), [schema.mark("strong")]),
+            schema.text(doc.content.toString()),
+        ]),
+    ])
+}
 
 // Given an automerge doc representation, produce a prosemirror doc.
 // In the future, will handle fancier stuff like formatting.
@@ -71,12 +111,6 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     return schema.node("doc", undefined, [
         schema.node("paragraph", undefined, nodes),
     ])
-
-    return schema.node("doc", undefined, [
-        schema.node("paragraph", undefined, [
-            schema.text(doc.content.toString(), [schema.mark("strong")]),
-        ]),
-    ])
 }
 
 // Given an Automerge Doc and a Prosemirror Transaction, return an updated Automerge Doc
@@ -91,33 +125,70 @@ function applyTransaction(
     txn.steps.forEach(_step => {
         const step = _step.toJSON()
 
-        // handle insertion
-        if (step.stepType === "replace" && step.slice) {
-            // If the insertion is replacing existing text, first delete that text
-            if (step.from !== step.to) {
-                doc = Automerge.change(doc, doc => {
-                    if (doc.content.deleteAt) {
-                        doc.content.deleteAt(step.from - 1, step.to - step.from)
+        console.log("step", step)
+
+        switch(step.stepType) {
+            case 'replace': {
+                if(step.slice) { // handle insertion
+                    if (step.from !== step.to) {
+                        newDoc = Automerge.change(doc, doc => {
+                            if (doc.content.deleteAt) {
+                                doc.content.deleteAt(
+                                    contentPosFromProsemirrorPos(step.from),
+                                    step.to - step.from
+                                )
+                            }
+                        })
                     }
-                })
+
+                    const insertedContent = step.slice.content.map(c => c.text).join("")
+
+                    newDoc = Automerge.change(doc, doc => {
+                        if (doc.content.insertAt) {
+                            doc.content.insertAt(
+                                contentPosFromProsemirrorPos(step.from),
+                                insertedContent
+                            )
+                        }
+                    })
+                } else { // handle deletion
+                    newDoc = Automerge.change(doc, doc => {
+                        if (doc.content.deleteAt) {
+                            doc.content.deleteAt(
+                                contentPosFromProsemirrorPos(step.from),
+                                step.to - step.from
+                            )
+                        }
+                    })
+                }
+                break
             }
 
-            const insertedContent = step.slice.content.map(c => c.text).join("")
+            case 'addMark': {
+                newDoc = Automerge.change(doc, doc => {
+                    doc.formatOps.push({
+                        type: "addMark",
+                        markType: step.mark.type,
+                        start: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.from)),
+                        end: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.to))
+                    })
+                })
 
-            newDoc = Automerge.change(doc, doc => {
-                if (doc.content.insertAt) {
-                    doc.content.insertAt(step.from - 1, insertedContent)
-                }
-            })
-        }
+                break
+            }
 
-        // handle deletion
-        if (step.stepType === "replace" && !step.slice) {
-            newDoc = Automerge.change(doc, doc => {
-                if (doc.content.deleteAt) {
-                    doc.content.deleteAt(step.from - 1, step.to - step.from)
-                }
-            })
+            case 'removeMark': {
+                newDoc = Automerge.change(doc, doc => {
+                    doc.formatOps.push({
+                        type: "removeMark",
+                        markType: step.mark.type,
+                        start: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.from)),
+                        end: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.to))
+                    })
+                })
+
+                break
+            }
         }
     })
 
@@ -129,8 +200,8 @@ if (editorNode) {
     // and a default selection at the start of the document.
     let state = EditorState.create({
         schema,
-        plugins: [keymap(baseKeymap)],
-        doc: prosemirrorDocFromAutomergeDoc(doc)
+        plugins: [keymap(richTextKeymap)],
+        doc: simpleProsemirrorDocFromAutomergeDoc(doc)
     })
 
     // Create a view for the state and generate transactions when the user types.
@@ -143,7 +214,6 @@ if (editorNode) {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            console.log("")
             console.log("dispatch", Math.random().toPrecision(3), txn)
             let state = view.state
 
@@ -151,10 +221,16 @@ if (editorNode) {
             const newDoc = applyTransaction(doc, txn)
             doc = newDoc // store updated Automerge doc in our global mutable state
 
-            console.log("first span indexes:", doc.formatOps[0].start.index, doc.formatOps[0].end.index)
+            console.log("Table of spans on the doc:")
+            console.table(doc.formatOps.map(op => ({
+                type: op.type,
+                start: op.start.index,
+                end: op.end.index,
+                markType: op.markType
+            })))
 
             // Derive a new PM doc from the new Automerge doc
-            const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
+            const newProsemirrorDoc = simpleProsemirrorDocFromAutomergeDoc(doc)
 
             // Apply a transaction that swaps out the new doc in the editor state
             state = state.apply(

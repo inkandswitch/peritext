@@ -7,3 +7,18 @@ declare global {
         view: EditorView
     }
 }
+
+/**
+ * Add cursor types to automerge.
+ */
+declare module "automerge" {
+    interface Text {
+        getCursorAt(index: number): Cursor
+    }
+
+    class Cursor {
+        index: number
+        constructor(object: Text, index: number)
+        constructor(object: string, index: number, elemId: string)
+    }
+}

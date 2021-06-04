@@ -58,7 +58,11 @@ const markSpec = {
             return ["strong"] as const
         }
     },
-    em: {},
+    em: {
+        toDOM (mark: Mark) {
+            return ["em"] as const
+        }
+    },
 } as const
 
 export type MarkType = keyof typeof markSpec

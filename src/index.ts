@@ -48,16 +48,6 @@ let doc = Automerge.from<RichTextDoc>({
     formatOps: []
 })
 
-// Start off the doc with a single formatting span from characters 2 - 5.
-doc = Automerge.change(doc, d => {
-    d.formatOps.push({
-        type: "addMark",
-        start: d.content.getCursorAt(2),
-        end: d.content.getCursorAt(5),
-        markType: "strong"
-    })
-})
-
 /**
  * Converts a position in the Prosemirror doc to an offset in the Automerge content string.
  * For now we only have a single node so this is relatively trivial.
@@ -90,22 +80,32 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const sortedFormatOps = sortBy(doc.formatOps, (op: FormatOp) => op.start.index)
 
     let current = 0
-    const nodes: Node[] = []
+    let nodes: Node[] = []
 
     for (const formatOp of sortedFormatOps) {
-        const nodeBeforeSpan = schema.text(textContent.slice(current, (formatOp.start.index - current)))
+        // temporary error conditions to clarify bounds of current prototype
+        if(formatOp.type !== "addMark") {
+            throw new Error("The only currently supported formatOp is addMark")
+        }
+
+        if(current > formatOp.start.index) {
+            throw new Error("We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)")
+        }
+
+        const nodeBeforeSpan = schema.text(textContent.slice(current, formatOp.start.index))
         const nodeInsideSpan =
             schema.text(
-                textContent.slice(formatOp.start.index, (formatOp.end.index - formatOp.start.index)),
-                [schema.mark("strong")]
+                textContent.slice(formatOp.start.index, formatOp.end.index),
+                [schema.mark(formatOp.markType)]
             )
         current = formatOp.end.index
 
-        nodes.concat([nodeBeforeSpan, nodeInsideSpan])
+        nodes = nodes.concat([nodeBeforeSpan, nodeInsideSpan])
     }
 
+    console.log(current, textContent.length)
     if(current < textContent.length) {
-        nodes.push(schema.text(textContent.slice(current, (textContent.length - current))))
+        nodes.push(schema.text(textContent.slice(current, -1)))
     }
 
     return schema.node("doc", undefined, [
@@ -201,7 +201,7 @@ if (editorNode) {
     let state = EditorState.create({
         schema,
         plugins: [keymap(richTextKeymap)],
-        doc: simpleProsemirrorDocFromAutomergeDoc(doc)
+        doc: prosemirrorDocFromAutomergeDoc(doc)
     })
 
     // Create a view for the state and generate transactions when the user types.
@@ -230,7 +230,7 @@ if (editorNode) {
             })))
 
             // Derive a new PM doc from the new Automerge doc
-            const newProsemirrorDoc = simpleProsemirrorDocFromAutomergeDoc(doc)
+            const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
 
             // Apply a transaction that swaps out the new doc in the editor state
             state = state.apply(

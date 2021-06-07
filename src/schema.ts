@@ -54,14 +54,14 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
 
 const markSpec = {
     strong: {
-        toDOM (mark: Mark) {
+        toDOM(mark: Mark) {
             return ["strong"] as const
-        }
+        },
     },
     em: {
-        toDOM (mark: Mark) {
+        toDOM(mark: Mark) {
             return ["em"] as const
-        }
+        },
     },
 } as const
 

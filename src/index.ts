@@ -1,15 +1,11 @@
 import Automerge from "automerge"
-import {
-    EditorState,
-    Transaction,
-    TextSelection,
-} from "prosemirror-state"
+import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Mark, Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
-import sortBy from 'lodash/sortBy'
+import sortBy from "lodash/sortBy"
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -17,23 +13,23 @@ const schema = new Schema(schemaSpec)
 const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
-    "Mod-i": toggleMark(schema.marks.em)
+    "Mod-i": toggleMark(schema.marks.em),
 }
 
 type MarkType = "strong" | "em"
 
 type AddMarkOp = {
-    type: "addMark",
-    markType: MarkType,
-    start: Automerge.Cursor,
-    end: Automerge.Cursor,
+    type: "addMark"
+    markType: MarkType
+    start: Automerge.Cursor
+    end: Automerge.Cursor
 }
 
 type RemoveMarkOp = {
-    type: "removeMark",
-    markType: MarkType,
-    start: Automerge.Cursor,
-    end: Automerge.Cursor,
+    type: "removeMark"
+    markType: MarkType
+    start: Automerge.Cursor
+    end: Automerge.Cursor
 }
 
 type FormatOp = AddMarkOp | RemoveMarkOp // more coming soon...
@@ -45,7 +41,7 @@ type RichTextDoc = {
 
 let doc = Automerge.from<RichTextDoc>({
     content: new Automerge.Text("Welcome to the Peritext editor!"),
-    formatOps: []
+    formatOps: [],
 })
 
 /**
@@ -77,40 +73,46 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
     // for now, we assume spans don't overlap.
     // in the future we will need to flatten to meet this assumption.
-    const sortedFormatOps = sortBy(doc.formatOps, (op: FormatOp) => op.start.index)
+    const sortedFormatOps = sortBy(
+        doc.formatOps,
+        (op: FormatOp) => op.start.index
+    )
 
     let current = 0
     let nodes: Node[] = []
 
     for (const formatOp of sortedFormatOps) {
         // temporary error conditions to clarify bounds of current prototype
-        if(formatOp.type !== "addMark") {
+        if (formatOp.type !== "addMark") {
             console.error("The only currently supported formatOp is addMark")
             continue
         }
 
-        if(current > formatOp.start.index) {
-            console.error("We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)")
+        if (current > formatOp.start.index) {
+            console.error(
+                "We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)"
+            )
             continue
         }
 
-        const nodeBeforeSpan = schema.text(textContent.slice(current, formatOp.start.index))
-        const nodeInsideSpan =
-            schema.text(
-                textContent.slice(formatOp.start.index, formatOp.end.index),
-                [schema.mark(formatOp.markType)]
-            )
+        const nodeBeforeSpan = schema.text(
+            textContent.slice(current, formatOp.start.index)
+        )
+        const nodeInsideSpan = schema.text(
+            textContent.slice(formatOp.start.index, formatOp.end.index),
+            [schema.mark(formatOp.markType)]
+        )
         current = formatOp.end.index
 
         nodes = nodes.concat([nodeBeforeSpan, nodeInsideSpan])
     }
 
     console.log(current, textContent.length)
-    if(current < textContent.length) {
+    if (current < textContent.length) {
         nodes.push(schema.text(textContent.slice(current, -1)))
     }
 
-    const result =  schema.node("doc", undefined, [
+    const result = schema.node("doc", undefined, [
         schema.node("paragraph", undefined, nodes),
     ])
 
@@ -122,10 +124,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 // Given an Automerge Doc and a Prosemirror Transaction, return an updated Automerge Doc
 // Note: need to derive a PM doc from the new Automerge doc later!
 // TODO: why don't we need to update the selection when we do insertions?
-function applyTransaction(
-    doc: RichTextDoc,
-    txn: Transaction,
-): RichTextDoc {
+function applyTransaction(doc: RichTextDoc, txn: Transaction): RichTextDoc {
     let newDoc = doc
 
     txn.steps.forEach(_step => {
@@ -133,9 +132,10 @@ function applyTransaction(
 
         console.log("step", step)
 
-        switch(step.stepType) {
-            case 'replace': {
-                if(step.slice) { // handle insertion
+        switch (step.stepType) {
+            case "replace": {
+                if (step.slice) {
+                    // handle insertion
                     if (step.from !== step.to) {
                         newDoc = Automerge.change(doc, doc => {
                             if (doc.content.deleteAt) {
@@ -147,7 +147,9 @@ function applyTransaction(
                         })
                     }
 
-                    const insertedContent = step.slice.content.map(c => c.text).join("")
+                    const insertedContent = step.slice.content
+                        .map(c => c.text)
+                        .join("")
 
                     newDoc = Automerge.change(doc, doc => {
                         if (doc.content.insertAt) {
@@ -157,7 +159,8 @@ function applyTransaction(
                             )
                         }
                     })
-                } else { // handle deletion
+                } else {
+                    // handle deletion
                     newDoc = Automerge.change(doc, doc => {
                         if (doc.content.deleteAt) {
                             doc.content.deleteAt(
@@ -170,26 +173,34 @@ function applyTransaction(
                 break
             }
 
-            case 'addMark': {
+            case "addMark": {
                 newDoc = Automerge.change(doc, doc => {
                     doc.formatOps.push({
                         type: "addMark",
                         markType: step.mark.type,
-                        start: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.from)),
-                        end: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.to))
+                        start: doc.content.getCursorAt(
+                            contentPosFromProsemirrorPos(step.from)
+                        ),
+                        end: doc.content.getCursorAt(
+                            contentPosFromProsemirrorPos(step.to)
+                        ),
                     })
                 })
 
                 break
             }
 
-            case 'removeMark': {
+            case "removeMark": {
                 newDoc = Automerge.change(doc, doc => {
                     doc.formatOps.push({
                         type: "removeMark",
                         markType: step.mark.type,
-                        start: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.from)),
-                        end: doc.content.getCursorAt(contentPosFromProsemirrorPos(step.to))
+                        start: doc.content.getCursorAt(
+                            contentPosFromProsemirrorPos(step.from)
+                        ),
+                        end: doc.content.getCursorAt(
+                            contentPosFromProsemirrorPos(step.to)
+                        ),
                     })
                 })
 
@@ -207,7 +218,7 @@ if (editorNode) {
     let state = EditorState.create({
         schema,
         plugins: [keymap(richTextKeymap)],
-        doc: prosemirrorDocFromAutomergeDoc(doc)
+        doc: prosemirrorDocFromAutomergeDoc(doc),
     })
 
     // Create a view for the state and generate transactions when the user types.
@@ -228,12 +239,14 @@ if (editorNode) {
             doc = newDoc // store updated Automerge doc in our global mutable state
 
             console.log("Table of spans on the doc:")
-            console.table(doc.formatOps.map(op => ({
-                type: op.type,
-                start: op.start.index,
-                end: op.end.index,
-                markType: op.markType
-            })))
+            console.table(
+                doc.formatOps.map(op => ({
+                    type: op.type,
+                    start: op.start.index,
+                    end: op.end.index,
+                    markType: op.markType,
+                }))
+            )
 
             // Derive a new PM doc from the new Automerge doc
             const newProsemirrorDoc = prosemirrorDocFromAutomergeDoc(doc)
@@ -258,9 +271,7 @@ if (editorNode) {
             )
 
             // Apply a transaction that sets the new selection
-            state = state.apply(
-                state.tr.setSelection(newSelection)
-            )
+            state = state.apply(state.tr.setSelection(newSelection))
 
             // Great, now we have our final state! We finish by updating the view.
             view.updateState(state)

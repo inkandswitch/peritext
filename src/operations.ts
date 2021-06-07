@@ -16,3 +16,18 @@ export type RemoveMarkOp = {
 }
 
 export type FormatOp = AddMarkOp | RemoveMarkOp // more coming soon...
+
+type ResolveCursor<T extends FormatOp> = {
+  [K in keyof T]: T[K] extends Automerge.Cursor ? number : T[K]
+}
+
+type OpMap = {
+  addMark: AddMarkOp
+  removeMark: RemoveMarkOp
+}
+
+type ResolvedOpMap = {
+  [K in keyof OpMap]: ResolveCursor<OpMap[K]>
+}
+
+export type ResolvedOp = Values<ResolvedOpMap>

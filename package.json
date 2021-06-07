@@ -8,7 +8,7 @@
         "build": "parcel build index.html --public-url='./' --out-dir='docs'",
         "typecheck": "tsc --noEmit --watch",
         "prettier": "prettier -w src/**/* index.html test/**/*",
-        "test": "ts-mocha test/*.ts"
+        "test": "ts-mocha test/*.ts -p test/tsconfig.json"
     },
     "author": "",
     "license": "MIT",

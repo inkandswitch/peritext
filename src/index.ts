@@ -1,10 +1,11 @@
 import Automerge from "automerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Mark, Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
+import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
+import type { FormatOp } from "./operations"
 import sortBy from "lodash/sortBy"
 
 const editorNode = document.querySelector("#editor")
@@ -15,24 +16,6 @@ const richTextKeymap = {
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
 }
-
-type MarkType = "strong" | "em"
-
-type AddMarkOp = {
-    type: "addMark"
-    markType: MarkType
-    start: Automerge.Cursor
-    end: Automerge.Cursor
-}
-
-type RemoveMarkOp = {
-    type: "removeMark"
-    markType: MarkType
-    start: Automerge.Cursor
-    end: Automerge.Cursor
-}
-
-type FormatOp = AddMarkOp | RemoveMarkOp // more coming soon...
 
 type RichTextDoc = {
     content: Automerge.Text

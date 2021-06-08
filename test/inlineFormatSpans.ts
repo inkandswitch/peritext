@@ -1,5 +1,10 @@
 import assert from "assert"
-import { FormatSpan, replayOps, getSpanAtPosition } from "../src/format"
+import {
+    FormatSpan,
+    replayOps,
+    getSpanAtPosition,
+    compact,
+} from "../src/format"
 import { ResolvedOp } from "../src/operations"
 
 describe("applying format spans", function () {
@@ -182,5 +187,39 @@ describe("getSpanAtPosition", () => {
             span: { marks: new Set([]), start: 9 },
             index: 4,
         })
+    })
+})
+
+describe("compact", () => {
+    it("compacts a few unstyled spans into one", () => {
+        const spans = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set([]), start: 4 },
+        ]
+
+        assert.deepStrictEqual(compact(spans), [
+            { marks: new Set([]), start: 0 },
+        ])
+    })
+
+    it("handles a more complex case", () => {
+        const spans: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set(["strong"]), start: 7 },
+            { marks: new Set(["strong"]), start: 12 },
+            { marks: new Set(["strong", "em"]), start: 14 },
+            { marks: new Set(["em"]), start: 16 },
+            { marks: new Set(["em"]), start: 18 },
+        ]
+
+        assert.deepStrictEqual(compact(spans), [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set(["strong", "em"]), start: 14 },
+            { marks: new Set(["em"]), start: 16 },
+        ])
     })
 })

@@ -6,7 +6,7 @@ export type FormatSpan = { marks: Set<MarkType>; start: number }
 /** Given a log of operations, produce the final flat list of format spans */
 export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
-    return ops.reduce(applyOp, initialSpans)
+    return compact(ops.reduce(applyOp, initialSpans))
 }
 
 /**
@@ -46,8 +46,6 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         //
         //    ...|b--|bu|...|u|---|...
         //       s   i      t j
-        const coveringStart = start.span
-        const coveringEnd = end.span
 
         // Create span at i with marks from original start span, plus the new
         // mark from the current operation.
@@ -143,4 +141,18 @@ function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
     }
 
     return result
+}
+
+export function compact(spans: FormatSpan[]): FormatSpan[] {
+    return spans.filter((span, index) => {
+        if (index === 0) {
+            return true
+        }
+
+        return !setEqual(spans[index - 1].marks, span.marks)
+    })
+}
+
+function setEqual<T>(s1: Set<T>, s2: Set<T>): boolean {
+    return s1.size === s2.size && [...s1].every(value => s2.has(value))
 }

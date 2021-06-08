@@ -70,6 +70,10 @@ describe("applying format spans", function () {
     })
 
     describe("with bold, unbold, then italic", function () {
+        // TODO: This test fails because we don't consider doc length;
+        // we need to avoid returning extra spans at the end which go past
+        // the end of the document.
+
         // 01234567890123456789
         //   |------| b
         //     |-------| !b

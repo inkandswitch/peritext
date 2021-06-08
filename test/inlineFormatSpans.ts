@@ -6,7 +6,9 @@ describe("applying format spans", function () {
     describe("with no ops", function () {
         const ops: ResolvedOp[] = []
         it("returns a single span starting at 0", function () {
-            assert.deepStrictEqual(replayOps(ops), [{ marks: [], start: 0 }])
+            assert.deepStrictEqual(replayOps(ops), [
+                { marks: new Set([]), start: 0 },
+            ])
         })
     })
 
@@ -22,9 +24,9 @@ describe("applying format spans", function () {
         ]
 
         const expected: FormatSpan[] = [
-            { marks: [], start: 0 },
-            { marks: ["strong"], start: 2 },
-            { marks: [], start: 10 },
+            { marks: new Set(), start: 0 },
+            { marks: new Set(["strong"]), start: 2 },
+            { marks: new Set([]), start: 10 },
         ]
 
         it("returns the expected result", function () {
@@ -50,11 +52,11 @@ describe("applying format spans", function () {
         ]
 
         const expected: FormatSpan[] = [
-            { marks: [], start: 0 },
-            { marks: ["strong"], start: 2 },
-            { marks: [], start: 5 },
-            { marks: ["strong"], start: 11 },
-            { marks: [], start: 17 },
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 2 },
+            { marks: new Set([]), start: 5 },
+            { marks: new Set(["strong"]), start: 11 },
+            { marks: new Set([]), start: 17 },
         ]
 
         it("returns the expected result", function () {
@@ -81,10 +83,10 @@ describe("applying format spans", function () {
         ]
 
         const expected: FormatSpan[] = [
-            { marks: [], start: 0 },
-            { marks: ["em"], start: 1 },
-            { marks: ["em", "strong"], start: 4 },
-            { marks: ["em"], start: 9 },
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["em"]), start: 1 },
+            { marks: new Set(["em", "strong"]), start: 4 },
+            { marks: new Set(["em"]), start: 9 },
         ]
 
         it("returns the expected result", function () {
@@ -100,84 +102,84 @@ describe("getSpanAtPosition", () => {
 
     it("handles single item lists", () => {
         assert.deepStrictEqual(
-            getSpanAtPosition([{ marks: [], start: 0 }], 5),
+            getSpanAtPosition([{ marks: new Set([]), start: 0 }], 5),
             {
-                span: { marks: [], start: 0 },
+                span: { marks: new Set([]), start: 0 },
                 index: 0,
-            },
+            }
         )
         assert.deepStrictEqual(
-            getSpanAtPosition([{ marks: [], start: 6 }], 1),
-            undefined,
+            getSpanAtPosition([{ marks: new Set([]), start: 6 }], 1),
+            undefined
         )
     })
 
     it("returns undefined when the given position precedes all spans", () => {
         const spans = [
-            { marks: [], start: 3 },
-            { marks: [], start: 4 },
-            { marks: [], start: 7 },
-            { marks: [], start: 9 },
-            { marks: [], start: 11 },
-            { marks: [], start: 15 },
-            { marks: [], start: 16 },
-            { marks: [], start: 21 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set([]), start: 4 },
+            { marks: new Set([]), start: 7 },
+            { marks: new Set([]), start: 9 },
+            { marks: new Set([]), start: 11 },
+            { marks: new Set([]), start: 15 },
+            { marks: new Set([]), start: 16 },
+            { marks: new Set([]), start: 21 },
         ]
         assert.deepStrictEqual(getSpanAtPosition(spans, 2), undefined)
     })
 
     it("returns the rightmost span whose index is < the given position", () => {
         const spans = [
-            { marks: [], start: 0 },
-            { marks: [], start: 3 },
-            { marks: [], start: 4 },
-            { marks: [], start: 7 },
-            { marks: [], start: 9 },
-            { marks: [], start: 11 },
-            { marks: [], start: 15 },
-            { marks: [], start: 16 },
-            { marks: [], start: 21 },
+            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set([]), start: 4 },
+            { marks: new Set([]), start: 7 },
+            { marks: new Set([]), start: 9 },
+            { marks: new Set([]), start: 11 },
+            { marks: new Set([]), start: 15 },
+            { marks: new Set([]), start: 16 },
+            { marks: new Set([]), start: 21 },
         ]
         assert.deepStrictEqual(getSpanAtPosition(spans, 5), {
-            span: { marks: [], start: 4 },
+            span: { marks: new Set([]), start: 4 },
             index: 2,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 20), {
-            span: { marks: [], start: 16 },
+            span: { marks: new Set([]), start: 16 },
             index: 7,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 10), {
-            span: { marks: [], start: 9 },
+            span: { marks: new Set([]), start: 9 },
             index: 4,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 10000), {
-            span: { marks: [], start: 21 },
+            span: { marks: new Set([]), start: 21 },
             index: 8,
         })
     })
 
     it("returns any span === the given position", () => {
         const spans = [
-            { marks: [], start: 0 },
-            { marks: [], start: 3 },
-            { marks: [], start: 4 },
-            { marks: [], start: 7 },
-            { marks: [], start: 9 },
-            { marks: [], start: 11 },
-            { marks: [], start: 15 },
-            { marks: [], start: 16 },
-            { marks: [], start: 21 },
+            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set([]), start: 4 },
+            { marks: new Set([]), start: 7 },
+            { marks: new Set([]), start: 9 },
+            { marks: new Set([]), start: 11 },
+            { marks: new Set([]), start: 15 },
+            { marks: new Set([]), start: 16 },
+            { marks: new Set([]), start: 21 },
         ]
         assert.deepStrictEqual(getSpanAtPosition(spans, 15), {
-            span: { marks: [], start: 15 },
+            span: { marks: new Set([]), start: 15 },
             index: 6,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 4), {
-            span: { marks: [], start: 4 },
+            span: { marks: new Set([]), start: 4 },
             index: 2,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 9), {
-            span: { marks: [], start: 9 },
+            span: { marks: new Set([]), start: 9 },
             index: 4,
         })
     })

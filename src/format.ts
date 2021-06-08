@@ -1,11 +1,11 @@
 import type { ResolvedOp } from "./operations"
 import { MarkType } from "./schema"
 
-export type FormatSpan = { marks: MarkType[]; start: number }
+export type FormatSpan = { marks: Set<MarkType>; start: number }
 
 /** Given a log of operations, produce the final flat list of format spans */
 export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
-    const initialSpans: FormatSpan[] = [{ marks: [], start: 0 }]
+    const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
     return ops.reduce(applyOp, initialSpans)
 }
 
@@ -19,7 +19,7 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     const end = getSpanAtPosition(spans, op.end)
     if (!start || !end) {
         throw new Error(
-            "Invariant violation: there should always be a span covering the given operation boundaries",
+            "Invariant violation: there should always be a span covering the given operation boundaries"
         )
     }
 
@@ -82,7 +82,7 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
  */
 export function getSpanAtPosition(
     spans: FormatSpan[],
-    position: number,
+    position: number
 ): { index: number; span: FormatSpan } | undefined {
     if (spans.length === 0) {
         return
@@ -126,19 +126,21 @@ export function getSpanAtPosition(
 
 /** Return a new list of marks after applying an op;
  *  adding or removing the formatting specified by the op.
- *  (does not mutate the passed-in list of marks)
+ *  (does not mutate the set that was passed in)
  */
-function applyFormatting(marks: MarkType[], op: ResolvedOp): MarkType[] {
+function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
+    const result = new Set(marks)
+
     switch (op.type) {
         case "addMark": {
-            if (!marks.includes(op.markType)) {
-                return [...marks, op.markType]
-            } else {
-                return marks
-            }
+            result.add(op.markType)
+            break
         }
         case "removeMark": {
-            return marks.filter(mark => mark != op.markType)
+            result.delete(op.markType)
+            break
         }
     }
+
+    return result
 }

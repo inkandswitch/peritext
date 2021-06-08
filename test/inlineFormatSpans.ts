@@ -25,7 +25,7 @@ describe("applying format spans", function () {
     const expected: FormatSpan[] = [
       { marks: [], start: 0 },
       { marks: ["strong"], start: 2 },
-      { marks: [], start: 9 },
+      { marks: [], start: 10 },
     ]
 
     it("returns the expected result", function () {
@@ -33,7 +33,7 @@ describe("applying format spans", function () {
     })
   })
 
-  describe.skip("with bold, unbold, then bold, all overlapping", function () {
+  describe("with bold, unbold, then bold, all overlapping", function () {
     // 01234567890123456789
     //   |------| b
     //     |-------| !b
@@ -63,7 +63,7 @@ describe("applying format spans", function () {
     })
   })
 
-  describe.skip("with bold, unbold, then italic", function () {
+  describe("with bold, unbold, then italic", function () {
     // 01234567890123456789
     //   |------| b
     //     |-------| !b

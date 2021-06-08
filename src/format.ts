@@ -25,13 +25,15 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
   if (coveringStartIndex === coveringEndIndex) {
     const coveringSpan = spans[coveringStartIndex]
     const newSpans: FormatSpan[] = [
-      { start: coveringSpan.start, marks: coveringSpan.marks },
       { start: op.start, marks: applyFormatting(coveringSpan.marks, op) },
       { start: op.end + 1, marks: coveringSpan.marks }
     ]
 
-    // Replace the original covering span with the three new spans
-    spans.splice(coveringStartIndex, 1, ...newSpans)
+    return [
+      ...spans.slice(0, coveringStartIndex + 1),
+      ...newSpans,
+      ...spans.slice(coveringStartIndex + 1)
+    ]
   } else {
     throw new Error('unimplemented')
   }

@@ -18,21 +18,26 @@ export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
  *    which can be translated into PM transactions?
  */
 function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
-    const coveringStartIndex = spanCovering(spans, op.start)
-    const coveringEndIndex = spanCovering(spans, op.end)
+    const start = getSpanAtPosition(spans, op.start)
+    const end = getSpanAtPosition(spans, op.end)
+    if (!start || !end) {
+        throw new Error(
+            "Invariant violation: there should always be a span covering the given operation boundaries",
+        )
+    }
 
     // In this case, a single existing span covered the whole range of our op
-    if (coveringStartIndex === coveringEndIndex) {
-        const coveringSpan = spans[coveringStartIndex]
+    if (start.index === end.index) {
+        const coveringSpan = start.span
         const newSpans: FormatSpan[] = [
             { start: op.start, marks: applyFormatting(coveringSpan.marks, op) },
             { start: op.end + 1, marks: coveringSpan.marks },
         ]
 
         return [
-            ...spans.slice(0, coveringStartIndex + 1),
+            ...spans.slice(0, start.index + 1),
             ...newSpans,
-            ...spans.slice(coveringStartIndex + 1),
+            ...spans.slice(start.index + 1),
         ]
     } else {
         throw new Error("unimplemented")
@@ -41,16 +46,52 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     return spans
 }
 
-/** Given a list of spans and a position in the document,
- *  return the index of the span that covers the given position.
+/** Given a list of spans sorted increasing by index,
+ *  and a position in the document, return the span covering
+    the given position.
  *  Currently a naive linear scan; could be made faster.
  */
-function spanCovering(spans: FormatSpan[], position: number): number {
-    const indexAfter = spans.findIndex(span => span.start > position)
-    if (indexAfter === -1) {
-        return spans.length - 1
+export function getSpanAtPosition(
+    spans: FormatSpan[],
+    position: number,
+): { index: number; span: FormatSpan } | undefined {
+    if (spans.length === 0) {
+        return
+    }
+
+    // Iterate from the end (largest index -> smallest).
+    // Return the first span starting before or at the given position.
+    let start = 0
+    let end = spans.length
+
+    while (end - start > 1) {
+        const pivot = Math.floor((start + end) / 2)
+        const span = spans[pivot]
+        if (!span) {
+            throw new Error(`Invalid pivot index: ${pivot}`)
+        }
+        if (span.start === position) {
+            return { index: pivot, span }
+        } else if (span.start < position) {
+            // Span starts before the given position, but may not be optimal.
+            // Go right to search for better options.
+            start = pivot
+        } else {
+            // Span is strictly after the given position, go left.
+            end = pivot
+        }
+    }
+
+    // If we reached this point, start + 1 === end.
+    // Check the span at the start index.
+    const span = spans[start]
+    if (!span) {
+        throw new Error(`Invalid span index: ${start}`)
+    }
+    if (span.start <= position) {
+        return { index: start, span }
     } else {
-        return indexAfter - 1
+        return
     }
 }
 

@@ -11,7 +11,29 @@ describe("applying format spans", function () {
     })
   })
 
-  describe("with bold, unbold, then bold, all overlapping", function () {
+  describe("with adding one bold span", function () {
+    // 01234567890123456789
+    //   |------| b
+    // _______________________
+    // |-|
+    //   |------| b
+    //          |----------|
+    const ops: ResolvedOp[] = [
+      { type: "addMark", markType: "strong", start: 2, end: 9 },
+    ]
+
+    const expected: FormatSpan[] = [
+      { marks: [], start: 0 },
+      { marks: ["strong"], start: 2 },
+      { marks: [], start: 9 },
+    ]
+
+    it("returns the expected result", function () {
+      assert.deepStrictEqual(replayOps(ops), expected)
+    })
+  })
+
+  describe.skip("with bold, unbold, then bold, all overlapping", function () {
     // 01234567890123456789
     //   |------| b
     //     |-------| !b
@@ -29,7 +51,7 @@ describe("applying format spans", function () {
     ]
 
     const expected: FormatSpan[] = [
-      { marks: [], start: 2 },
+      { marks: [], start: 0 },
       { marks: ["strong"], start: 2 },
       { marks: [], start: 5 },
       { marks: ["strong"], start: 11 },
@@ -41,7 +63,7 @@ describe("applying format spans", function () {
     })
   })
 
-  describe("with bold, unbold, then italic", function () {
+  describe.skip("with bold, unbold, then italic", function () {
     // 01234567890123456789
     //   |------| b
     //     |-------| !b

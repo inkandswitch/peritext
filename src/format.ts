@@ -143,6 +143,10 @@ function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
     return result
 }
 
+/** Return an updated list of format spans where adjacent spans
+ *  with the same marks have been combined into a single span
+ *  (preferring the leftmost one)
+ */
 export function compact(spans: FormatSpan[]): FormatSpan[] {
     return spans.filter((span, index) => {
         if (index === 0) {

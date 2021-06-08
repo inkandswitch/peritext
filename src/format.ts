@@ -9,13 +9,10 @@ export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
     return ops.reduce(applyOp, initialSpans)
 }
 
-/** Given a list of spans and a formatting op,
- *  mutates the list of spans to reflect the effects of the op.
- *
- *  NOTE: rather than mutating here, we could do either:
- *  - return a copy and don't mutate
- *  - return a list of operations to perform on the spans,
- *    which can be translated into PM transactions?
+/**
+ * Given a list of format spans covering the whole document, and a
+ * CRDT formatting operation, return an updated list of format spans
+ * accounting for the formatting operation.
  */
 function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
@@ -40,10 +37,42 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
             ...spans.slice(start.index + 1),
         ]
     } else {
-        throw new Error("unimplemented")
-    }
+        //          s         t
+        //    ...|b-----|...|------|...
+        //           |u-------|
+        //           i        j
+        //
+        //       Goal: subdivide into spans
+        //
+        //    ...|b--|bu|...|u|---|...
+        //       s   i      t j
+        const coveringStart = start.span
+        const coveringEnd = end.span
 
-    return spans
+        // Create span at i with marks from original start span, plus the new
+        // mark from the current operation.
+        // TODO: Write a function to insert one or more spans in the correct
+        // position.
+        return [
+            // ...|b--
+            //    s
+            ...spans.slice(0, start.index + 1),
+            //        |bu
+            //        i
+            { start: op.start, marks: applyFormatting(start.span.marks, op) },
+            //           |...|u----|...
+            //               t
+            ...spans.slice(start.index + 1, end.index + 1).map(span => ({
+                ...span,
+                marks: applyFormatting(span.marks, op),
+            })),
+            //                 |---
+            //                 j+1
+            { start: op.end + 1, marks: end.span.marks },
+            //                     |...
+            ...spans.slice(end.index + 1),
+        ]
+    }
 }
 
 /** Given a list of spans sorted increasing by index,

@@ -54,7 +54,7 @@ describe("applying format spans", function () {
             { marks: ["strong"], start: 2 },
             { marks: [], start: 5 },
             { marks: ["strong"], start: 11 },
-            { marks: [], start: 16 },
+            { marks: [], start: 17 },
         ]
 
         it("returns the expected result", function () {

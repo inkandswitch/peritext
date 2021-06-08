@@ -40,7 +40,8 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
 }
 
 /** Given a list of spans and a position in the document,
- *  return the index of the span that covers the given position
+ *  return the index of the span that covers the given position.
+ *  Currently a naive linear scan; could be made faster.
  */
 function spanCovering(spans: FormatSpan[], position: number): number {
   const indexAfter = spans.findIndex(span => span.start > position)

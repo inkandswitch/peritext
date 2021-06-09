@@ -167,6 +167,54 @@ describe("applying format spans", function () {
 
         assert.deepStrictEqual(replayOps(ops, 20), expected)
     })
+
+    it("correctly handles bold and unbold which share an end point", function () {
+        // 01234567890123456789
+        //     |---------| b
+        //          |----| !b
+        // _______________________
+        // |---|
+        //      |--| b
+        //          |---------|
+
+        const ops: ResolvedOp[] = [
+            { type: "addMark", markType: "strong", start: 4, end: 14 },
+            { type: "removeMark", markType: "strong", start: 9, end: 14 },
+        ]
+
+        const expected: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set([]), start: 9 },
+        ]
+
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
+    })
+
+    it("correctly handles unbolding after an unbold", function () {
+        // 01234567890123456789
+        //     |---------| b
+        //          |----| !b
+        //          |--| !b
+        // _______________________
+        // |---|
+        //      |--| b
+        //          |---------|
+
+        const ops: ResolvedOp[] = [
+            { type: "addMark", markType: "strong", start: 4, end: 14 },
+            { type: "removeMark", markType: "strong", start: 9, end: 14 },
+            { type: "removeMark", markType: "strong", start: 9, end: 12 },
+        ]
+
+        const expected: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set([]), start: 9 },
+        ]
+
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
+    })
 })
 
 describe("getSpanAtPosition", () => {

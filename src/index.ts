@@ -40,17 +40,6 @@ function contentPosFromProsemirrorPos(position: number) {
     return position - 1
 }
 
-// A simple stub for producing a PM doc from an Automerge doc.
-// Just temporary while the actual version is work-in-progress.
-function simpleProsemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
-    return schema.node("doc", undefined, [
-        schema.node("paragraph", undefined, [
-            // schema.text(doc.content.toString(), [schema.mark("strong")]),
-            schema.text(doc.content.toString()),
-        ]),
-    ])
-}
-
 function resolveOp(op: FormatOp): ResolvedOp {
     return { ...op, start: op.start.index, end: op.end.index }
 }
@@ -92,19 +81,9 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
         )
     })
 
-    // console.log("flattened text nodes:")
-    // console.table(
-    //     textNodes.map(node => ({
-    //         text: node.text,
-    //         marks: node.marks.map(mark => mark.toJSON().type).join(", "),
-    //     }))
-    // )
-
     const result = schema.node("doc", undefined, [
         schema.node("paragraph", undefined, textNodes),
     ])
-
-    // console.log("prosemirror doc", result)
 
     return result
 }

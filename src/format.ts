@@ -6,7 +6,7 @@ export type FormatSpan = { marks: Set<MarkType>; start: number }
 /** Given a log of operations, produce the final flat list of format spans */
 export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
-    return compact(ops.reduce(applyOp, initialSpans))
+    return ops.reduce(applyOp, initialSpans)
 }
 
 /**
@@ -37,7 +37,7 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     // mark from the current operation.
     // TODO: Write a function to insert one or more spans in the correct
     // position.
-    return [
+    const newSpans = [
         // ...|b--
         //    s
         ...spans.slice(0, start.index + 1),
@@ -56,6 +56,8 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         //                     |...
         ...spans.slice(end.index + 1),
     ]
+
+    return compact(newSpans)
 }
 
 /** Given a list of spans sorted increasing by index,

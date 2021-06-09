@@ -148,8 +148,10 @@ function applyTransaction(doc: RichTextDoc, txn: Transaction): RichTextDoc {
                         start: doc.content.getCursorAt(
                             contentPosFromProsemirrorPos(step.from)
                         ),
+
+                        // Prosemirror's "to" is exclusive; ours is inclusive, hence -1
                         end: doc.content.getCursorAt(
-                            contentPosFromProsemirrorPos(step.to)
+                            contentPosFromProsemirrorPos(step.to) - 1
                         ),
                     })
                 })

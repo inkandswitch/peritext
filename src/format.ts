@@ -3,10 +3,15 @@ import { MarkType } from "./schema"
 
 export type FormatSpan = { marks: Set<MarkType>; start: number }
 
-/** Given a log of operations, produce the final flat list of format spans */
-export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
+/** Given a log of operations, produce the final flat list of format spans.
+ *  Because
+ */
+export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
-    return ops.reduce(applyOp, initialSpans)
+    return ops.reduce(
+        (spans, op) => applyOp(spans, op, docLength),
+        initialSpans
+    )
 }
 
 /**
@@ -14,7 +19,11 @@ export function replayOps(ops: ResolvedOp[]): FormatSpan[] {
  * CRDT formatting operation, return an updated list of format spans
  * accounting for the formatting operation.
  */
-function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
+function applyOp(
+    spans: FormatSpan[],
+    op: ResolvedOp,
+    docLength: number
+): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
     if (!start || !end) {
@@ -22,21 +31,23 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
             "Invariant violation: there should always be a span covering the given operation boundaries"
         )
     }
-
+    // The general intuition here is to apply the effects of this operation
+    // to any overlapping spans in the existing list, which includes:
+    // 1) Splitting up the spans that overlap with the start/end of this operation
+    // 2) Applying the effects of the operation to any spans in between those two.
+    //
+    // Visually, if i = op.start, j = op.end, and s and t are the spans overlapping
+    // i and j respectively, then we have this diagram (b and u are "add mark" formats):
+    //
     //          s         t
     //    ...|b-----|...|------|...
     //           |u-------|
     //           i        j
     //
-    //       Goal: subdivide into spans
+    // Our goal is to split s at position i, and t at position j:
     //
     //    ...|b--|bu|...|u|---|...
     //       s   i      t j
-
-    // Create span at i with marks from original start span, plus the new
-    // mark from the current operation.
-    // TODO: Write a function to insert one or more spans in the correct
-    // position.
     const newSpans = [
         // ...|b--
         //    s
@@ -57,7 +68,8 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         ...spans.slice(end.index + 1),
     ]
 
-    return compact(newSpans)
+    // Normalize output before returning to keep span list short as we apply each op
+    return normalize(newSpans, docLength)
 }
 
 /** Given a list of spans sorted increasing by index,
@@ -130,14 +142,23 @@ function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
     return result
 }
 
-/** Return an updated list of format spans where adjacent spans
- *  with the same marks have been combined into a single span
+/** Return an updated list of format spans where:
+ *
+ *  - adjacent spans with the same marks have been combined into a single span
  *  (preferring the leftmost one)
+ *  - any spans that are past the end of the document have been removed
  */
-export function compact(spans: FormatSpan[]): FormatSpan[] {
+export function normalize(
+    spans: FormatSpan[],
+    docLength: number
+): FormatSpan[] {
     return spans.filter((span, index) => {
         if (index === 0) {
             return true
+        }
+
+        if (span.start > docLength - 1) {
+            return false
         }
 
         return !setEqual(spans[index - 1].marks, span.marks)

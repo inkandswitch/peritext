@@ -3,7 +3,7 @@ import {
     FormatSpan,
     replayOps,
     getSpanAtPosition,
-    compact,
+    normalize,
 } from "../src/format"
 import { ResolvedOp } from "../src/operations"
 
@@ -11,7 +11,7 @@ describe("applying format spans", function () {
     describe("with no ops", function () {
         const ops: ResolvedOp[] = []
         it("returns a single span starting at 0", function () {
-            assert.deepStrictEqual(replayOps(ops), [
+            assert.deepStrictEqual(replayOps(ops, 20), [
                 { marks: new Set([]), start: 0 },
             ])
         })
@@ -35,7 +35,7 @@ describe("applying format spans", function () {
         ]
 
         it("returns the expected result", function () {
-            assert.deepStrictEqual(replayOps(ops), expected)
+            assert.deepStrictEqual(replayOps(ops, 20), expected)
         })
     })
 
@@ -65,7 +65,7 @@ describe("applying format spans", function () {
         ]
 
         it("returns the expected result", function () {
-            assert.deepStrictEqual(replayOps(ops), expected)
+            assert.deepStrictEqual(replayOps(ops, 20), expected)
         })
     })
 
@@ -99,7 +99,7 @@ describe("applying format spans", function () {
         ]
 
         it("returns the expected result", function () {
-            assert.deepStrictEqual(replayOps(ops), expected)
+            assert.deepStrictEqual(replayOps(ops, 20), expected)
         })
     })
 })
@@ -194,7 +194,7 @@ describe("getSpanAtPosition", () => {
     })
 })
 
-describe("compact", () => {
+describe("normalize", () => {
     it("compacts a few unstyled spans into one", () => {
         const spans = [
             { marks: new Set([]), start: 0 },
@@ -202,12 +202,12 @@ describe("compact", () => {
             { marks: new Set([]), start: 4 },
         ]
 
-        assert.deepStrictEqual(compact(spans), [
+        assert.deepStrictEqual(normalize(spans, 1000), [
             { marks: new Set([]), start: 0 },
         ])
     })
 
-    it("handles a more complex case", () => {
+    it("handles a more complex compaction case", () => {
         const spans: FormatSpan[] = [
             { marks: new Set([]), start: 0 },
             { marks: new Set([]), start: 3 },
@@ -219,11 +219,26 @@ describe("compact", () => {
             { marks: new Set(["em"]), start: 18 },
         ]
 
-        assert.deepStrictEqual(compact(spans), [
+        assert.deepStrictEqual(normalize(spans, 1000), [
             { marks: new Set([]), start: 0 },
             { marks: new Set(["strong"]), start: 4 },
             { marks: new Set(["strong", "em"]), start: 14 },
             { marks: new Set(["em"]), start: 16 },
+        ])
+    })
+
+    it("removes spans past the end of the document", () => {
+        const spans: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 3 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set(["strong"]), start: 7 },
+            { marks: new Set([]), start: 10 },
+        ]
+
+        assert.deepStrictEqual(normalize(spans, 10), [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 4 },
         ])
     })
 })

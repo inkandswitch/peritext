@@ -23,54 +23,39 @@ function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         )
     }
 
-    // In this case, a single existing span covered the whole range of our op
-    if (start.index === end.index) {
-        const coveringSpan = start.span
-        const newSpans: FormatSpan[] = [
-            { start: op.start, marks: applyFormatting(coveringSpan.marks, op) },
-            { start: op.end + 1, marks: coveringSpan.marks },
-        ]
+    //          s         t
+    //    ...|b-----|...|------|...
+    //           |u-------|
+    //           i        j
+    //
+    //       Goal: subdivide into spans
+    //
+    //    ...|b--|bu|...|u|---|...
+    //       s   i      t j
 
-        return [
-            ...spans.slice(0, start.index + 1),
-            ...newSpans,
-            ...spans.slice(start.index + 1),
-        ]
-    } else {
-        //          s         t
-        //    ...|b-----|...|------|...
-        //           |u-------|
-        //           i        j
-        //
-        //       Goal: subdivide into spans
-        //
-        //    ...|b--|bu|...|u|---|...
-        //       s   i      t j
-
-        // Create span at i with marks from original start span, plus the new
-        // mark from the current operation.
-        // TODO: Write a function to insert one or more spans in the correct
-        // position.
-        return [
-            // ...|b--
-            //    s
-            ...spans.slice(0, start.index + 1),
-            //        |bu
-            //        i
-            { start: op.start, marks: applyFormatting(start.span.marks, op) },
-            //           |...|u----|...
-            //               t
-            ...spans.slice(start.index + 1, end.index + 1).map(span => ({
-                ...span,
-                marks: applyFormatting(span.marks, op),
-            })),
-            //                 |---
-            //                 j+1
-            { start: op.end + 1, marks: end.span.marks },
-            //                     |...
-            ...spans.slice(end.index + 1),
-        ]
-    }
+    // Create span at i with marks from original start span, plus the new
+    // mark from the current operation.
+    // TODO: Write a function to insert one or more spans in the correct
+    // position.
+    return [
+        // ...|b--
+        //    s
+        ...spans.slice(0, start.index + 1),
+        //        |bu
+        //        i
+        { start: op.start, marks: applyFormatting(start.span.marks, op) },
+        //           |...|u----|...
+        //               t
+        ...spans.slice(start.index + 1, end.index + 1).map(span => ({
+            ...span,
+            marks: applyFormatting(span.marks, op),
+        })),
+        //                 |---
+        //                 j+1
+        { start: op.end + 1, marks: end.span.marks },
+        //                     |...
+        ...spans.slice(end.index + 1),
+    ]
 }
 
 /** Given a list of spans sorted increasing by index,

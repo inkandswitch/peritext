@@ -1,11 +1,10 @@
+import { compact } from "lodash"
 import type { ResolvedOp } from "./operations"
 import { MarkType } from "./schema"
 
 export type FormatSpan = { marks: Set<MarkType>; start: number }
 
-/** Given a log of operations, produce the final flat list of format spans.
- *  Because
- */
+/** Given a log of operations, produce the final flat list of format spans. */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
     return ops.reduce(
@@ -26,6 +25,7 @@ function applyOp(
 ): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
+
     if (!start || !end) {
         throw new Error(
             "Invariant violation: there should always be a span covering the given operation boundaries"
@@ -48,10 +48,17 @@ function applyOp(
     //
     //    ...|b--|bu|...|u|---|...
     //       s   i      t j
-    const newSpans = [
+    const newSpans: FormatSpan[] = compact([
         // ...|b--
         //    s
-        ...spans.slice(0, start.index + 1),
+        ...spans.slice(
+            0,
+            // Normally we include the covering start span in the list as-is;
+            // but if the op starts at the same position as the covering start span,
+            // then we exclude the covering start span to avoid two spans starting
+            // in the same position.
+            op.start === start.span.start ? start.index : start.index + 1
+        ),
         //        |bu
         //        i
         { start: op.start, marks: applyFormatting(start.span.marks, op) },
@@ -63,10 +70,19 @@ function applyOp(
         })),
         //                 |---
         //                 j+1
-        { start: op.end + 1, marks: end.span.marks },
+        //
+        // Normally we add a span here from end of op to the end of the end-covering span.
+        // In the special case where the op ends at the same place as the end-covering span,
+        // though, we avoid adding this extra span.
+        op.end + 1 !== spans[end.index + 1]?.start
+            ? {
+                  start: op.end + 1,
+                  marks: end.span.marks,
+              }
+            : null,
         //                     |...
         ...spans.slice(end.index + 1),
-    ]
+    ])
 
     // Normalize output before returning to keep span list short as we apply each op
     return normalize(newSpans, docLength)
@@ -153,8 +169,16 @@ export function normalize(
     docLength: number
 ): FormatSpan[] {
     return spans.filter((span, index) => {
+        // The first span is always ok to include
         if (index === 0) {
             return true
+        }
+
+        if (span.start === spans[index - 1].start) {
+            // If we have two spans starting at the same position,
+            // it's dangerous to pick one of them arbitrarily;
+            // instead, we must avoid such cases upstream.
+            throw new Error("Cannot have two spans starting at same position.")
         }
 
         if (span.start > docLength - 1) {

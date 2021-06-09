@@ -5,8 +5,9 @@ import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
-import type { FormatOp } from "./operations"
+import type { FormatOp, ResolvedOp } from "./operations"
 import sortBy from "lodash/sortBy"
+import { replayOps } from "./format"
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -50,56 +51,60 @@ function simpleProsemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     ])
 }
 
+function resolveOp(op: FormatOp): ResolvedOp {
+    return { ...op, start: op.start.index, end: op.end.index }
+}
+
 // Given an automerge doc representation, produce a prosemirror doc.
 // In the future, will handle fancier stuff like formatting.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
-    // for now, we assume spans don't overlap.
-    // in the future we will need to flatten to meet this assumption.
-    const sortedFormatOps = sortBy(
-        doc.formatOps,
-        (op: FormatOp) => op.start.index
+    const formatSpans = replayOps(
+        doc.formatOps.map(resolveOp),
+        textContent.length
     )
 
-    let current = 0
-    let nodes: Node[] = []
+    console.log("flattened format spans:")
+    console.table(
+        formatSpans.map(span => ({
+            start: span.start,
+            marks: [...span.marks].join(", "),
+        }))
+    )
 
-    for (const formatOp of sortedFormatOps) {
-        // temporary error conditions to clarify bounds of current prototype
-        if (formatOp.type !== "addMark") {
-            console.error("The only currently supported formatOp is addMark")
-            continue
+    const textNodes = formatSpans.map((span, index) => {
+        // We only store start positions on spans;
+        // look to the next span to figure out when this span ends.
+        let spanEnd
+        if (index < formatSpans.length - 1) {
+            spanEnd = formatSpans[index + 1].start
+        } else {
+            spanEnd = textContent.length
         }
 
-        if (current > formatOp.start.index) {
-            console.error(
-                "We currently don't allow overlapping formatting. (Pending: add a flatten step to address this)"
-            )
-            continue
+        if (span.start === spanEnd) {
+            console.error("empty text node!?", span)
         }
 
-        const nodeBeforeSpan = schema.text(
-            textContent.slice(current, formatOp.start.index)
+        return schema.text(
+            textContent.slice(span.start, spanEnd),
+            [...span.marks].map(markType => schema.mark(markType))
         )
-        const nodeInsideSpan = schema.text(
-            textContent.slice(formatOp.start.index, formatOp.end.index),
-            [schema.mark(formatOp.markType)]
-        )
-        current = formatOp.end.index
+    })
 
-        nodes = nodes.concat([nodeBeforeSpan, nodeInsideSpan])
-    }
-
-    console.log(current, textContent.length)
-    if (current < textContent.length) {
-        nodes.push(schema.text(textContent.slice(current, -1)))
-    }
+    // console.log("flattened text nodes:")
+    // console.table(
+    //     textNodes.map(node => ({
+    //         text: node.text,
+    //         marks: node.marks.map(mark => mark.toJSON().type).join(", "),
+    //     }))
+    // )
 
     const result = schema.node("doc", undefined, [
-        schema.node("paragraph", undefined, nodes),
+        schema.node("paragraph", undefined, textNodes),
     ])
 
-    console.log("prosemirror doc", result)
+    // console.log("prosemirror doc", result)
 
     return result
 }
@@ -221,7 +226,7 @@ if (editorNode) {
             const newDoc = applyTransaction(doc, txn)
             doc = newDoc // store updated Automerge doc in our global mutable state
 
-            console.log("Table of spans on the doc:")
+            console.log("Table of format ops:")
             console.table(
                 doc.formatOps.map(op => ({
                     type: op.type,

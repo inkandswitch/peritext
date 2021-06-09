@@ -8,16 +8,14 @@ import {
 import { ResolvedOp } from "../src/operations"
 
 describe("applying format spans", function () {
-    describe("with no ops", function () {
+    it("with no ops, returns a single span", function () {
         const ops: ResolvedOp[] = []
-        it("returns a single span starting at 0", function () {
-            assert.deepStrictEqual(replayOps(ops, 20), [
-                { marks: new Set([]), start: 0 },
-            ])
-        })
+        assert.deepStrictEqual(replayOps(ops, 20), [
+            { marks: new Set([]), start: 0 },
+        ])
     })
 
-    describe("with adding one bold span", function () {
+    it("correctly handles one add bold span", function () {
         // 01234567890123456789
         //   |------| b
         // _______________________
@@ -34,56 +32,80 @@ describe("applying format spans", function () {
             { marks: new Set([]), start: 10 },
         ]
 
-        it("returns the expected result", function () {
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
+    })
+
+    describe("temporal ordering effects", () => {
+        // These two tests show that we respect the order of non-commutative operations.
+        // Bold then unbold is different from unbold then bold.
+
+        it("correctly handles bold, unbold, then bold, all overlapping", function () {
+            // 01234567890123456789
+            //   |------| b
+            //     |-------| !b
+            //           |----| b
+            // _______________________
+            // |-|
+            //   |--| b
+            //     |-----|
+            //           |----| b
+            //                 |--|
+            const ops: ResolvedOp[] = [
+                { type: "addMark", markType: "strong", start: 2, end: 9 },
+                { type: "removeMark", markType: "strong", start: 5, end: 13 },
+                { type: "addMark", markType: "strong", start: 11, end: 16 },
+            ]
+
+            const expected: FormatSpan[] = [
+                { marks: new Set([]), start: 0 },
+                { marks: new Set(["strong"]), start: 2 },
+                { marks: new Set([]), start: 5 },
+                { marks: new Set(["strong"]), start: 11 }, // start where the last bold op started
+                { marks: new Set([]), start: 17 },
+            ]
+
+            assert.deepStrictEqual(replayOps(ops, 20), expected)
+        })
+
+        it("correctly handles bold, bold, then unbold, all overlapping", function () {
+            // 01234567890123456789
+            //   |------| b
+            //           |----| b
+            //     |-------| !b
+            // _______________________
+            // |-|
+            //   |-| b
+            //     |-------|
+            //             |--| b
+            //                |---|
+            const ops: ResolvedOp[] = [
+                { type: "addMark", markType: "strong", start: 2, end: 9 },
+                { type: "addMark", markType: "strong", start: 11, end: 16 },
+                { type: "removeMark", markType: "strong", start: 5, end: 13 },
+            ]
+
+            const expected: FormatSpan[] = [
+                { marks: new Set([]), start: 0 },
+                { marks: new Set(["strong"]), start: 2 },
+                { marks: new Set([]), start: 5 },
+                { marks: new Set(["strong"]), start: 14 }, // start after the last unbold op ended
+                { marks: new Set([]), start: 17 },
+            ]
+
             assert.deepStrictEqual(replayOps(ops, 20), expected)
         })
     })
 
-    describe("with bold, unbold, then bold, all overlapping", function () {
+    it("correctly handles bold, unbold, then italic", function () {
         // 01234567890123456789
-        //   |------| b
-        //     |-------| !b
-        //           |----| b
+        //     |---------| b
+        //          |---------| !b
+        //  |-----------------| i
         // _______________________
-        // |-|
-        //   |--| b
-        //     |-----|
-        //           |----| b
-        //                 |--|
-        const ops: ResolvedOp[] = [
-            { type: "addMark", markType: "strong", start: 2, end: 9 },
-            { type: "removeMark", markType: "strong", start: 5, end: 13 },
-            { type: "addMark", markType: "strong", start: 11, end: 16 },
-        ]
-
-        const expected: FormatSpan[] = [
-            { marks: new Set([]), start: 0 },
-            { marks: new Set(["strong"]), start: 2 },
-            { marks: new Set([]), start: 5 },
-            { marks: new Set(["strong"]), start: 11 },
-            { marks: new Set([]), start: 17 },
-        ]
-
-        it("returns the expected result", function () {
-            assert.deepStrictEqual(replayOps(ops, 20), expected)
-        })
-    })
-
-    describe("with bold, unbold, then italic", function () {
-        // TODO: This test fails because we don't consider doc length;
-        // we need to avoid returning extra spans at the end which go past
-        // the end of the document.
-
-        // 01234567890123456789
-        //   |------| b
-        //     |-------| !b
-        //           |----| b
-        // _______________________
-        // |-|
-        //   |--| b
-        //     |-----|
-        //           |----| b
-        //                 |--|
+        // ||
+        //  |--| i
+        //     |----| bi
+        //          |---------| i
 
         const ops: ResolvedOp[] = [
             { type: "addMark", markType: "strong", start: 4, end: 14 },
@@ -98,9 +120,52 @@ describe("applying format spans", function () {
             { marks: new Set(["em"]), start: 9 },
         ]
 
-        it("returns the expected result", function () {
-            assert.deepStrictEqual(replayOps(ops, 20), expected)
-        })
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
+    })
+
+    it("correctly handles bold and unbold which share a start point", function () {
+        // 01234567890123456789
+        //     |---------| b
+        //     |----| !b
+        // _______________________
+        // |--------|
+        //           |----| b
+
+        const ops: ResolvedOp[] = [
+            { type: "addMark", markType: "strong", start: 4, end: 14 },
+            { type: "removeMark", markType: "strong", start: 4, end: 9 },
+        ]
+
+        const expected: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 10 },
+            { marks: new Set([]), start: 15 },
+        ]
+
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
+    })
+
+    it("correctly handles bold and unbold which share an end point", function () {
+        // 01234567890123456789
+        //     |---------| b
+        //          |----| !b
+        // _______________________
+        // |---|
+        //      |--| b
+        //          |---------|
+
+        const ops: ResolvedOp[] = [
+            { type: "addMark", markType: "strong", start: 4, end: 14 },
+            { type: "removeMark", markType: "strong", start: 9, end: 14 },
+        ]
+
+        const expected: FormatSpan[] = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong"]), start: 4 },
+            { marks: new Set([]), start: 9 },
+        ]
+
+        assert.deepStrictEqual(replayOps(ops, 20), expected)
     })
 })
 

@@ -30,10 +30,6 @@ let doc = Automerge.from<RichTextDoc>({
     formatOps: [],
 })
 
-doc = Automerge.change(doc, d => {
-    for(let i = 0; i < 1000; i++)
-})
-
 /**
  * Converts a position in the Prosemirror doc to an offset in the Automerge content string.
  * For now we only have a single node so this is relatively trivial.
@@ -77,7 +73,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
         }
 
         if (span.start === spanEnd) {
-            console.error("empty text node!?", span)
+            throw new Error("Invalid span with zero length")
         }
 
         return schema.text(

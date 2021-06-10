@@ -1,11 +1,14 @@
 import type { MarkType } from "./schema"
 import type Automerge from "automerge"
 
+export type OpId = number
+
 export type AddMarkOp = {
     type: "addMark"
     markType: MarkType
     start: Automerge.Cursor
     end: Automerge.Cursor
+    id: OpId
 }
 
 export type RemoveMarkOp = {
@@ -13,6 +16,7 @@ export type RemoveMarkOp = {
     markType: MarkType
     start: Automerge.Cursor
     end: Automerge.Cursor
+    id: OpId
 }
 
 export type FormatOp = AddMarkOp | RemoveMarkOp // more coming soon...

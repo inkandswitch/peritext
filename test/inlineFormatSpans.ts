@@ -5,13 +5,34 @@ import {
     getSpanAtPosition,
     normalize,
 } from "../src/format"
-import { ResolvedOp } from "../src/operations"
+import type { ResolvedOp } from "../src/operations"
+import shuffleSeed from "shuffle-seed"
+import type { MarkType } from "../src/schema"
+
+function assertOpsPlayedInAnyOrder(
+    ops: ResolvedOp[],
+    docLength: number,
+    expected: { start: number; marks: Set<MarkType> }[],
+) {
+    const shuffleSeeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    for (const seed of shuffleSeeds) {
+        const opsWithIds = ops.map((op, index) => ({ ...op, id: index }))
+        const shuffledOps = shuffleSeed.shuffle(opsWithIds, seed)
+        assert.deepStrictEqual(
+            replayOps(shuffledOps, docLength).map(span => ({
+                start: span.start,
+                marks: span.marks,
+            })),
+            expected,
+        )
+    }
+}
 
 describe("applying format spans", function () {
     it("with no ops, returns a single span", function () {
         const ops: ResolvedOp[] = []
         assert.deepStrictEqual(replayOps(ops, 20), [
-            { marks: new Set([]), start: 0 },
+            { marks: new Set([]), start: 0, metadata: {} },
         ])
     })
 
@@ -26,13 +47,13 @@ describe("applying format spans", function () {
             { type: "addMark", markType: "strong", start: 2, end: 9 },
         ]
 
-        const expected: FormatSpan[] = [
-            { marks: new Set(), start: 0 },
-            { marks: new Set(["strong"]), start: 2 },
+        const expected = [
+            { marks: new Set([]), start: 0 },
+            { marks: new Set(["strong" as const]), start: 2 },
             { marks: new Set([]), start: 10 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 
     describe("temporal ordering effects", () => {
@@ -56,15 +77,15 @@ describe("applying format spans", function () {
                 { type: "addMark", markType: "strong", start: 11, end: 16 },
             ]
 
-            const expected: FormatSpan[] = [
+            const expected = [
                 { marks: new Set([]), start: 0 },
-                { marks: new Set(["strong"]), start: 2 },
+                { marks: new Set(["strong" as const]), start: 2 },
                 { marks: new Set([]), start: 5 },
-                { marks: new Set(["strong"]), start: 11 }, // start where the last bold op started
+                { marks: new Set(["strong" as const]), start: 11 }, // start where the last bold op started
                 { marks: new Set([]), start: 17 },
             ]
 
-            assert.deepStrictEqual(replayOps(ops, 20), expected)
+            assertOpsPlayedInAnyOrder(ops, 20, expected)
         })
 
         it("correctly handles bold, bold, then unbold, all overlapping", function () {
@@ -92,7 +113,7 @@ describe("applying format spans", function () {
                 { marks: new Set([]), start: 17 },
             ]
 
-            assert.deepStrictEqual(replayOps(ops, 20), expected)
+            assertOpsPlayedInAnyOrder(ops, 20, expected)
         })
     })
 
@@ -120,7 +141,7 @@ describe("applying format spans", function () {
             { marks: new Set(["em"]), start: 9 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 
     it("correctly handles bold and unbold which share a start point", function () {
@@ -142,7 +163,7 @@ describe("applying format spans", function () {
             { marks: new Set([]), start: 15 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 
     it("correctly handles bold and unbold which share an end point", function () {
@@ -165,7 +186,7 @@ describe("applying format spans", function () {
             { marks: new Set([]), start: 9 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 
     it("correctly handles bold and unbold which share an end point", function () {
@@ -188,7 +209,7 @@ describe("applying format spans", function () {
             { marks: new Set([]), start: 9 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 
     it("correctly handles unbolding after an unbold", function () {
@@ -213,7 +234,7 @@ describe("applying format spans", function () {
             { marks: new Set([]), start: 9 },
         ]
 
-        assert.deepStrictEqual(replayOps(ops, 20), expected)
+        assertOpsPlayedInAnyOrder(ops, 20, expected)
     })
 })
 

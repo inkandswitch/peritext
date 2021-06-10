@@ -30,6 +30,26 @@ let doc = Automerge.from<RichTextDoc>({
     formatOps: [],
 })
 
+/** Given a "from" and "to" position on a Prosemirror step,
+ *  return two Automerge cursors denoting the same range in the content string.
+ *  Note: Prosemirror's end index is exclusive, but we represent ranges with cursors
+ *  that are inclusive on both sides, so we must subtract 1 on the end index
+ */
+function automergeRangeFromProsemirrorRange(
+    doc: Automerge.Proxy<RichTextDoc>,
+    prosemirrorRange: { from: number; to: number },
+): { start: Automerge.Cursor; end: Automerge.Cursor } {
+    return {
+        start: doc.content.getCursorAt(
+            contentPosFromProsemirrorPos(prosemirrorRange.from),
+        ),
+
+        end: doc.content.getCursorAt(
+            contentPosFromProsemirrorPos(prosemirrorRange.to) - 1,
+        ),
+    }
+}
+
 /**
  * Converts a position in the Prosemirror doc to an offset in the Automerge content string.
  * For now we only have a single node so this is relatively trivial.
@@ -145,17 +165,15 @@ function applyTransaction(
                 if (!isMarkType(mark.type.name)) {
                     throw new Error(`Invalid mark type: ${mark.type.name}`)
                 }
+                const { start, end } = automergeRangeFromProsemirrorRange(
+                    doc,
+                    step,
+                )
                 doc.formatOps.push({
                     type: "addMark",
                     markType: mark.type.name,
-                    start: doc.content.getCursorAt(
-                        contentPosFromProsemirrorPos(step.from),
-                    ),
-
-                    // Prosemirror's "to" is exclusive; ours is inclusive, hence -1
-                    end: doc.content.getCursorAt(
-                        contentPosFromProsemirrorPos(step.to) - 1,
-                    ),
+                    start,
+                    end,
                 })
             })
         } else if (step instanceof RemoveMarkStep) {
@@ -164,15 +182,15 @@ function applyTransaction(
                 if (!isMarkType(mark.type.name)) {
                     throw new Error(`Invalid mark type: ${mark.type.name}`)
                 }
+                const { start, end } = automergeRangeFromProsemirrorRange(
+                    doc,
+                    step,
+                )
                 doc.formatOps.push({
                     type: "removeMark",
                     markType: mark.type.name,
-                    start: doc.content.getCursorAt(
-                        contentPosFromProsemirrorPos(step.from),
-                    ),
-                    end: doc.content.getCursorAt(
-                        contentPosFromProsemirrorPos(step.to),
-                    ),
+                    start,
+                    end,
                 })
             })
         }

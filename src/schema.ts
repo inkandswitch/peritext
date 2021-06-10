@@ -65,6 +65,11 @@ const markSpec = {
     },
 } as const
 
+export const ALL_MARKS = ["strong" as const, "em" as const]
+
+type AssertAllListedAreMarks = Assert<Inner<typeof ALL_MARKS>, MarkType>
+type AssertAllMarksAreListed = Assert<MarkType, Inner<typeof ALL_MARKS>>
+
 export type MarkType = keyof typeof markSpec
 type AssertMarksMatchSpec = Assert<
     typeof markSpec,

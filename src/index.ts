@@ -32,8 +32,8 @@ let doc = Automerge.from<RichTextDoc>({
 
 /** Given a "from" and "to" position on a Prosemirror step,
  *  return two Automerge cursors denoting the same range in the content string.
- *  Note: Prosemirror's end index is exclusive, but we represent ranges with cursors
- *  that are inclusive on both sides, so we must subtract 1 on the end index
+ *  Note: Prosemirror's "to" index is the number after the last character;
+ *  we need to go left by 1 to find the last character in the range.
  */
 function automergeRangeFromProsemirrorRange(
     doc: Automerge.Proxy<RichTextDoc>,

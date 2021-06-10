@@ -228,11 +228,11 @@ describe("getSpanAtPosition", () => {
             {
                 span: { marks: new Set([]), start: 0 },
                 index: 0,
-            }
+            },
         )
         assert.deepStrictEqual(
             getSpanAtPosition([{ marks: new Set([]), start: 6 }], 1),
-            undefined
+            undefined,
         )
     })
 

@@ -71,6 +71,14 @@ type AssertMarksMatchSpec = Assert<
     { [T in MarkType]: MarkSpec }
 >
 
+export function isMarkType(s: string): s is MarkType {
+    if (s === "strong" || s === "em") {
+        type Assertion = Assert<typeof s, MarkType>
+        return true
+    }
+    return false
+}
+
 /***********************************************
  * Schema.
  ***********************************************/
@@ -79,3 +87,5 @@ export const schemaSpec: SchemaSpec<NodeType, MarkType> = {
     nodes: nodeSpec,
     marks: markSpec,
 }
+
+export type DocSchema = Schema<NodeType, MarkType>

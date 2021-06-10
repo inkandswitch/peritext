@@ -4,10 +4,12 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { schemaSpec } from "./schema"
-import type { FormatOp, ResolvedOp } from "./operations"
-import sortBy from "lodash/sortBy"
+import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
+import { schemaSpec, isMarkType } from "./schema"
 import { replayOps } from "./format"
+
+import type { FormatOp, ResolvedOp } from "./operations"
+import type { DocSchema } from "./schema"
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -50,7 +52,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
     const formatSpans = replayOps(
         doc.formatOps.map(resolveOp),
-        textContent.length
+        textContent.length,
     )
 
     console.log("flattened format spans:")
@@ -58,7 +60,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
         formatSpans.map(span => ({
             start: span.start,
             marks: [...span.marks].join(", "),
-        }))
+        })),
     )
 
     const textNodes = formatSpans.map((span, index) => {
@@ -77,7 +79,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 
         return schema.text(
             textContent.slice(span.start, spanEnd),
-            [...span.marks].map(markType => schema.mark(markType))
+            [...span.marks].map(markType => schema.mark(markType)),
         )
     })
 
@@ -91,92 +93,91 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 // Given an Automerge Doc and a Prosemirror Transaction, return an updated Automerge Doc
 // Note: need to derive a PM doc from the new Automerge doc later!
 // TODO: why don't we need to update the selection when we do insertions?
-function applyTransaction(doc: RichTextDoc, txn: Transaction): RichTextDoc {
+function applyTransaction(
+    doc: RichTextDoc,
+    txn: Transaction<DocSchema>,
+): RichTextDoc {
     let newDoc = doc
 
-    txn.steps.forEach(_step => {
-        const step = _step.toJSON()
-
+    for (const step of txn.steps) {
         console.log("step", step)
 
-        switch (step.stepType) {
-            case "replace": {
-                if (step.slice) {
-                    // handle insertion
-                    if (step.from !== step.to) {
-                        newDoc = Automerge.change(doc, doc => {
-                            if (doc.content.deleteAt) {
-                                doc.content.deleteAt(
-                                    contentPosFromProsemirrorPos(step.from),
-                                    step.to - step.from
-                                )
-                            }
-                        })
-                    }
-
-                    const insertedContent = step.slice.content
-                        .map(c => c.text)
-                        .join("")
-
-                    newDoc = Automerge.change(doc, doc => {
-                        if (doc.content.insertAt) {
-                            doc.content.insertAt(
-                                contentPosFromProsemirrorPos(step.from),
-                                insertedContent
-                            )
-                        }
-                    })
-                } else {
-                    // handle deletion
+        if (step instanceof ReplaceStep) {
+            if (step.slice) {
+                // handle insertion
+                if (step.from !== step.to) {
                     newDoc = Automerge.change(doc, doc => {
                         if (doc.content.deleteAt) {
                             doc.content.deleteAt(
                                 contentPosFromProsemirrorPos(step.from),
-                                step.to - step.from
+                                step.to - step.from,
                             )
                         }
                     })
                 }
-                break
-            }
 
-            case "addMark": {
+                const insertedContent = step.slice.content.textBetween(
+                    0,
+                    step.slice.content.size,
+                )
+
                 newDoc = Automerge.change(doc, doc => {
-                    doc.formatOps.push({
-                        type: "addMark",
-                        markType: step.mark.type,
-                        start: doc.content.getCursorAt(
-                            contentPosFromProsemirrorPos(step.from)
-                        ),
-
-                        // Prosemirror's "to" is exclusive; ours is inclusive, hence -1
-                        end: doc.content.getCursorAt(
-                            contentPosFromProsemirrorPos(step.to) - 1
-                        ),
-                    })
+                    if (doc.content.insertAt) {
+                        doc.content.insertAt(
+                            contentPosFromProsemirrorPos(step.from),
+                            insertedContent,
+                        )
+                    }
                 })
-
-                break
-            }
-
-            case "removeMark": {
+            } else {
+                // handle deletion
                 newDoc = Automerge.change(doc, doc => {
-                    doc.formatOps.push({
-                        type: "removeMark",
-                        markType: step.mark.type,
-                        start: doc.content.getCursorAt(
-                            contentPosFromProsemirrorPos(step.from)
-                        ),
-                        end: doc.content.getCursorAt(
-                            contentPosFromProsemirrorPos(step.to)
-                        ),
-                    })
+                    if (doc.content.deleteAt) {
+                        doc.content.deleteAt(
+                            contentPosFromProsemirrorPos(step.from),
+                            step.to - step.from,
+                        )
+                    }
                 })
-
-                break
             }
+        } else if (step instanceof AddMarkStep) {
+            const { mark } = step
+            newDoc = Automerge.change(doc, doc => {
+                if (!isMarkType(mark.type.name)) {
+                    throw new Error(`Invalid mark type: ${mark.type.name}`)
+                }
+                doc.formatOps.push({
+                    type: "addMark",
+                    markType: mark.type.name,
+                    start: doc.content.getCursorAt(
+                        contentPosFromProsemirrorPos(step.from),
+                    ),
+
+                    // Prosemirror's "to" is exclusive; ours is inclusive, hence -1
+                    end: doc.content.getCursorAt(
+                        contentPosFromProsemirrorPos(step.to) - 1,
+                    ),
+                })
+            })
+        } else if (step instanceof RemoveMarkStep) {
+            const { mark } = step
+            newDoc = Automerge.change(doc, doc => {
+                if (!isMarkType(mark.type.name)) {
+                    throw new Error(`Invalid mark type: ${mark.type.name}`)
+                }
+                doc.formatOps.push({
+                    type: "removeMark",
+                    markType: mark.type.name,
+                    start: doc.content.getCursorAt(
+                        contentPosFromProsemirrorPos(step.from),
+                    ),
+                    end: doc.content.getCursorAt(
+                        contentPosFromProsemirrorPos(step.to),
+                    ),
+                })
+            })
         }
-    })
+    }
 
     return newDoc
 }
@@ -214,7 +215,7 @@ if (editorNode) {
                     start: op.start.index,
                     end: op.end.index,
                     markType: op.markType,
-                }))
+                })),
             )
 
             // Derive a new PM doc from the new Automerge doc
@@ -225,8 +226,8 @@ if (editorNode) {
                 state.tr.replace(
                     0,
                     state.doc.content.size,
-                    new Slice(newProsemirrorDoc.content, 0, 0)
-                )
+                    new Slice(newProsemirrorDoc.content, 0, 0),
+                ),
             )
 
             // Now that we have a new doc, we can compute the new selection.
@@ -236,7 +237,7 @@ if (editorNode) {
             // because that has pointers into the old stale doc state)
             const newSelection = new TextSelection(
                 state.doc.resolve(txn.selection.anchor),
-                state.doc.resolve(txn.selection.head)
+                state.doc.resolve(txn.selection.head),
             )
 
             // Apply a transaction that sets the new selection
@@ -249,7 +250,7 @@ if (editorNode) {
                 "steps",
                 txn.steps.map(s => s.toJSON()),
                 "newState",
-                state
+                state,
             )
         },
     })

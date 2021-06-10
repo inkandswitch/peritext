@@ -1,18 +1,24 @@
-import { compact } from "lodash"
+import { compact, isEqual } from "lodash"
+import { ALL_MARKS } from "./schema"
+
 import type { ResolvedOp, OpId } from "./operations"
-import { MarkType } from "./schema"
+import type { MarkType } from "./schema"
+
+type MarkValue = {
+    active: boolean
+    opId: OpId
+}
+
+export type MarkMap = { [T in MarkType]?: MarkValue }
 
 export type FormatSpan = {
-    marks: Set<MarkType>
+    marks: MarkMap
     start: number
-    metadata: { [key: string]: OpId }
 }
 
 /** Given a log of operations, produce the final flat list of format spans. */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
-    const initialSpans: FormatSpan[] = [
-        { marks: new Set(), start: 0, metadata: {} },
-    ]
+    const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
     const newSpans = ops.reduce(
         (spans, op) => applyOp(spans, op, docLength),
         initialSpans,
@@ -80,7 +86,7 @@ function applyOp(
         // Normally we add a span here from end of op to the end of the end-covering span.
         // In the special case where the op ends at the same place as the end-covering span,
         // though, we avoid adding this extra span.
-        op.end + 1 !== spans[end.index + 1]?.start
+        op.end + 1 !== (spans[end.index + 1] && spans[end.index + 1].start)
             ? { ...end.span, start: op.end + 1 }
             : null,
         //                     |...
@@ -145,38 +151,36 @@ export function getSpanAtPosition(
  *  (does not mutate the set that was passed in)
  */
 function applyFormatting(
-    { marks, metadata, ...span }: FormatSpan,
+    { marks, ...span }: FormatSpan,
     op: ResolvedOp,
 ): FormatSpan {
-    const newMarks = new Set(marks)
-    const newMetadata = { ...metadata }
+    const newMarks = { ...marks }
+    const mark = marks[op.markType]
 
     switch (op.type) {
         case "addMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (
-                metadata[op.markType] === undefined ||
-                op.id > metadata[op.markType]
-            ) {
-                newMarks.add(op.markType)
-                newMetadata[op.markType] = op.id
+            if (mark === undefined || op.id > mark.opId) {
+                newMarks[op.markType] = {
+                    active: true,
+                    opId: op.id,
+                }
             }
             break
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (
-                metadata[op.markType] === undefined ||
-                op.id > metadata[op.markType]
-            ) {
-                newMarks.delete(op.markType)
-                newMetadata[op.markType] = op.id
+            if (mark === undefined || op.id > mark.opId) {
+                newMarks[op.markType] = {
+                    active: false,
+                    opId: op.id,
+                }
             }
             break
         }
     }
 
-    return { ...span, marks: newMarks, metadata: newMetadata }
+    return { ...span, marks: newMarks }
 }
 
 /** Return an updated list of format spans where:
@@ -206,10 +210,27 @@ export function normalize(
             return false
         }
 
-        return !setEqual(spans[index - 1].marks, span.marks)
+        return !marksEqual(spans[index - 1].marks, span.marks)
     })
 }
 
-function setEqual<T>(s1: Set<T>, s2: Set<T>): boolean {
-    return s1.size === s2.size && [...s1].every(value => s2.has(value))
+// TODO: Should this function compare metadata?
+function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
+    return ALL_MARKS.every(mark => {
+        const mark1 = s1[mark]
+        const mark2 = s2[mark]
+
+        if (isInactive(mark1) && isInactive(mark2)) {
+            return true
+        } else if (!isInactive(mark1) && !isInactive(mark2)) {
+            return true
+        } else {
+            // One is active and one isn't.
+            return false
+        }
+    })
+}
+
+function isInactive(mark: MarkValue | undefined): boolean {
+    return mark === undefined || mark.active === false
 }

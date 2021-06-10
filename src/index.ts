@@ -128,7 +128,7 @@ function applyTransaction(
                     if (doc.content.insertAt) {
                         doc.content.insertAt(
                             contentPosFromProsemirrorPos(step.from),
-                            insertedContent,
+                            ...insertedContent.split(""),
                         )
                     }
                 })

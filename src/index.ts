@@ -30,6 +30,10 @@ let doc = Automerge.from<RichTextDoc>({
     formatOps: [],
 })
 
+doc = Automerge.change(doc, d => {
+    for(let i = 0; i < 1000; i++)
+})
+
 /**
  * Converts a position in the Prosemirror doc to an offset in the Automerge content string.
  * For now we only have a single node so this is relatively trivial.
@@ -47,7 +51,6 @@ function resolveOp(op: FormatOp): ResolvedOp {
 }
 
 // Given an automerge doc representation, produce a prosemirror doc.
-// In the future, will handle fancier stuff like formatting.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
     const formatSpans = replayOps(

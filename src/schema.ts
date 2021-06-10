@@ -5,6 +5,7 @@ import {
     SchemaSpec,
     DOMOutputSpec,
     DOMOutputSpecArray,
+    Mark,
 } from "prosemirror-model"
 
 /***********************************************
@@ -52,8 +53,16 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
  ***********************************************/
 
 const markSpec = {
-    strong: {},
-    em: {},
+    strong: {
+        toDOM(mark: Mark) {
+            return ["strong"] as const
+        },
+    },
+    em: {
+        toDOM(mark: Mark) {
+            return ["em"] as const
+        },
+    },
 } as const
 
 export type MarkType = keyof typeof markSpec
@@ -61,6 +70,14 @@ type AssertMarksMatchSpec = Assert<
     typeof markSpec,
     { [T in MarkType]: MarkSpec }
 >
+
+export function isMarkType(s: string): s is MarkType {
+    if (s === "strong" || s === "em") {
+        type Assertion = Assert<typeof s, MarkType>
+        return true
+    }
+    return false
+}
 
 /***********************************************
  * Schema.
@@ -70,3 +87,5 @@ export const schemaSpec: SchemaSpec<NodeType, MarkType> = {
     nodes: nodeSpec,
     marks: markSpec,
 }
+
+export type DocSchema = Schema<NodeType, MarkType>

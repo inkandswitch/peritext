@@ -7,15 +7,15 @@ jobs:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
             - run: npm install
+    buildother:
+        needs: install
+        runs-on: ubuntu-latest
+        steps:
+            - run: ./node_modules/.bin/parcel ./index.html --public-url="./"
     build:
         needs: install
         runs-on: ubuntu-latest
         steps:
-            - run: echo "Hi"
-            - run: echo $GITHUB_WORKSPACE
-            - run: pwd
-            - run: pwd
-              working-directory: $GITHUB_WORKSPACE
             - run: npm run build
               working-directory: $GITHUB_WORKSPACE
     test:

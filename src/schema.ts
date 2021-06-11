@@ -5,7 +5,6 @@ import {
     SchemaSpec,
     DOMOutputSpec,
     DOMOutputSpecArray,
-    Mark,
 } from "prosemirror-model"
 
 /***********************************************
@@ -19,7 +18,7 @@ const nodeSpec = {
     paragraph: {
         content: "text*",
         group: "block",
-        toDOM: (node: Node): DOMOutputSpecArray => ["p", 0],
+        toDOM: (): DOMOutputSpecArray => ["p", 0],
     },
     text: {},
 } as const
@@ -54,12 +53,12 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
 
 const markSpec = {
     strong: {
-        toDOM(mark: Mark) {
+        toDOM() {
             return ["strong"] as const
         },
     },
     em: {
-        toDOM(mark: Mark) {
+        toDOM() {
             return ["em"] as const
         },
     },

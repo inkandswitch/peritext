@@ -1,4 +1,4 @@
-import { compact, isEqual } from "lodash"
+import { compact } from "lodash"
 import { ALL_MARKS } from "./schema"
 
 import type { ResolvedOp, OpId } from "./operations"
@@ -19,10 +19,7 @@ export type FormatSpan = {
 /** Given a log of operations, produce the final flat list of format spans. */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
-    const newSpans = ops.reduce(
-        (spans, op) => applyOp(spans, op, docLength),
-        initialSpans,
-    )
+    const newSpans = ops.reduce((spans, op) => applyOp(spans, op), initialSpans)
     return normalize(newSpans, docLength)
 }
 
@@ -31,11 +28,7 @@ export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
  * CRDT formatting operation, return an updated list of format spans
  * accounting for the formatting operation.
  */
-function applyOp(
-    spans: FormatSpan[],
-    op: ResolvedOp,
-    docLength: number,
-): FormatSpan[] {
+function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
 

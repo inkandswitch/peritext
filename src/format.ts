@@ -1,4 +1,4 @@
-import { compact, isEqual } from "lodash"
+import { compact } from "lodash"
 import { ALL_MARKS } from "./schema"
 
 import type { ResolvedOp, OpId } from "./operations"
@@ -21,10 +21,7 @@ export type FormatSpan = {
  */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
-    const newSpans = ops.reduce(
-        (spans, op) => applyOp(spans, op, docLength),
-        initialSpans,
-    )
+    const newSpans = ops.reduce((spans, op) => applyOp(spans, op), initialSpans)
     return normalize(newSpans, docLength)
 }
 
@@ -38,11 +35,7 @@ export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
  * operations that have already been incorporated, we will correctly
  * converge to a result as if the ops had been played in causal order.
  */
-function applyOp(
-    spans: FormatSpan[],
-    op: ResolvedOp,
-    docLength: number,
-): FormatSpan[] {
+function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
 

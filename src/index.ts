@@ -41,7 +41,7 @@ let OP_ID: number = 0
 if (editorNode) {
     // Generate an empty document conforming to the schema,
     // and a default selection at the start of the document.
-    let state = EditorState.create({
+    const state = EditorState.create({
         schema,
         plugins: [keymap(richTextKeymap)],
         doc: prosemirrorDocFromCRDT({ schema, doc: doc.root }),

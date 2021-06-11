@@ -72,6 +72,10 @@ function resolveOp(op: FormatOp): ResolvedOp {
 // Given an automerge doc representation, produce a prosemirror doc.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
+
+    // Currently we compute format spans by replaying the whole operation log.
+    // Our replayOps function is capable of applying a single operation incrementally,
+    // but we don't yet take advantage here of that capability.
     const formatSpans = replayOps(
         doc.formatOps.map(resolveOp),
         textContent.length,

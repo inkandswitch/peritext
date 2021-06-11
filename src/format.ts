@@ -16,7 +16,9 @@ export type FormatSpan = {
     start: number
 }
 
-/** Given a log of operations, produce the final flat list of format spans. */
+/** Given a log of operations, produce the final flat list of format spans.
+ *  Because applyOp is order-agnostic, the incoming op list can be in any order.
+ */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
     const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
     const newSpans = ops.reduce(
@@ -30,6 +32,11 @@ export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
  * Given a list of format spans covering the whole document, and a
  * CRDT formatting operation, return an updated list of format spans
  * accounting for the formatting operation.
+ *
+ * This function accounts for out-of-order application of operations;
+ * even if the operation being applied comes causally before other
+ * operations that have already been incorporated, we will correctly
+ * converge to a result as if the ops had been played in causal order.
  */
 function applyOp(
     spans: FormatSpan[],

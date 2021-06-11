@@ -1,34 +1,54 @@
-import { compact } from "lodash"
-import type { ResolvedOp } from "./operations"
-import { MarkType } from "./schema"
+import { compact, isEqual } from "lodash"
+import { ALL_MARKS } from "./schema"
 
-export type FormatSpan = { marks: Set<MarkType>; start: number }
+import type { ResolvedOp, OpId } from "./operations"
+import type { MarkType } from "./schema"
 
-/** Given a log of operations, produce the final flat list of format spans. */
+type MarkValue = {
+    active: boolean
+    opId: OpId
+}
+
+export type MarkMap = { [T in MarkType]?: MarkValue }
+
+export type FormatSpan = {
+    marks: MarkMap
+    start: number
+}
+
+/** Given a log of operations, produce the final flat list of format spans.
+ *  Because applyOp is order-agnostic, the incoming op list can be in any order.
+ */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
-    const initialSpans: FormatSpan[] = [{ marks: new Set(), start: 0 }]
-    return ops.reduce(
+    const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
+    const newSpans = ops.reduce(
         (spans, op) => applyOp(spans, op, docLength),
-        initialSpans
+        initialSpans,
     )
+    return normalize(newSpans, docLength)
 }
 
 /**
  * Given a list of format spans covering the whole document, and a
  * CRDT formatting operation, return an updated list of format spans
  * accounting for the formatting operation.
+ *
+ * This function accounts for out-of-order application of operations;
+ * even if the operation being applied comes causally before other
+ * operations that have already been incorporated, we will correctly
+ * converge to a result as if the ops had been played in causal order.
  */
 function applyOp(
     spans: FormatSpan[],
     op: ResolvedOp,
-    docLength: number
+    docLength: number,
 ): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
 
     if (!start || !end) {
         throw new Error(
-            "Invariant violation: there should always be a span covering the given operation boundaries"
+            "Invariant violation: there should always be a span covering the given operation boundaries",
         )
     }
     // The general intuition here is to apply the effects of this operation
@@ -57,35 +77,31 @@ function applyOp(
             // but if the op starts at the same position as the covering start span,
             // then we exclude the covering start span to avoid two spans starting
             // in the same position.
-            op.start === start.span.start ? start.index : start.index + 1
+            op.start === start.span.start ? start.index : start.index + 1,
         ),
         //        |bu
         //        i
-        { start: op.start, marks: applyFormatting(start.span.marks, op) },
+        { ...applyFormatting(start.span, op), start: op.start },
         //           |...|u----|...
         //               t
-        ...spans.slice(start.index + 1, end.index + 1).map(span => ({
-            ...span,
-            marks: applyFormatting(span.marks, op),
-        })),
+        ...spans
+            .slice(start.index + 1, end.index + 1)
+            .map(span => applyFormatting(span, op)),
         //                 |---
         //                 j+1
         //
         // Normally we add a span here from end of op to the end of the end-covering span.
         // In the special case where the op ends at the same place as the end-covering span,
         // though, we avoid adding this extra span.
-        op.end + 1 !== spans[end.index + 1]?.start
-            ? {
-                  start: op.end + 1,
-                  marks: end.span.marks,
-              }
+        op.end + 1 !== (spans[end.index + 1] && spans[end.index + 1].start)
+            ? { ...end.span, start: op.end + 1 }
             : null,
         //                     |...
         ...spans.slice(end.index + 1),
     ])
 
     // Normalize output before returning to keep span list short as we apply each op
-    return normalize(newSpans, docLength)
+    return newSpans
 }
 
 /** Given a list of spans sorted increasing by index,
@@ -95,7 +111,7 @@ function applyOp(
  */
 export function getSpanAtPosition(
     spans: FormatSpan[],
-    position: number
+    position: number,
 ): { index: number; span: FormatSpan } | undefined {
     if (spans.length === 0) {
         return
@@ -141,21 +157,37 @@ export function getSpanAtPosition(
  *  adding or removing the formatting specified by the op.
  *  (does not mutate the set that was passed in)
  */
-function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
-    const result = new Set(marks)
+function applyFormatting(
+    { marks, ...span }: FormatSpan,
+    op: ResolvedOp,
+): FormatSpan {
+    const newMarks = { ...marks }
+    const mark = marks[op.markType]
 
     switch (op.type) {
         case "addMark": {
-            result.add(op.markType)
+            // Only apply the op if its ID is greater than the last op that touched this mark
+            if (mark === undefined || op.id > mark.opId) {
+                newMarks[op.markType] = {
+                    active: true,
+                    opId: op.id,
+                }
+            }
             break
         }
         case "removeMark": {
-            result.delete(op.markType)
+            // Only apply the op if its ID is greater than the last op that touched this mark
+            if (mark === undefined || op.id > mark.opId) {
+                newMarks[op.markType] = {
+                    active: false,
+                    opId: op.id,
+                }
+            }
             break
         }
     }
 
-    return result
+    return { ...span, marks: newMarks }
 }
 
 /** Return an updated list of format spans where:
@@ -166,7 +198,7 @@ function applyFormatting(marks: Set<MarkType>, op: ResolvedOp): Set<MarkType> {
  */
 export function normalize(
     spans: FormatSpan[],
-    docLength: number
+    docLength: number,
 ): FormatSpan[] {
     return spans.filter((span, index) => {
         // The first span is always ok to include
@@ -185,10 +217,27 @@ export function normalize(
             return false
         }
 
-        return !setEqual(spans[index - 1].marks, span.marks)
+        return !marksEqual(spans[index - 1].marks, span.marks)
     })
 }
 
-function setEqual<T>(s1: Set<T>, s2: Set<T>): boolean {
-    return s1.size === s2.size && [...s1].every(value => s2.has(value))
+// TODO: Should this function compare metadata?
+function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
+    return ALL_MARKS.every(mark => {
+        const mark1 = s1[mark]
+        const mark2 = s2[mark]
+
+        if (isInactive(mark1) && isInactive(mark2)) {
+            return true
+        } else if (!isInactive(mark1) && !isInactive(mark2)) {
+            return true
+        } else {
+            // One is active and one isn't.
+            return false
+        }
+    })
+}
+
+function isInactive(mark: MarkValue | undefined): boolean {
+    return mark === undefined || mark.active === false
 }

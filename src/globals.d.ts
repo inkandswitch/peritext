@@ -4,6 +4,7 @@ import type { Schema, Slice, Mark } from "prosemirror-model"
 declare global {
     type Assert<T1 extends T2, T2> = T1
     type Values<T extends object> = T[keyof T]
+    type Inner<T> = T extends Array<infer U> ? U : never
 
     interface Window {
         view: EditorView

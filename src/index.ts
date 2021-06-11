@@ -30,6 +30,9 @@ let doc = Automerge.from<RichTextDoc>({
     formatOps: [],
 })
 
+// TODO: Not a global singleton.
+let OP_ID: number = 0
+
 /** Given a "from" and "to" position on a Prosemirror step,
  *  return two Automerge cursors denoting the same range in the content string.
  *  Note: Prosemirror's "to" index is the number after the last character;
@@ -69,6 +72,10 @@ function resolveOp(op: FormatOp): ResolvedOp {
 // Given an automerge doc representation, produce a prosemirror doc.
 function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     const textContent = doc.content.toString()
+
+    // Currently we compute format spans by replaying the whole operation log.
+    // Our replayOps function is capable of applying a single operation incrementally,
+    // but we don't yet take advantage here of that capability.
     const formatSpans = replayOps(
         doc.formatOps.map(resolveOp),
         textContent.length,
@@ -78,7 +85,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
     console.table(
         formatSpans.map(span => ({
             start: span.start,
-            marks: [...span.marks].join(", "),
+            marks: Object.keys(span.marks).join(", "),
         })),
     )
 
@@ -98,7 +105,7 @@ function prosemirrorDocFromAutomergeDoc(doc: RichTextDoc) {
 
         return schema.text(
             textContent.slice(span.start, spanEnd),
-            [...span.marks].map(markType => schema.mark(markType)),
+            Object.keys(span.marks).map(markType => schema.mark(markType)),
         )
     })
 
@@ -174,6 +181,7 @@ function applyTransaction(
                     markType: mark.type.name,
                     start,
                     end,
+                    id: OP_ID++,
                 })
             })
         } else if (step instanceof RemoveMarkStep) {
@@ -191,6 +199,7 @@ function applyTransaction(
                     markType: mark.type.name,
                     start,
                     end,
+                    id: OP_ID++,
                 })
             })
         }

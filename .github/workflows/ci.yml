@@ -2,7 +2,7 @@ name: ci
 on: [push]
 defaults:
     run:
-        working-directory: ${{env.GITHUB_WORKSPACE}}
+        working-directory: $GITHUB_WORKSPACE
 jobs:
     install:
         runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 import Automerge from "automerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
+import { Schema, Slice } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
@@ -211,7 +211,7 @@ function applyTransaction(
 if (editorNode) {
     // Generate an empty document conforming to the schema,
     // and a default selection at the start of the document.
-    let state = EditorState.create({
+    const state = EditorState.create({
         schema,
         plugins: [keymap(richTextKeymap)],
         doc: prosemirrorDocFromAutomergeDoc(doc),

@@ -3,7 +3,7 @@ import type { Schema, Slice, Mark } from "prosemirror-model"
 
 declare global {
     type Assert<T1 extends T2, T2> = T1
-    type Values<T extends object> = T[keyof T]
+    type Values<T extends Record<string, unknown>> = T[keyof T]
     type Inner<T> = T extends Array<infer U> ? U : never
 
     interface Window {
@@ -50,6 +50,8 @@ declare module "prosemirror-transform" {
 }
 
 declare module "prosemirror-model" {
+    // Need to disable these rules to extend the module definition.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     interface Fragment<S extends Schema = any> {
         /** https://prosemirror.net/docs/ref/#model.Fragment.textBetween */
         textBetween(

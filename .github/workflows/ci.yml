@@ -11,6 +11,7 @@ jobs:
         needs: install
         runs-on: ubuntu-latest
         steps:
+            - run: ls
             - run: npm run build
     test:
         needs: build

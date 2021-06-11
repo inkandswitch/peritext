@@ -1,0 +1,78 @@
+name: ci
+on: [push]
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+            - name: Install dependencies
+              run: npm ci # TODO: use npm ci once we can use automerge main branch.
+            - name: Build automerge from source
+              run: |
+                  npm install
+                  npm run build
+              working-directory: ./node_modules/automerge
+            - name: Build app
+              run: npm run build
+    typecheck:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+            - name: Install dependencies
+              run: npm install # TODO: use npm ci once we can use automerge main branch.
+            - name: Build automerge from source
+              run: |
+                  npm install
+                  npm run build
+              working-directory: ./node_modules/automerge
+            - name: Typecheck
+              run: npx tsc --noEmit
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+            - name: Install dependencies
+              run: npm install # TODO: use npm ci once we can use automerge main branch.
+            - name: Build automerge from source
+              run: |
+                  npm install
+                  npm run build
+              working-directory: ./node_modules/automerge
+            - name: Test
+              run: npm run test
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+            - name: Install dependencies
+              run: npm install # TODO: use npm ci once we can use automerge main branch.
+            - name: Build automerge from source
+              run: |
+                  npm install
+                  npm run build
+              working-directory: ./node_modules/automerge
+            - name: Lint
+              run: npm run lint
+    prettier:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js
+              uses: actions/setup-node@v1
+            - name: Install dependencies
+              run: npm install # TODO: use npm ci once we can use automerge main branch.
+            - name: Build automerge from source
+              run: |
+                  npm install
+                  npm run build
+              working-directory: ./node_modules/automerge
+            - name: Format
+              run: npx prettier --check index.html ./src/**/* ./test/**/* ./static/**/*

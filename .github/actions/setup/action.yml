@@ -1,0 +1,16 @@
+# Shared logic for installing the repo.
+name: Setup repository
+description: Install repository for each step
+
+runs:
+    using: "composite"
+    steps:
+        - name: Use Node.js
+          uses: actions/setup-node@v1
+        - name: Install dependencies
+          run: npm install # TODO: use npm ci once we can use automerge main branch.
+        - name: Build automerge from source
+          run: |
+              npm install
+              npm run build
+          working-directory: ./node_modules/automerge

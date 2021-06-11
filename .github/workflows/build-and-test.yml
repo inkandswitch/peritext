@@ -1,0 +1,34 @@
+name: build-and-test
+on: [push]
+jobs:
+    install:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions/setup-node@v1
+            - run: npm install
+    build:
+        needs: install
+        runs-on: ubuntu-latest
+        steps:
+            - run: npm run build
+    test:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - run: npm run test
+    lint:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - run: npm run lint
+    prettier:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - run: npx prettier --check index.html src/**/* test/**/*
+    typecheck:
+        needs: build
+        runs-on: ubuntu-latest
+        steps:
+            - run: npx tsc --noEmit

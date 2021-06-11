@@ -12,6 +12,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - run: echo "Hi"
+            - run: echo $GITHUB_WORKSPACE
             - run: pwd
             - run: pwd
               working-directory: $GITHUB_WORKSPACE

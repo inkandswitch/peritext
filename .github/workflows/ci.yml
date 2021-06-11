@@ -1,5 +1,8 @@
 name: ci
 on: [push]
+defaults:
+    run:
+        working-directory: ${{ GITHUB_WORKSPACE }}
 jobs:
     install:
         runs-on: ubuntu-latest
@@ -11,7 +14,6 @@ jobs:
         needs: install
         runs-on: ubuntu-latest
         steps:
-            - run: ls
             - run: npm run build
     test:
         needs: build
@@ -27,7 +29,7 @@ jobs:
         needs: build
         runs-on: ubuntu-latest
         steps:
-            - run: npx prettier --check index.html src/**/* test/**/*
+            - run: npx prettier --check index.html ./src/**/* ./test/**/*
     typecheck:
         needs: build
         runs-on: ubuntu-latest

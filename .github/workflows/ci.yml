@@ -11,6 +11,9 @@ jobs:
         needs: install
         runs-on: ubuntu-latest
         steps:
+            - run: echo $(ls)
+            - run: echo $(ls)
+              working-directory: $GITHUB_WORKSPACE
             - run: npm run build
               working-directory: $GITHUB_WORKSPACE
     test:

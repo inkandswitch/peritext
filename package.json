@@ -5,9 +5,9 @@
     "main": "index.js",
     "scripts": {
         "start": "parcel index.html",
-        "build": "parcel build index.html --public-url='./' --out-dir='docs'",
+        "build": "parcel build index.html --public-url='./'",
         "typecheck": "tsc --noEmit --watch",
-        "prettier": "prettier -w src/**/* index.html test/**/*",
+        "prettier": "prettier -w index.html src/**/* test/**/*",
         "test": "ts-mocha test/*.ts -p test/tsconfig.json",
         "lint": "eslint src/**/* test/**/*"
     },

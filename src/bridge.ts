@@ -11,6 +11,7 @@ import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
 import * as crdt from "./crdt"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
+import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
 
@@ -30,6 +31,7 @@ const richTextKeymap = {
 export type Editor = {
     doc: Micromerge
     view: EditorView
+    queue: ChangeQueue
 }
 
 export function createEditor(args: {
@@ -39,6 +41,11 @@ export function createEditor(args: {
     publisher: Publisher<Array<crdt.Change>>
 }): Editor {
     const { actorId, editorNode, initialValue, publisher } = args
+    const queue = new ChangeQueue({
+        handleFlush: (changes: Array<crdt.Change>) => {
+            publisher.publish(actorId, changes)
+        },
+    })
     const doc = crdt.create({ actorId, initialValue })
 
     // Generate an empty document conforming to the schema,
@@ -63,7 +70,7 @@ export function createEditor(args: {
             let state = view.state
 
             // Compute a new automerge doc and selection point
-            applyTransaction({ doc, txn })
+            applyTransaction({ doc, txn, queue })
 
             // Derive a new PM doc from the new CRDT doc
             const newProsemirrorDoc = prosemirrorDocFromCRDT({
@@ -106,7 +113,7 @@ export function createEditor(args: {
         },
     })
 
-    return { doc, view }
+    return { doc, view, queue }
 }
 
 /**
@@ -142,8 +149,11 @@ export function prosemirrorDocFromCRDT(args: {
 export function applyTransaction(args: {
     doc: Micromerge
     txn: Transaction<DocSchema>
+    queue: ChangeQueue
 }): void {
-    const { doc, txn } = args
+    const { doc, txn, queue } = args
+    const operations: Array<crdt.Operation> = []
+
     for (const step of txn.steps) {
         console.log("step", step)
 
@@ -151,14 +161,12 @@ export function applyTransaction(args: {
             if (step.slice) {
                 // handle insertion
                 if (step.from !== step.to) {
-                    doc.change([
-                        {
-                            path: ["content"],
-                            action: "delete",
-                            index: contentPosFromProsemirrorPos(step.from),
-                            count: step.to - step.from,
-                        },
-                    ])
+                    operations.push({
+                        path: ["content"],
+                        action: "delete",
+                        index: contentPosFromProsemirrorPos(step.from),
+                        count: step.to - step.from,
+                    })
                 }
 
                 const insertedContent = step.slice.content.textBetween(
@@ -166,24 +174,20 @@ export function applyTransaction(args: {
                     step.slice.content.size,
                 )
 
-                doc.change([
-                    {
-                        path: ["content"],
-                        action: "insert",
-                        index: contentPosFromProsemirrorPos(step.from),
-                        values: insertedContent.split(""),
-                    },
-                ])
+                operations.push({
+                    path: ["content"],
+                    action: "insert",
+                    index: contentPosFromProsemirrorPos(step.from),
+                    values: insertedContent.split(""),
+                })
             } else {
                 // handle deletion
-                doc.change([
-                    {
-                        path: ["content"],
-                        action: "delete",
-                        index: contentPosFromProsemirrorPos(step.from),
-                        count: step.to - step.from,
-                    },
-                ])
+                operations.push({
+                    path: ["content"],
+                    action: "delete",
+                    index: contentPosFromProsemirrorPos(step.from),
+                    count: step.to - step.from,
+                })
             }
         } else if (step instanceof AddMarkStep) {
             console.error("formatting not implemented currently")
@@ -191,4 +195,7 @@ export function applyTransaction(args: {
             console.error("formatting not implemented currently")
         }
     }
+
+    const change = doc.change(operations)
+    queue.enqueue(change)
 }

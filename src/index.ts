@@ -4,12 +4,8 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Slice } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
-import { schemaSpec, isMarkType } from "./schema"
+import { schemaSpec } from "./schema"
 import { prosemirrorDocFromCRDT, applyTransaction } from "./bridge"
-
-import type { FormatOp, ResolvedOp } from "./operations"
-import type { DocSchema } from "./schema"
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -20,7 +16,7 @@ const richTextKeymap = {
     "Mod-i": toggleMark(schema.marks.em),
 }
 
-let doc = new Micromerge("abcd")
+const doc = new Micromerge("abcd")
 
 // Initialize some content
 doc.change([
@@ -34,9 +30,6 @@ doc.change([
 ])
 
 console.log("init object", doc.root)
-
-// TODO: Not a global singleton.
-let OP_ID: number = 0
 
 if (editorNode) {
     // Generate an empty document conforming to the schema,

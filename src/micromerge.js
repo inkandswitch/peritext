@@ -42,9 +42,15 @@ export default class Micromerge {
      * object, which can be JSON-encoded to send to another node.
      */
     change(ops) {
-        if (this.seq > 0) this.clock[this.actorId] = this.seq
-        this.seq += 1
+        // Record the dependencies of this change:
+        // anything in our clock before we generate the change.
         const deps = Object.assign({}, this.clock)
+
+        // Record a new local seq number in our clock,
+        // to remember we've incorporated this new change
+        this.seq += 1
+        this.clock[this.actorId] = this.seq
+
         const change = {
             actor: this.actorId,
             seq: this.seq,

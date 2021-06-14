@@ -1,5 +1,10 @@
-import type { Editor } from "./bridge"
 import { createEditor } from "./bridge"
+import { Publisher } from "./pubsub"
+import * as crdt from "./crdt"
+
+import type { Editor } from "./bridge"
+
+const publisher = new Publisher<Array<crdt.Change>>()
 
 const editors: { [key: string]: Editor } = {}
 
@@ -9,6 +14,7 @@ if (aliceNode) {
         actorId: "alice",
         editorNode: aliceNode,
         initialValue: "hello",
+        publisher,
     })
 } else {
     throw new Error(`Didn't find expected editor node in the DOM: #alice`)
@@ -20,6 +26,7 @@ if (bobNode) {
         actorId: "bob",
         editorNode: bobNode,
         initialValue: "hello",
+        publisher,
     })
 } else {
     throw new Error(`Didn't find expected editor node in the DOM: #alice`)

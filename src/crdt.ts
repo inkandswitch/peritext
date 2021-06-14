@@ -4,6 +4,8 @@
 import Micromerge from "./micromerge"
 import * as uuid from "uuid"
 
+export type Change = any
+
 /**
  * Initialize a new Micromerge document.
  */

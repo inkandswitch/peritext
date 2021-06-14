@@ -12,6 +12,7 @@ import { schemaSpec } from "./schema"
 import * as crdt from "./crdt"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import type { DocSchema } from "./schema"
+import type { Publisher } from "./pubsub"
 
 type RichTextDoc = {
     /** Array of single characters. */
@@ -35,8 +36,9 @@ export function createEditor(args: {
     actorId: string
     editorNode: Element
     initialValue: string
+    publisher: Publisher<Array<crdt.Change>>
 }): Editor {
-    const { actorId, editorNode, initialValue } = args
+    const { actorId, editorNode, initialValue, publisher } = args
     const doc = crdt.create({ actorId, initialValue })
 
     // Generate an empty document conforming to the schema,

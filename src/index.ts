@@ -6,6 +6,7 @@ import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
 import { prosemirrorDocFromCRDT, applyTransaction } from "./bridge"
+import * as crdt from "./crdt"
 
 const editorNode = document.querySelector("#editor")
 const schema = new Schema(schemaSpec)
@@ -16,18 +17,7 @@ const richTextKeymap = {
     "Mod-i": toggleMark(schema.marks.em),
 }
 
-const doc = new Micromerge("abcd")
-
-// Initialize some content
-doc.change([
-    { path: [], action: "makeList", key: "content" },
-    {
-        path: ["content"],
-        action: "insert",
-        index: 0,
-        values: ["h", "e", "l", "l", "o"],
-    },
-])
+const doc = crdt.create({ actorId: "alice", initialValue: "hello" })
 
 console.log("init object", doc.root)
 

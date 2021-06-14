@@ -4,10 +4,36 @@
     justify-content: space-between;
 }
 
-.editor {
+.editor-container {
     flex-basis: 50%;
+    margin-bottom: 23px;
 }
 
-.editor:first-child {
+.editor-container:first-child {
     margin-right: 10px;
+}
+
+#toggle-connect {
+    margin-bottom: 20px;
+}
+
+.changes {
+    height: 300px;
+    overflow-y: scroll;
+    scroll-snap-type: y proximity;
+}
+
+.change {
+    margin: 5px;
+    padding: 5px;
+    font-size: 12px;
+    font-family: sans-serif;
+}
+
+.change.from-alice {
+    background-color: rgba(200, 200, 0, 0.1);
+}
+
+.change.from-bob {
+    background-color: rgba(0, 200, 200, 0.1);
 }

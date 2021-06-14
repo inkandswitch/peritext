@@ -1,32 +1,33 @@
 /**
  * Queue for storing editor changes, flushed at a given interval.
  */
-import * as crdt from "./crdt"
+import type { Change } from "./micromerge"
 
-export class ChangeQueue {
-    private changes: Array<crdt.Change> = []
+export class ChangeQueue<M extends string> {
+    private changes: Array<Change<M>> = []
     private timer: number | undefined = undefined
 
     /** Milliseconds between flushes. */
     private interval: number
 
     /** Flush action. */
-    private handleFlush: (changes: Array<crdt.Change>) => void
+    private handleFlush: (changes: Array<Change<M>>) => void
 
     constructor({
-        interval = 500,
+        // Can tune this sync interval to simulate network latency,
+        // make it easier to observe sync behavior, etc.
+        interval = 10,
         handleFlush,
     }: {
         interval?: number
         /** Flush action. */
-        handleFlush: (changes: Array<crdt.Change>) => void
+        handleFlush: (changes: Array<Change<M>>) => void
     }) {
         this.interval = interval
         this.handleFlush = handleFlush
-        this.timer = window.setInterval(this.flush, interval)
     }
 
-    public enqueue(...changes: Array<crdt.Change>): void {
+    public enqueue(...changes: Array<Change<M>>): void {
         this.changes.push(...changes)
     }
 
@@ -35,11 +36,12 @@ export class ChangeQueue {
      */
     private flush = (): void => {
         // TODO: Add retry logic to capture failures.
-        if (this.changes.length > 0) {
-            console.log("flushing", this.changes)
-        }
         this.handleFlush(this.changes)
         this.changes = []
+    }
+
+    public start(): void {
+        this.timer = window.setInterval(this.flush, this.interval)
     }
 
     public drop(): void {

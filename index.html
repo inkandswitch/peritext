@@ -9,9 +9,16 @@
         <link rel="stylesheet" href="static/styles.css" />
     </head>
     <body>
+        <button id="toggle-connect">❌ Disconnect</button>
         <div class="editors-container">
-            <div class="editor" id="alice" style="margin-bottom: 23px"></div>
-            <div class="editor" id="bob" style="margin-bottom: 23px"></div>
+            <div class="editor-container" id="alice">
+                <div class="editor"></div>
+                <div class="changes"></div>
+            </div>
+            <div class="editor-container" id="bob">
+                <div class="editor"></div>
+                <div class="changes"></div>
+            </div>
         </div>
         <script src="src/index.ts"></script>
     </body>

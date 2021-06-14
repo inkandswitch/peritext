@@ -8,9 +8,8 @@ import {
 import shuffleSeed from "shuffle-seed"
 import { ALL_MARKS } from "../src/schema"
 
-import type { ResolvedOp } from "../src/operations"
 import type { MarkType } from "../src/schema"
-import type { MarkMap } from "../src/format"
+import type { MarkMap, ResolvedOp } from "../src/format"
 
 function toMarkSet(map: MarkMap): Set<MarkType> {
     return new Set(
@@ -28,7 +27,7 @@ function assertOpsPlayedInAnyOrder(
 ) {
     const shuffleSeeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     for (const seed of shuffleSeeds) {
-        const opsWithIds = ops.map((op, index) => ({ ...op, id: `${index}@a` }))
+        const opsWithIds = ops.map((op, index) => ({ ...op, id: `${index}@A` }))
         const shuffledOps = shuffleSeed.shuffle(opsWithIds, seed)
         const actual = replayOps(shuffledOps, docLength).map(span => ({
             start: span.start,
@@ -358,31 +357,31 @@ describe("normalize", () => {
         const spans: FormatSpan[] = [
             { marks: {}, start: 0 },
             { marks: {}, start: 3 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 7 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 12 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 7 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 12 },
             {
                 marks: {
-                    strong: { active: true, opId: "0@a" },
-                    em: { active: true, opId: "0@a" },
+                    strong: { active: true, opId: "1@A" },
+                    em: { active: true, opId: "1@A" },
                 },
                 start: 14,
             },
-            { marks: { em: { active: true, opId: "0@a" } }, start: 16 },
-            { marks: { em: { active: true, opId: "0@a" } }, start: 18 },
+            { marks: { em: { active: true, opId: "1@A" } }, start: 16 },
+            { marks: { em: { active: true, opId: "1@A" } }, start: 18 },
         ]
 
         assert.deepStrictEqual(normalize(spans, 1000), [
             { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
             {
                 marks: {
-                    strong: { active: true, opId: "0@a" },
-                    em: { active: true, opId: "0@a" },
+                    strong: { active: true, opId: "1@A" },
+                    em: { active: true, opId: "1@A" },
                 },
                 start: 14,
             },
-            { marks: { em: { active: true, opId: "0@a" } }, start: 16 },
+            { marks: { em: { active: true, opId: "1@A" } }, start: 16 },
         ])
     })
 
@@ -390,14 +389,14 @@ describe("normalize", () => {
         const spans: FormatSpan[] = [
             { marks: {}, start: 0 },
             { marks: {}, start: 3 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 7 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 7 },
             { marks: {}, start: 10 },
         ]
 
         assert.deepStrictEqual(normalize(spans, 10), [
             { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
         ])
     })
 })

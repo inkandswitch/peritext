@@ -77,7 +77,8 @@ type AssertMarksMatchSpec = Assert<
 
 export function isMarkType(s: string): s is MarkType {
     if (s === "strong" || s === "em") {
-        type Assertion = Assert<typeof s, MarkType>
+        type AssertSound = Assert<typeof s, MarkType>
+        type AssertComplete = Assert<MarkType, typeof s>
         return true
     }
     return false

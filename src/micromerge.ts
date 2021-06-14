@@ -1,10 +1,9 @@
-import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
 import { ALL_MARKS } from "./schema"
+import uuid from "uuid"
 
 import type { MarkType } from "./schema"
-import type { FormatSpan } from "./format"
-import type { ResolvedOp } from "./operations"
+import type { FormatSpan, ResolvedOp } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -12,7 +11,7 @@ const HEAD = Symbol("_head")
 
 type CONTENT_KEY = "text"
 
-interface FormatSpanWithText {
+export interface FormatSpanWithText {
     text: string
     marks: { [T in MarkType]?: true }
 }
@@ -32,10 +31,10 @@ type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
 
-type GenericMarkType = string
+export type RootDoc = { text: Array<Char> }
+export type GenericMarkType = string
 
 type OperationPath = [] | [CONTENT_KEY]
-export type RootDoc = { text: Array<Char> }
 
 /**
  * A vector clock data structure.
@@ -56,7 +55,7 @@ export interface Change<M extends GenericMarkType> {
     /** Number of the first operation in the change. */
     startOp: OpNumber
     /** Operations contained in the change, ordered temporally. */
-    ops: DistributiveOmit<Operation<M>, "opId">[]
+    ops: Operation<M>[]
 }
 
 interface InsertOperationInput {
@@ -236,7 +235,7 @@ interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
     markType: M
 }
 
-type Operation<M extends GenericMarkType> =
+export type Operation<M extends GenericMarkType> =
     | MakeListOperation
     | MakeMapOperation
     | SetOperation
@@ -316,7 +315,7 @@ export default class Micromerge<M extends MarkType> {
         [ROOT]: [],
     }
 
-    constructor(actorId: string) {
+    constructor(actorId: string = uuid.v4()) {
         this.actorId = actorId
     }
 
@@ -570,8 +569,9 @@ export default class Micromerge<M extends MarkType> {
     ): OperationId {
         this.maxOp += 1
         const opId = `${this.maxOp}@${this.actorId}`
-        this.applyOp({ opId, ...op })
-        change.ops.push(op)
+        const opWithId = { opId, ...op }
+        this.applyOp(opWithId)
+        change.ops.push(opWithId)
         return opId
     }
 
@@ -600,20 +600,13 @@ export default class Micromerge<M extends MarkType> {
             change.startOp + change.ops.length - 1,
         )
 
-        change.ops.forEach((op, index) => {
-            this.applyOp(
-                Object.assign(
-                    { opId: `${change.startOp + index}@${change.actor}` },
-                    op,
-                ),
-            )
-        })
+        change.ops.forEach(this.applyOp)
     }
 
     /**
      * Updates the document state with one of the operations from a change.
      */
-    private applyOp(op: Operation<M>): void {
+    private applyOp = (op: Operation<M>): void => {
         const metadata = this.metadata[op.obj]
 
         if (!metadata) {
@@ -862,4 +855,28 @@ export default class Micromerge<M extends MarkType> {
         }
         throw new RangeError(`List index out of bounds: ${index}`)
     }
+}
+
+/**
+ * Compares two operation IDs in the form `counter@actorId`. Returns -1 if `id1` is less than `id2`,
+ * 0 if they are equal, and +1 if `id1` is greater than `id2`. Order is defined by first comparing
+ * counter values; if the IDs have equal counter values, we lexicographically compare actorIds.
+ */
+export function compareOpIds(id1: OperationId, id2: OperationId): -1 | 0 | 1 {
+    if (id1 == id2) return 0
+    const regex = /^([0-9]+)@(.*)$/
+    const match1 = regex.exec(id1),
+        match2 = regex.exec(id2)
+    if (!match1) {
+        throw new Error(`Invalid operation ID: ${id1}`)
+    }
+    if (!match2) {
+        throw new Error(`Invalid operation ID: ${id2}`)
+    }
+    const counter1 = parseInt(match1[1], 10),
+        counter2 = parseInt(match2[1], 10)
+    return counter1 < counter2 ||
+        (counter1 === counter2 && match1[2] < match2[2])
+        ? -1
+        : +1
 }

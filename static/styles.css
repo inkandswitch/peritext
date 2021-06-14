@@ -1,0 +1,13 @@
+.editors-container {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.editor {
+    flex-basis: 50%;
+}
+
+.editor:first-child {
+    margin-right: 10px;
+}

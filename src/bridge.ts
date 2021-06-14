@@ -31,11 +31,12 @@ export type Editor = {
     view: EditorView
 }
 
-export function createEditor(
-    actorId: string,
-    editorNode: Element,
-    initialValue: string,
-): Editor {
+export function createEditor(args: {
+    actorId: string
+    editorNode: Element
+    initialValue: string
+}): Editor {
+    const { actorId, editorNode, initialValue } = args
     const doc = crdt.create({ actorId, initialValue })
 
     // Generate an empty document conforming to the schema,

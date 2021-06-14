@@ -6,9 +6,13 @@
         <meta name="description" content="Help" />
         <title>Peritext</title>
         <link rel="stylesheet" href="https://prosemirror.net/css/editor.css" />
+        <link rel="stylesheet" href="static/styles.css" />
     </head>
     <body>
-        <div id="editor" style="margin-bottom: 23px"></div>
+        <div class="editors-container">
+            <div class="editor" id="alice" style="margin-bottom: 23px"></div>
+            <div class="editor" id="bob" style="margin-bottom: 23px"></div>
+        </div>
         <script src="src/index.ts"></script>
     </body>
 </html>

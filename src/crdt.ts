@@ -6,6 +6,8 @@ import * as uuid from "uuid"
 
 export type Change = any
 
+export type Operation = any
+
 /**
  * Initialize a new Micromerge document.
  */

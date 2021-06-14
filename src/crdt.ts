@@ -13,20 +13,8 @@ export type Operation = any
  */
 export function create({
     actorId = uuid.v4(),
-    initialValue,
 }: {
     actorId: string
-    initialValue: string
 }): Micromerge {
-    const doc = new Micromerge(actorId)
-    doc.change([
-        { path: [], action: "makeList", key: "content" },
-        {
-            path: ["content"],
-            action: "insert",
-            index: 0,
-            values: initialValue.split(""),
-        },
-    ])
-    return doc
+    return new Micromerge(actorId)
 }

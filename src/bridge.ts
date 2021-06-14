@@ -34,6 +34,38 @@ export type Editor = {
     queue: ChangeQueue
 }
 
+function updateProsemirrorView(view: EditorView, doc: RichTextDoc) {
+    let state = view.state
+
+    // Derive a new PM doc from the new CRDT doc
+    const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, doc })
+
+    // Apply a transaction that swaps out the new doc in the editor state
+    state = state.apply(
+        state.tr.replace(
+            0,
+            state.doc.content.size,
+            new Slice(newProsemirrorDoc.content, 0, 0),
+        ),
+    )
+
+    // Now that we have a new doc, we can compute the new selection.
+    // We simply copy over the positions from the selection on the original txn,
+    // but resolve them into the new doc.
+    // (It doesn't work to just use the selection directly off the txn,
+    // because that has pointers into the old stale doc state)
+    // const newSelection = new TextSelection(
+    //     state.doc.resolve(txn.selection.anchor),
+    //     state.doc.resolve(txn.selection.head),
+    // )
+
+    // Apply a transaction that sets the new selection
+    // state = state.apply(state.tr.setSelection(newSelection))
+
+    // Great, now we have our final state! We finish by updating the view.
+    view.updateState(state)
+}
+
 export function createEditor(args: {
     actorId: string
     editorNode: Element
@@ -46,7 +78,25 @@ export function createEditor(args: {
             publisher.publish(actorId, changes)
         },
     })
-    const doc = crdt.create({ actorId, initialValue })
+    const doc = crdt.create({ actorId })
+
+    const initialChange = doc.change([
+        { path: [], action: "makeList", key: "content" },
+        {
+            path: ["content"],
+            action: "insert",
+            index: 0,
+            values: initialValue.split(""),
+        },
+    ])
+    queue.enqueue(initialChange)
+
+    publisher.subscribe(actorId, incomingChanges => {
+        for (const change of incomingChanges) {
+            doc.applyChange(change)
+        }
+        updateProsemirrorView(view, doc.root)
+    })
 
     // Generate an empty document conforming to the schema,
     // and a default selection at the start of the document.
@@ -67,41 +117,11 @@ export function createEditor(args: {
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             console.groupCollapsed("dispatch", txn)
-            let state = view.state
 
             // Compute a new automerge doc and selection point
             applyTransaction({ doc, txn, queue })
 
-            // Derive a new PM doc from the new CRDT doc
-            const newProsemirrorDoc = prosemirrorDocFromCRDT({
-                schema,
-                doc: doc.root,
-            })
-
-            // Apply a transaction that swaps out the new doc in the editor state
-            state = state.apply(
-                state.tr.replace(
-                    0,
-                    state.doc.content.size,
-                    new Slice(newProsemirrorDoc.content, 0, 0),
-                ),
-            )
-
-            // Now that we have a new doc, we can compute the new selection.
-            // We simply copy over the positions from the selection on the original txn,
-            // but resolve them into the new doc.
-            // (It doesn't work to just use the selection directly off the txn,
-            // because that has pointers into the old stale doc state)
-            const newSelection = new TextSelection(
-                state.doc.resolve(txn.selection.anchor),
-                state.doc.resolve(txn.selection.head),
-            )
-
-            // Apply a transaction that sets the new selection
-            state = state.apply(state.tr.setSelection(newSelection))
-
-            // Great, now we have our final state! We finish by updating the view.
-            view.updateState(state)
+            updateProsemirrorView(view, doc.root)
 
             console.log(
                 "steps",
@@ -196,6 +216,8 @@ export function applyTransaction(args: {
         }
     }
 
-    const change = doc.change(operations)
-    queue.enqueue(change)
+    if (operations.length > 0) {
+        const change = doc.change(operations)
+        queue.enqueue(change)
+    }
 }

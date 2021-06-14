@@ -13,7 +13,7 @@ if (aliceNode) {
     editors["alice"] = createEditor({
         actorId: "alice",
         editorNode: aliceNode,
-        initialValue: "hello",
+        initialValue: "alice",
         publisher,
     })
 } else {
@@ -25,7 +25,7 @@ if (bobNode) {
     editors["bob"] = createEditor({
         actorId: "bob",
         editorNode: bobNode,
-        initialValue: "hello",
+        initialValue: "bob",
         publisher,
     })
 } else {

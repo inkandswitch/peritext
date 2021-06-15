@@ -3,7 +3,7 @@
  */
 
 import Micromerge from "./micromerge"
-import { EditorState, Transaction, TextSelection } from "prosemirror-state"
+import { EditorState, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"

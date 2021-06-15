@@ -1,32 +1,212 @@
-// @ts-nocheck
+import { compareOpIds } from "./operations"
+import { applyOp as applyFormatOp, normalize } from "./format"
 
-type Path = string[]
-type ObjectID = string
+import type { FormatSpan } from "./format"
 
 type FormatSpanWithText = FormatSpan & { text: string }
 
-import type { ResolvedOp, FormatSpan } from "./operations"
-import { compareOpIds } from "./operations"
-import { applyOp as applyFormatOp, normalize } from "./format"
+type ActorId = string
+type OperationId = string
+
+/** The operation that created the object. */
+type ObjectId = OperationId | "_root"
+type ChangeNumber = number
+type OpNumber = number
+
+type Char = string /** 1-string */
+type JsonPrimitive = string | number | boolean | null
+type JsonComposite = { [key: string]: Json } | Array<Json>
+type Json = JsonPrimitive | JsonComposite
+
+type GenericMarkType = string
+
+type OperationPath = [] | ["text"] // TODO: Change this to string[]
+
+/**
+ * A vector clock data structure.
+ * Maps an actor ID to the latest sequence number from that actor.
+ */
+type Clock = Record<ActorId, number>
+
+/**
+ * A batch of operations from a single actor, applied transactionally.
+ */
+interface Change<M extends GenericMarkType> {
+    /** ID of the actor responsible for the change. */
+    actor: ActorId
+    /** Actor's current change version. */
+    seq: ChangeNumber
+    /** Latest change the author has seen from each actor, prior to the change. */
+    deps: Clock
+    /** Number of the first operation in the change. */
+    startOp: OpNumber
+    /** Operations contained in the change, ordered temporally. */
+    ops: Operation<M>[]
+}
+
+interface InsertOperation {
+    action: "insert"
+    /** Path to the array to modify. */
+    path: OperationPath
+    /** Insert characters at the given index. */
+    index: number
+    /** List of individual characters to be inserted in the given order. */
+    values: Char[]
+}
+
+interface DeleteOperation {
+    action: "delete"
+    /** Path to the array to modify. */
+    path: OperationPath
+    /** Insert characters at the given index. */
+    index: number
+    /** Number of characters to delete. */
+    count: number
+}
+
+/** Create a new array field with the given key, at the chosen path. */
+// TODO: What about inserting arrays into arrays?
+// TODO: Is it illegal to insert at key "foo" in an array?
+// TODO: Can `key` be a number when inserting into an array?
+interface MakeListOperation {
+    action: "makeList"
+    /** Path to an object in which to insert a new field. */
+    path: OperationPath
+    /** Key at which to create the array field.
+        Key should not exist at the given path. */
+    key: string
+}
+
+/** Create a new map field with the given key, at the chosen path. */
+interface MakeMapOperation {
+    action: "makeMap"
+    /** Path to an object in which to insert a new field. */
+    path: OperationPath
+    /** Key at which to create the map field. Should not exist at the given path. */
+    key: string
+}
+
+interface SetOperation {
+    action: "set"
+    /** Path to an object containing the field to set. */
+    path: OperationPath
+    /** Field to set at the given path. */
+    key: string
+    /** Value to set at the given field. */
+    value: JsonPrimitive
+}
+
+interface DelOperation {
+    action: "del"
+    /** Path to an object containing the field to delete. */
+    path: OperationPath
+    /** Field to delete at the given path. */
+    key: string
+}
+
+interface AddMarkOperation<M extends GenericMarkType> {
+    action: "addMark"
+    /** Path to a list object. */
+    path: OperationPath
+    /** Index in the list to apply the mark start, inclusive. */
+    start: number
+    /** Index in the list to end the mark, inclusive. */
+    end: number
+    /** Mark to add. */
+    markType: M
+}
+
+// TODO: What happens if the mark isn't active at all of the given indices?
+// TODO: What happens if the indices are out of bounds?
+interface RemoveMarkOperation<M extends GenericMarkType> {
+    action: "removeMark"
+    /** Path to a list object. */
+    path: OperationPath
+    /** Index in the list to remove the mark, inclusive. */
+    start: number
+    /** Index in the list to end the mark removal, inclusive. */
+    end: number
+    /** Mark to remove. */
+    markType: M
+}
+
+type Operation<M extends GenericMarkType> =
+    | MakeListOperation
+    | MakeMapOperation
+    | SetOperation
+    | DelOperation
+    | InsertOperation
+    | DeleteOperation
+    | AddMarkOperation<M>
+    | RemoveMarkOperation<M>
+
+type InputOperation<M extends GenericMarkType> = Operation<M>
+
+/**
+ * Tracks the operation ID that set each field.
+ */
+type MapMetadata<M extends { [key: string]: Json }> = {
+    [K in keyof M]: M[K] extends JsonPrimitive
+        ? OperationId // Responsible for setting this field.
+        : never
+} & {
+    // Maps all of the composite object fields to their object IDs.
+    children: { [K in keyof M]: M[K] extends JsonComposite ? ObjectId : never }
+}
+
+type ListItemMetadata = {
+    /** Operation that created the list item.
+        NOTE: InputOperations are not internal Operations! One InsertInputOperation
+        can produce multiple InsertOperations. The `elemId` corresponds to an
+        internal InsertOperation. This is how we ensure that each `elemId` is unique,
+        even when inserted as part of the same InsertInputOperation. */
+    elemId: OperationId
+    /** Operation that last updated the list item.
+        See `elemId` note about internal operations. */
+    valueId: OperationId
+    /** Has the list item been deleted? */
+    deleted: boolean
+}
+
+type ListMetadata = Array<ListItemMetadata>
+
+type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
 /**
  * Miniature implementation of a subset of Automerge.
  */
-export default class Micromerge {
-    constructor(actorId) {
+export default class Micromerge<
+    Root extends Record<string, unknown>,
+    M extends GenericMarkType,
+> {
+    /** ID of the actor using the document. */
+    private actorId: string
+    /** Current sequence number. */
+    private seq: number = 0
+    /** Highest operation seen so far. */
+    private maxOp: number = 0
+    /** Map from actorId to last sequence number seen from that actor. */
+    private clock: Record<string, number> = {}
+    /** Objects, keyed by the ID of the operation that created the object. */
+    private objects: { [operationId: string]: unknown } & { _root: Root } = {
+        _root: {},
+    }
+    /** Map from object ID to CRDT metadata for each object field. */
+    // TODO: Use a symbol for `children` to avoid conflicting with keys actually called "children".
+    private metadata: Record<ObjectId, Metadata> = {
+        _root: { children: {} },
+    }
+    /** Map from object ID to formatting information. */
+    private formatSpans: Record<string, unknown> = {}
+
+    constructor(actorId: string) {
         this.actorId = actorId
-        this.seq = 0
-        this.maxOp = 0
-        this.clock = {} // map from actorId to last sequence number seen from that actor
-        this.objects = { _root: {} } // objects, keyed by the ID of the operation that created the object
-        this.metadata = { _root: { children: {} } } // map from objID to object with CRDT metadata for each object field
-        this.formatSpans = {} // map from objID to formatting information for that object
     }
 
     /**
      * Returns the document root object.
      */
-    get root() {
+    get root(): Root {
         return this.objects._root
     }
 
@@ -34,7 +214,7 @@ export default class Micromerge {
      * Generates a new change containing operations described in the array `ops`. Returns the change
      * object, which can be JSON-encoded to send to another node.
      */
-    change(ops) {
+    public change(ops: Array<InputOperation<M>>): Change<M> {
         // Record the dependencies of this change:
         // anything in our clock before we generate the change.
         const deps = Object.assign({}, this.clock)
@@ -52,9 +232,9 @@ export default class Micromerge {
             ops: [],
         }
 
-        for (let inputOp of ops) {
-            const obj = this.getObjectIdForPath(inputOp.path),
-                { action, key, value } = inputOp
+        for (const inputOp of ops) {
+            const obj = this.getObjectIdForPath(inputOp.path)
+            const { action, key, value } = inputOp
 
             if (Array.isArray(this.objects[obj])) {
                 // The operation is modifying a list object
@@ -114,9 +294,9 @@ export default class Micromerge {
     /**
      * Returns the ID of the object at a particular path in the document tree.
      */
-    getObjectIdForPath(path: Path): ObjectID {
+    getObjectIdForPath(path: Operation<M>["path"]): ObjectId {
         let objectId = "_root"
-        for (let pathElem of path) {
+        for (const pathElem of path) {
             objectId = this.metadata[objectId].children[pathElem]
             if (!objectId)
                 throw new RangeError(

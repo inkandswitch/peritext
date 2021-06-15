@@ -1,22 +1,13 @@
 // @ts-nocheck
 
-/**
- * Compares two operation IDs in the form `counter@actorId`. Returns -1 if `id1` is less than `id2`,
- * 0 if they are equal, and +1 if `id1` is greater than `id2`. Order is defined by first comparing
- * counter values; if the IDs have equal counter values, we lexicographically compare actorIds.
- */
-function compareOpIds(id1, id2) {
-    if (id1 == id2) return 0
-    const regex = /^([0-9]+)@(.*)$/
-    const match1 = regex.exec(id1),
-        match2 = regex.exec(id2)
-    const counter1 = parseInt(match1[1], 10),
-        counter2 = parseInt(match2[1], 10)
-    return counter1 < counter2 ||
-        (counter1 === counter2 && match1[2] < match2[2])
-        ? -1
-        : +1
-}
+type Path = string[]
+type ObjectID = string
+
+type FormatSpanWithText = FormatSpan & { text: string }
+
+import type { ResolvedOp, FormatSpan } from "./operations"
+import { compareOpIds } from "./operations"
+import { applyOp as applyFormatOp, normalize } from "./format"
 
 /**
  * Miniature implementation of a subset of Automerge.
@@ -29,7 +20,7 @@ export default class Micromerge {
         this.clock = {} // map from actorId to last sequence number seen from that actor
         this.objects = { _root: {} } // objects, keyed by the ID of the operation that created the object
         this.metadata = { _root: { children: {} } } // map from objID to object with CRDT metadata for each object field
-        this.formatting = {} // map from objID to formatting information for that object
+        this.formatSpans = {} // map from objID to formatting information for that object
     }
 
     /**
@@ -94,7 +85,7 @@ export default class Micromerge {
                             insert: false,
                         })
                     }
-                } else if (action === "formatSpan") {
+                } else if (action === "addMark") {
                     const start = this.getListElementId(obj, inputOp.start)
                     const end = this.getListElementId(obj, inputOp.end)
                     this.makeNewOp(change, {
@@ -102,7 +93,7 @@ export default class Micromerge {
                         obj,
                         start,
                         end,
-                        type: inputOp.type,
+                        markType: inputOp.markType,
                     })
                 }
             } else {
@@ -123,7 +114,7 @@ export default class Micromerge {
     /**
      * Returns the ID of the object at a particular path in the document tree.
      */
-    getObjectIdForPath(path) {
+    getObjectIdForPath(path: Path): ObjectID {
         let objectId = "_root"
         for (let pathElem of path) {
             objectId = this.metadata[objectId].children[pathElem]
@@ -133,6 +124,33 @@ export default class Micromerge {
                 )
         }
         return objectId
+    }
+
+    /** Given a path to somewhere in the document, return a list of format spans w/ text.
+     *  Each span specifies the formatting marks as well as the text within the span.
+     *  (This function avoids the need for a caller to manually stitch together
+     *  format spans with a text string.)
+     */
+    getTextWithFormatting(path: Path): Array<FormatSpanWithText> {
+        const objectId = this.getObjectIdForPath(path)
+        const text = this.objects[objectId]
+        const formatSpans = normalize(this.formatSpans[objectId], text.length)
+
+        return formatSpans.map((span, index) => {
+            const start = span.start
+            const end =
+                index < formatSpans.length - 1
+                    ? formatSpans[index + 1].start
+                    : text.length
+
+            const marks = {}
+            for (const [key, value] of Object.entries(span.marks)) {
+                if (value.active) {
+                    marks[key] = true
+                }
+            }
+            return { marks, text: text.slice(start, end).join("") }
+        })
     }
 
     /**
@@ -194,7 +212,8 @@ export default class Micromerge {
         } else if (op.action === "makeList") {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []
-            this.formatting[op.opId] = { ops: [], chars: [] }
+            // By default, a list has one "unformatted" span covering the whole list.
+            this.formatSpans[op.opId] = [{ marks: {}, start: 0 }]
         }
 
         if (Array.isArray(this.metadata[op.obj])) {
@@ -202,14 +221,25 @@ export default class Micromerge {
             if (["set", "del", "makeMap", "makeList"].includes(op.action)) {
                 if (op.insert) this.applyListInsert(op)
                 else this.applyListUpdate(op)
+            } else if (["addMark", "removeMark"].includes(op.action)) {
+                // Incrementally apply this formatting operation to
+                // the list of flattened spans that we are storing
+                this.formatSpans[op.obj] = applyFormatOp(
+                    this.formatSpans[op.obj],
+
+                    // convert our micromerge op into an op in our formatting system
+                    // todo: align these two types so we don't need a translation here
+                    {
+                        type: op.action,
+                        markType: op.markType,
+                        start: this.findListElement(op.obj, op.start).index,
+                        end: this.findListElement(op.obj, op.end).index,
+                        id: op.opId,
+                    },
+                )
             } else {
-                const formatting = this.formatting[op.obj]
-                formatting.ops.push(op)
-                formatting.ops.sort((op1, op2) =>
-                    compareOpIds(op1.opId, op2.opId),
-                ) // sort the array by opId
+                throw new Error(`unknown action: ${op.action}`)
             }
-            this.recomputeFormatting(op.obj)
         } else {
             // Updating a key in a map. Use last-writer-wins semantics: the operation takes effect if its
             // opId is greater than the last operation for that key; otherwise we ignore it.
@@ -237,13 +267,13 @@ export default class Micromerge {
         // Extremely simplistic implementation -- please replace me with something real!
         // Make an array with the same length as the array of characters, with each element containing
         // the formatting for that character.
-        const formatting = this.formatting[objectId]
+        const formatting = this.formatSpans[objectId]
         formatting.chars = new Array(this.objects[objectId].length)
         formatting.chars.fill("")
 
         // Apply the ops in ascending order by opId
         for (let op of formatting.ops) {
-            if (op.action === "formatSpan" && op.type && op.start && op.end) {
+            if (op.action === "addMark" && op.markType && op.start && op.end) {
                 // Cursors for start and end of the span being formatted
                 // TODO: check this does what we want when characters are deleted
                 const startIndex = this.findListElement(

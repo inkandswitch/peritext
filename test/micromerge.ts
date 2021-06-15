@@ -1,7 +1,7 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
 
-describe("Micromerge", () => {
+describe.only("Micromerge", () => {
     it("records local changes in the deps clock", () => {
         const doc1 = new Micromerge("1234")
         const doc2 = new Micromerge("abcd")
@@ -34,7 +34,7 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, ["a", "b"])
     })
 
-    it("correctly handles concurrent deletion and insertion with formatting", () => {
+    it("correctly handles concurrent deletion and insertion", () => {
         const doc1 = new Micromerge("1234"),
             doc2 = new Micromerge("abcd")
 
@@ -54,26 +54,12 @@ describe("Micromerge", () => {
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
         const change2 = doc1.change([
             { path: ["text"], action: "delete", index: 3, count: 1 },
-            {
-                path: ["text"],
-                action: "formatSpan",
-                start: 2,
-                end: 4,
-                type: "b",
-            },
             { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
         ])
 
         // doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
         const change3 = doc2.change([
             { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
-            {
-                path: ["text"],
-                action: "formatSpan",
-                start: 5,
-                end: 9,
-                type: "i",
-            },
         ])
 
         // doc1 and doc2 sync their changes
@@ -84,34 +70,164 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc1.root, {
             text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
         })
-        assert.deepStrictEqual(doc1.formatting["1@1234"].chars, [
-            "",
-            "",
-            "b",
-            "b",
-            "b",
-            "b",
-            "b,i",
-            "b,i",
-            "b,i",
-            "i",
-            "i",
-        ])
         assert.deepStrictEqual(doc2.root, {
             text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
         })
-        assert.deepStrictEqual(doc2.formatting["1@1234"].chars, [
-            "",
-            "",
-            "b",
-            "b",
-            "b",
-            "b",
-            "b,i",
-            "b,i",
-            "b,i",
-            "i",
-            "i",
+    })
+
+    it("flattens local formatting operations into flat spans", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            // Bold the word "Peritext"
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
         ])
+
+        assert.deepStrictEqual(doc1.root.text, textChars)
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("correctly merges concurrent overlapping bold and italic", () => {
+        const doc1 = new Micromerge("1234")
+        const doc2 = new Micromerge("abcd")
+        const textChars = "The Peritext editor".split("")
+
+        const change1 = doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+        ])
+
+        doc2.applyChange(change1)
+
+        // Now both docs have the text in their state.
+        // Concurrently format overlapping spans...
+        const change2 = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+        const change3 = doc2.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 18,
+                markType: "em",
+            },
+        ])
+
+        // and swap changes across the remote peers...
+        doc2.applyChange(change2)
+        doc1.applyChange(change3)
+
+        // Both sides should end up with the usual text:
+        assert.deepStrictEqual(doc1.root.text, textChars)
+        assert.deepStrictEqual(doc2.root.text, textChars)
+
+        const expectedTextWithFormatting = [
+            { marks: { strong: true }, text: "The " },
+            { marks: { strong: true, em: true }, text: "Peritext" },
+            { marks: { em: true }, text: " editor" },
+        ]
+
+        // And the same correct flattened format spans:
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
+    it("correctly merges concurrent bold and unbold", () => {
+        const doc1 = new Micromerge("1234")
+        const doc2 = new Micromerge("abcd")
+        const textChars = "The Peritext editor".split("")
+
+        const change1 = doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+        ])
+
+        doc2.applyChange(change1)
+
+        // Now both docs have the text in their state.
+        // Concurrently format overlapping spans...
+        const change2 = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+        const change3 = doc2.change([
+            {
+                path: ["text"],
+                action: "removeMark",
+                start: 4,
+                end: 18,
+                markType: "strong",
+            },
+        ])
+
+        // and swap changes across the remote peers...
+        doc2.applyChange(change2)
+        doc1.applyChange(change3)
+
+        // Both sides should end up with the usual text:
+        assert.deepStrictEqual(doc1.root.text, textChars)
+        assert.deepStrictEqual(doc2.root.text, textChars)
+
+        const expectedTextWithFormatting = [
+            { marks: { strong: true }, text: "The Peritext" },
+            { marks: {}, text: " editor" },
+        ]
+
+        // And the same correct flattened format spans:
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
     })
 })

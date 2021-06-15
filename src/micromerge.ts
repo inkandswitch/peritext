@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 /**
  * Compares two operation IDs in the form `counter@actorId`. Returns -1 if `id1` is less than `id2`,
  * 0 if they are equal, and +1 if `id1` is greater than `id2`. Order is defined by first comparing
@@ -348,73 +350,3 @@ export default class Micromerge {
         throw new RangeError(`List index out of bounds: ${index}`)
     }
 }
-
-/* TESTS */
-
-const assert = require("assert")
-const doc1 = new Micromerge("1234"),
-    doc2 = new Micromerge("abcd")
-
-// insert 'abrxabra'
-const change1 = doc1.change([
-    { path: [], action: "makeList", key: "text" },
-    {
-        path: ["text"],
-        action: "insert",
-        index: 0,
-        values: ["a", "b", "r", "x", "a", "b", "r", "a"],
-    },
-])
-
-doc2.applyChange(change1)
-
-// doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
-const change2 = doc1.change([
-    { path: ["text"], action: "delete", index: 3, count: 1 },
-    { path: ["text"], action: "formatSpan", start: 2, end: 4, type: "b" },
-    { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
-])
-
-// doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
-const change3 = doc2.change([
-    { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
-    { path: ["text"], action: "formatSpan", start: 5, end: 9, type: "i" },
-])
-
-// doc1 and doc2 sync their changes
-doc2.applyChange(change2)
-doc1.applyChange(change3)
-
-// Now both should be in the same state
-assert.deepStrictEqual(doc1.root, {
-    text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
-})
-assert.deepStrictEqual(doc1.formatting["1@1234"].chars, [
-    "",
-    "",
-    "b",
-    "b",
-    "b",
-    "b",
-    "b,i",
-    "b,i",
-    "b,i",
-    "i",
-    "i",
-])
-assert.deepStrictEqual(doc2.root, {
-    text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
-})
-assert.deepStrictEqual(doc2.formatting["1@1234"].chars, [
-    "",
-    "",
-    "b",
-    "b",
-    "b",
-    "b",
-    "b,i",
-    "b,i",
-    "b,i",
-    "i",
-    "i",
-])

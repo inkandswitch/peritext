@@ -108,15 +108,23 @@ export function createEditor(args: {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            console.groupCollapsed("dispatch", txn)
+            console.groupCollapsed("dispatch", txn.steps[0])
 
             // Compute a new automerge doc and selection point
             applyTransaction({ doc, txn, queue })
 
-            let state = createNewProsemirrorState(
-                view,
-                doc.getTextWithFormatting(["content"]),
-            )
+            let state = view.state
+
+            // If the transaction has steps, then go through our CRDT and get a new state.
+            // (If it doesn't have steps, that means it's purely a selection update.)
+            if (txn.steps.length > 0) {
+                state = createNewProsemirrorState(
+                    view,
+                    doc.getTextWithFormatting(["content"]),
+                )
+            }
+
+            console.log("new state", state)
 
             // Now that we have a new doc, we can compute the new selection.
             // We simply copy over the positions from the selection on the original txn,
@@ -179,7 +187,10 @@ export function prosemirrorDocFromCRDT(args: {
                         marks.push(markType)
                     }
                 }
-                return schema.text(span.text, marks)
+                return schema.text(
+                    span.text,
+                    marks.map(m => schema.mark(m)),
+                )
             }),
         ),
     ])

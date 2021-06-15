@@ -85,7 +85,7 @@ export default class Micromerge {
                             insert: false,
                         })
                     }
-                } else if (action === "addMark") {
+                } else if (action === "addMark" || action === "removeMark") {
                     const start = this.getListElementId(obj, inputOp.start)
                     const end = this.getListElementId(obj, inputOp.end)
                     this.makeNewOp(change, {

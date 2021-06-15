@@ -142,6 +142,8 @@ type Operation<M extends GenericMarkType> =
 
 type InputOperation<M extends GenericMarkType> = Operation<M>
 
+const CHILDREN = Symbol("children")
+
 /**
  * Tracks the operation ID that set each field.
  */
@@ -151,7 +153,9 @@ type MapMetadata<M extends { [key: string]: Json }> = {
         : never
 } & {
     // Maps all of the composite object fields to their object IDs.
-    children: { [K in keyof M]: M[K] extends JsonComposite ? ObjectId : never }
+    [CHILDREN]: {
+        [K in keyof M]: M[K] extends JsonComposite ? ObjectId : never
+    }
 }
 
 type ListItemMetadata = {
@@ -176,7 +180,7 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
  * Miniature implementation of a subset of Automerge.
  */
 export default class Micromerge<
-    Root extends Record<string, unknown>,
+    Root extends Record<string, Json>,
     M extends GenericMarkType,
 > {
     /** ID of the actor using the document. */
@@ -192,9 +196,8 @@ export default class Micromerge<
         _root: {},
     }
     /** Map from object ID to CRDT metadata for each object field. */
-    // TODO: Use a symbol for `children` to avoid conflicting with keys actually called "children".
     private metadata: Record<ObjectId, Metadata> = {
-        _root: { children: {} },
+        _root: { [CHILDREN]: {} },
     }
     /** Map from object ID to formatting information. */
     private formatSpans: Record<string, unknown> = {}
@@ -388,7 +391,7 @@ export default class Micromerge<
             throw new RangeError(`Object does not exist: ${op.obj}`)
         if (op.action === "makeMap") {
             this.objects[op.opId] = {}
-            this.metadata[op.opId] = { children: {} }
+            this.metadata[op.opId] = { [CHILDREN]: {} }
         } else if (op.action === "makeList") {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []

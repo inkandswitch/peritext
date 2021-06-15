@@ -162,20 +162,26 @@ function applyFormatting(
         case "addMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
             if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
+                console.log("applying addMark", op)
                 newMarks[op.markType] = {
                     active: true,
                     opId: op.id,
                 }
+            } else {
+                console.log("skipping addMark", op)
             }
             break
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
             if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
+                console.log("applying removeMark", op)
                 newMarks[op.markType] = {
                     active: false,
                     opId: op.id,
                 }
+            } else {
+                console.log("skipping removeMark", op)
             }
             break
         }

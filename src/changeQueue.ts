@@ -14,7 +14,7 @@ export class ChangeQueue {
     private handleFlush: (changes: Array<crdt.Change>) => void
 
     constructor({
-        interval = 500,
+        interval = 5000,
         handleFlush,
     }: {
         interval?: number

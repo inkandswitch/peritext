@@ -3,11 +3,11 @@
 type Path = string[]
 type ObjectID = string
 
-type FormatSpanWithText = FormatSpan & { text: string }
-
 import type { ResolvedOp, FormatSpan } from "./operations"
 import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
+
+export type FormatSpanWithText = FormatSpan & { text: string }
 
 /**
  * Miniature implementation of a subset of Automerge.
@@ -85,7 +85,7 @@ export default class Micromerge {
                             insert: false,
                         })
                     }
-                } else if (action === "addMark") {
+                } else if (action === "addMark" || action === "removeMark") {
                     const start = this.getListElementId(obj, inputOp.start)
                     const end = this.getListElementId(obj, inputOp.end)
                     this.makeNewOp(change, {

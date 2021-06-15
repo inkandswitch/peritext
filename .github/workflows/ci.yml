@@ -6,33 +6,45 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
-            - run: npm ci
+            - run: npm install
+            - run: |
+                npm install
+                npm run build
+              working-directory: ./node_modules/automerge
             - run: npm run build
     typecheck:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
-            - run: npm ci
+            - run: npm install
+            - run: |
+                npm install
+                npm run build
+              working-directory: ./node_modules/automerge
             - run: npx tsc --noEmit
     test:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
-            - run: npm ci
+            - run: npm install
+            - run: |
+                npm install
+                npm run build
+              working-directory: ./node_modules/automerge
             - run: npm run test
     lint:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
-            - run: npm ci
+            - run: npm install
             - run: npm run lint
     prettier:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
             - uses: actions/setup-node@v1
-            - run: npm ci
+            - run: npm install
             - run: npm run check-prettier

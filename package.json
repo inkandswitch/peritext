@@ -7,7 +7,8 @@
         "start": "parcel ./index.html",
         "build": "parcel build ./index.html --public-url='./'",
         "typecheck": "tsc --noEmit --watch",
-        "prettier": "prettier -w ./index.html *.json ./src/**/* ./test/**/* ./static/**/*",
+        "prettier": "prettier --write ./index.html *.json ./src/**/* ./test/**/*",
+        "check-prettier": "prettier --check ./index.html *.json ./src/**/* ./test/**/*",
         "test": "ts-mocha ./test/*.ts -p ./test/tsconfig.json",
         "lint": "eslint ./src/**/* ./test/**/*"
     },

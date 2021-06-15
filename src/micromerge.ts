@@ -3,11 +3,11 @@
 type Path = string[]
 type ObjectID = string
 
-type FormatSpanWithText = FormatSpan & { text: string }
-
 import type { ResolvedOp, FormatSpan } from "./operations"
 import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
+
+export type FormatSpanWithText = FormatSpan & { text: string }
 
 /**
  * Miniature implementation of a subset of Automerge.

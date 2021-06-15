@@ -14,11 +14,7 @@ import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
-
-type RichTextDoc = {
-    /** Array of single characters. */
-    content: Array<string>
-}
+import type { FormatSpanWithText } from "./micromerge"
 
 const schema = new Schema(schemaSpec)
 
@@ -34,11 +30,14 @@ export type Editor = {
     queue: ChangeQueue
 }
 
-function updateProsemirrorView(view: EditorView, doc: RichTextDoc) {
+function createNewProsemirrorState(
+    view: EditorView,
+    spans: FormatSpanWithText[],
+) {
     let state = view.state
 
     // Derive a new PM doc from the new CRDT doc
-    const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, doc })
+    const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
 
     // Apply a transaction that swaps out the new doc in the editor state
     state = state.apply(
@@ -49,21 +48,7 @@ function updateProsemirrorView(view: EditorView, doc: RichTextDoc) {
         ),
     )
 
-    // Now that we have a new doc, we can compute the new selection.
-    // We simply copy over the positions from the selection on the original txn,
-    // but resolve them into the new doc.
-    // (It doesn't work to just use the selection directly off the txn,
-    // because that has pointers into the old stale doc state)
-    // const newSelection = new TextSelection(
-    //     state.doc.resolve(txn.selection.anchor),
-    //     state.doc.resolve(txn.selection.head),
-    // )
-
-    // Apply a transaction that sets the new selection
-    // state = state.apply(state.tr.setSelection(newSelection))
-
-    // Great, now we have our final state! We finish by updating the view.
-    view.updateState(state)
+    return state
 }
 
 export function createEditor(args: {
@@ -95,7 +80,11 @@ export function createEditor(args: {
         for (const change of incomingChanges) {
             doc.applyChange(change)
         }
-        updateProsemirrorView(view, doc.root)
+        const state = createNewProsemirrorState(
+            view,
+            doc.getTextWithFormatting(["content"]),
+        )
+        view.updateState(state)
     })
 
     // Generate an empty document conforming to the schema,
@@ -103,7 +92,10 @@ export function createEditor(args: {
     const state = EditorState.create({
         schema,
         plugins: [keymap(richTextKeymap)],
-        doc: prosemirrorDocFromCRDT({ schema, doc: doc.root }),
+        doc: prosemirrorDocFromCRDT({
+            schema,
+            spans: doc.getTextWithFormatting(["content"]),
+        }),
     })
 
     // Create a view for the state and generate transactions when the user types.
@@ -121,7 +113,27 @@ export function createEditor(args: {
             // Compute a new automerge doc and selection point
             applyTransaction({ doc, txn, queue })
 
-            updateProsemirrorView(view, doc.root)
+            let state = createNewProsemirrorState(
+                view,
+                doc.getTextWithFormatting(["content"]),
+            )
+
+            // Now that we have a new doc, we can compute the new selection.
+            // We simply copy over the positions from the selection on the original txn,
+            // but resolve them into the new doc.
+            // (It doesn't work to just use the selection directly off the txn,
+            // because that has pointers into the old stale doc state)
+            const newSelection = new TextSelection(
+                state.doc.resolve(txn.selection.anchor),
+                state.doc.resolve(txn.selection.head),
+            )
+
+            console.log("new selection", newSelection)
+
+            // Apply a transaction that sets the new selection
+            state = state.apply(state.tr.setSelection(newSelection))
+
+            view.updateState(state)
 
             console.log(
                 "steps",
@@ -151,13 +163,25 @@ function contentPosFromProsemirrorPos(position: number) {
 // Given a micromerge doc representation, produce a prosemirror doc.
 export function prosemirrorDocFromCRDT(args: {
     schema: DocSchema
-    doc: RichTextDoc
+    spans: FormatSpanWithText[]
 }): Node {
-    const { schema, doc } = args
-    const textContent = doc.content.join("")
+    const { schema, spans } = args
+    console.log("spans", spans)
 
     const result = schema.node("doc", undefined, [
-        schema.node("paragraph", undefined, [schema.text(textContent)]),
+        schema.node(
+            "paragraph",
+            undefined,
+            spans.map(span => {
+                const marks = []
+                for (const [markType, active] of Object.entries(span.marks)) {
+                    if (active) {
+                        marks.push(markType)
+                    }
+                }
+                return schema.text(span.text, marks)
+            }),
+        ),
     ])
 
     return result
@@ -210,9 +234,21 @@ export function applyTransaction(args: {
                 })
             }
         } else if (step instanceof AddMarkStep) {
-            console.error("formatting not implemented currently")
+            operations.push({
+                path: ["content"],
+                action: "addMark",
+                start: contentPosFromProsemirrorPos(step.from),
+                end: contentPosFromProsemirrorPos(step.to - 1),
+                markType: step.mark.type.name,
+            })
         } else if (step instanceof RemoveMarkStep) {
-            console.error("formatting not implemented currently")
+            operations.push({
+                path: ["content"],
+                action: "removeMark",
+                start: contentPosFromProsemirrorPos(step.from),
+                end: contentPosFromProsemirrorPos(step.to - 1),
+                markType: step.mark.type.name,
+            })
         }
     }
 

@@ -5,7 +5,7 @@
 import Micromerge from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node } from "prosemirror-model"
+import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { schemaSpec } from "./schema"
@@ -14,7 +14,7 @@ import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
-import type { FormatSpanWithText } from "./micromerge"
+import type { FormatSpanWithText, Cursor } from "./micromerge"
 
 const schema = new Schema(schemaSpec)
 
@@ -24,18 +24,31 @@ const richTextKeymap = {
     "Mod-i": toggleMark(schema.marks.em),
 }
 
+type SelectionPos = Cursor | "_head"
+type Selection = {
+    anchor: SelectionPos
+    head: SelectionPos
+} | null
+
 export type Editor = {
     doc: Micromerge
     view: EditorView
     queue: ChangeQueue
+
+    // Todo: eventually we don't want to manage selection as cursors;
+    // incrementally updating the prosemirror doc should mean that
+    // prosemirror can handle selection updates itself.
+    // In the meantime, we store selections here as cursors pointing to characters;
+    // the rule is that the selection is _after_ the given character.
+    // If the selection is at the very beginning of the doc, we represent that with a
+    // special value of "_head", inspired by Automerge's similar approach for list insertion.
+    selection: Selection
 }
 
 function createNewProsemirrorState(
-    view: EditorView,
+    state: EditorState,
     spans: FormatSpanWithText[],
 ) {
-    let state = view.state
-
     // Derive a new PM doc from the new CRDT doc
     const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
 
@@ -51,6 +64,46 @@ function createNewProsemirrorState(
     return state
 }
 
+// Resolve a SelectionPosition using cursors into a Prosemirror position
+function prosemirrorPosFromSelectionPos(
+    selectionPos: SelectionPos,
+    state: EditorState,
+    doc: Micromerge,
+): ResolvedPos {
+    let position
+    if (selectionPos === "_head") {
+        position = 0
+    } else {
+        // Need to add 1 to represent position after the character pointed to by cursor
+        position = doc.resolveCursor(selectionPos) + 1
+    }
+
+    // We add 1 here because we have a position in our content string,
+    // but prosemirror wants us to give it a position in the overall doc;
+    // adding 1 accounts for our paragraph node.
+    // When we have more nodes we may need to revisit this.
+    return state.doc.resolve(position + 1)
+}
+
+// Returns an updated Prosemirror editor state where
+// the selection has been updated to match the given Selection
+// that we manage using Micromerge Cursors.
+function updateProsemirrorSelection(
+    state: EditorState,
+    selection: Selection,
+    doc: Micromerge,
+): EditorState {
+    if (selection === null) return state
+
+    const newSelection = new TextSelection(
+        prosemirrorPosFromSelectionPos(selection.anchor, state, doc),
+        prosemirrorPosFromSelectionPos(selection.head, state, doc),
+    )
+
+    // Apply a transaction that sets the new selection
+    return state.apply(state.tr.setSelection(newSelection))
+}
+
 export function createEditor(args: {
     actorId: string
     editorNode: Element
@@ -64,6 +117,7 @@ export function createEditor(args: {
         },
     })
     const doc = crdt.create({ actorId })
+    let selection: Selection = null
 
     const initialChange = doc.change([
         { path: [], action: "makeList", key: "content" },
@@ -80,10 +134,11 @@ export function createEditor(args: {
         for (const change of incomingChanges) {
             doc.applyChange(change)
         }
-        const state = createNewProsemirrorState(
-            view,
+        let state = createNewProsemirrorState(
+            view.state,
             doc.getTextWithFormatting(["content"]),
         )
+        state = updateProsemirrorSelection(state, selection, doc)
         view.updateState(state)
     })
 
@@ -119,27 +174,31 @@ export function createEditor(args: {
             // (If it doesn't have steps, that means it's purely a selection update.)
             if (txn.steps.length > 0) {
                 state = createNewProsemirrorState(
-                    view,
+                    state,
                     doc.getTextWithFormatting(["content"]),
                 )
             }
 
             console.log("new state", state)
+            console.log(txn.selection)
 
-            // Now that we have a new doc, we can compute the new selection.
-            // We simply copy over the positions from the selection on the original txn,
-            // but resolve them into the new doc.
-            // (It doesn't work to just use the selection directly off the txn,
-            // because that has pointers into the old stale doc state)
-            const newSelection = new TextSelection(
-                state.doc.resolve(txn.selection.anchor),
-                state.doc.resolve(txn.selection.head),
-            )
+            // Convert the new selection into cursors
+            const anchorPos = txn.selection.$anchor.parentOffset
+            const headPos = txn.selection.$head.parentOffset
 
-            console.log("new selection", newSelection)
+            // Update the editor we manage to store the selection in terms of cursors
+            selection = {
+                anchor:
+                    anchorPos === 0
+                        ? ("_head" as const)
+                        : doc.getCursor(["content"], anchorPos - 1),
+                head:
+                    headPos === 0
+                        ? ("_head" as const)
+                        : doc.getCursor(["content"], headPos - 1),
+            }
 
-            // Apply a transaction that sets the new selection
-            state = state.apply(state.tr.setSelection(newSelection))
+            state = updateProsemirrorSelection(state, selection, doc)
 
             view.updateState(state)
 
@@ -153,7 +212,7 @@ export function createEditor(args: {
         },
     })
 
-    return { doc, view, queue }
+    return { doc, view, queue, selection }
 }
 
 /**

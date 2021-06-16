@@ -14,7 +14,9 @@ export class ChangeQueue {
     private handleFlush: (changes: Array<crdt.Change>) => void
 
     constructor({
-        interval = 5000,
+        // Can tune this sync interval to simulate network latency,
+        // make it easier to observe sync behavior, etc.
+        interval = 10,
         handleFlush,
     }: {
         interval?: number

@@ -9,6 +9,8 @@ import { applyOp as applyFormatOp, normalize } from "./format"
 
 export type FormatSpanWithText = FormatSpan & { text: string }
 
+export type Cursor = { objectId: string; elemId: string }
+
 /**
  * Miniature implementation of a subset of Automerge.
  */
@@ -401,7 +403,7 @@ export default class Micromerge {
         throw new RangeError(`List index out of bounds: ${index}`)
     }
 
-    getCursor(path: string[], index: number) {
+    getCursor(path: string[], index: number): Cursor {
         const objectId = this.getObjectIdForPath(path)
 
         return {
@@ -410,7 +412,7 @@ export default class Micromerge {
         }
     }
 
-    resolveCursor(cursor: { objectId: string; elemId: string }) {
+    resolveCursor(cursor: Cursor) {
         return this.findListElement(cursor.objectId, cursor.elemId).visible
     }
 }

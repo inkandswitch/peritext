@@ -1,7 +1,31 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
 
-describe.only("Micromerge", () => {
+describe("Micromerge", () => {
+    it.only("can insert and delete text", () => {
+        const doc1 = new Micromerge("1234")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: ["a", "b", "c", "d", "e"],
+            },
+        ])
+
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 0,
+                count: 3,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.root.text.join(""), "de")
+    })
+
     it("records local changes in the deps clock", () => {
         const doc1 = new Micromerge("1234")
         const doc2 = new Micromerge("abcd")

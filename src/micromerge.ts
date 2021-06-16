@@ -74,10 +74,28 @@ export default class Micromerge {
                     }
                 } else if (action === "delete") {
                     for (let i = 0; i < inputOp.count; i++) {
-                        const elemId = this.getListElementId(
-                            obj,
-                            inputOp.index + i,
-                        )
+                        // It might seem like we should increment the index we delete at
+                        // as we delete characters. However, because we delete a character
+                        // at each iteration, the start index for the "delete" input operation
+                        // always points to the next character to delete, without incrementing.
+                        //
+                        // For example, see what happens when we delete first 3 chars from index 0:
+                        // { action: "delete", index: 0, count: 3 }
+                        //
+                        // 0123456
+                        //
+                        // del 0
+                        // v
+                        // x123456
+                        //
+                        //  del 0 (= "delete first visible elem")
+                        //  v
+                        // xx23456
+                        //
+                        //   del 0 (= "delete first visible elem")
+                        //   v
+                        // xxx3456
+                        const elemId = this.getListElementId(obj, inputOp.index)
                         this.makeNewOp(change, {
                             action: "del",
                             obj,

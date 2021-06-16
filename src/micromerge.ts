@@ -22,6 +22,9 @@ type GenericMarkType = string
 
 type OperationPath = [] | ["text"] // TODO: Change this to string[]
 
+const CHILDREN = Symbol("children")
+const ROOT = Symbol("root")
+
 /**
  * A vector clock data structure.
  * Maps an actor ID to the latest sequence number from that actor.
@@ -142,8 +145,6 @@ type Operation<M extends GenericMarkType> =
 
 type InputOperation<M extends GenericMarkType> = Operation<M>
 
-const CHILDREN = Symbol("children")
-
 /**
  * Tracks the operation ID that set each field.
  */
@@ -179,10 +180,7 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 /**
  * Miniature implementation of a subset of Automerge.
  */
-export default class Micromerge<
-    Root extends Record<string, Json>,
-    M extends GenericMarkType,
-> {
+export default class Micromerge<M extends GenericMarkType> {
     /** ID of the actor using the document. */
     private actorId: string
     /** Current sequence number. */
@@ -192,8 +190,10 @@ export default class Micromerge<
     /** Map from actorId to last sequence number seen from that actor. */
     private clock: Record<string, number> = {}
     /** Objects, keyed by the ID of the operation that created the object. */
-    private objects: { [operationId: string]: unknown } & { _root: Root } = {
-        _root: {},
+    private objects: { [operationId: string]: unknown } & {
+        [ROOT]: Record<string, Json>
+    } = {
+        [ROOT]: {},
     }
     /** Map from object ID to CRDT metadata for each object field. */
     private metadata: Record<ObjectId, Metadata> = {
@@ -209,8 +209,8 @@ export default class Micromerge<
     /**
      * Returns the document root object.
      */
-    get root(): Root {
-        return this.objects._root
+    get root(): Json {
+        return this.objects[ROOT]
     }
 
     /**

@@ -372,8 +372,11 @@ export default class Micromerge {
         let index = 0,
             visible = 0,
             meta = this.metadata[objectId]
+
         while (index < meta.length && meta[index].elemId !== elemId) {
-            if (!meta[index].deleted) visible++
+            if (!meta[index].deleted) {
+                visible++
+            }
             index++
         }
         if (index === meta.length)
@@ -396,5 +399,18 @@ export default class Micromerge {
             }
         }
         throw new RangeError(`List index out of bounds: ${index}`)
+    }
+
+    getCursor(path: string[], index: number) {
+        const objectId = this.getObjectIdForPath(path)
+
+        return {
+            objectId,
+            elemId: this.getListElementId(objectId, index),
+        }
+    }
+
+    resolveCursor(cursor: { objectId: string; elemId: string }) {
+        return this.findListElement(cursor.objectId, cursor.elemId).visible
     }
 }

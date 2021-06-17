@@ -25,7 +25,6 @@ export class ChangeQueue {
     }) {
         this.interval = interval
         this.handleFlush = handleFlush
-        this.timer = window.setInterval(this.flush, interval)
     }
 
     public enqueue(...changes: Array<crdt.Change>): void {
@@ -42,6 +41,10 @@ export class ChangeQueue {
         }
         this.handleFlush(this.changes)
         this.changes = []
+    }
+
+    public start(): void {
+        this.timer = window.setInterval(this.flush, this.interval)
     }
 
     public drop(): void {

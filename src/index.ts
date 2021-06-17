@@ -31,3 +31,24 @@ if (bobNode) {
 } else {
     throw new Error(`Didn't find expected editor node in the DOM: #alice`)
 }
+
+let connected = true
+document.querySelector("#toggle-connect")?.addEventListener("click", e => {
+    if (connected) {
+        for (const editor of Object.values(editors)) {
+            editor.queue.drop()
+        }
+        if (e.target instanceof HTMLElement) {
+            e.target.innerText = "🟢 Connect"
+        }
+        connected = false
+    } else {
+        for (const editor of Object.values(editors)) {
+            editor.queue.start()
+        }
+        if (e.target instanceof HTMLElement) {
+            e.target.innerText = "❌ Disconnect"
+        }
+        connected = true
+    }
+})

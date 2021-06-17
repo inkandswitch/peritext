@@ -11,3 +11,7 @@
 .editor:first-child {
     margin-right: 10px;
 }
+
+#toggle-connect {
+    margin-bottom: 20px;
+}

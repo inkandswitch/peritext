@@ -116,6 +116,7 @@ export function createEditor(args: {
             publisher.publish(actorId, changes)
         },
     })
+    queue.start()
     const doc = crdt.create({ actorId })
     let selection: Selection = null
 

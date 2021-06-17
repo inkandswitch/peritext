@@ -24,6 +24,7 @@ const richTextKeymap = {
     "Mod-i": toggleMark(schema.marks.em),
 }
 
+// Represents a selection position: either after a character, or at the beginning
 type SelectionPos = Cursor | "_head"
 type Selection = {
     anchor: SelectionPos
@@ -231,7 +232,9 @@ export function createEditor(args: {
                 anchor:
                     anchorPos === 0
                         ? ("_head" as const)
-                        : doc.getCursor(["content"], anchorPos - 1),
+                        : // We subtract 1 here because a PM position is before a character,
+                          // but our SelectionPos are after a character
+                          doc.getCursor(["content"], anchorPos - 1),
                 head:
                     headPos === 0
                         ? ("_head" as const)

@@ -4,18 +4,19 @@ type Path = string[]
 type ObjectID = string
 
 import { compareOpIds } from "./operations"
-import { applyOp as applyFormatOp, normalize } from "./format"
+import { applyOp as applyFormatOp, MarkMap, normalize } from "./format"
 import type { FormatSpan } from "./format"
 
 export type FormatSpanWithText = FormatSpan & { text: string }
-
 export type Cursor = { objectId: string; elemId: string }
+
+type InternalFormatSpan = { marks: MarkMap; elemId: string }
 
 /**
  * Miniature implementation of a subset of Automerge.
  */
 export default class Micromerge {
-    formatSpans: Record<ObjectID, FormatSpan[]>
+    formatSpans: Record<ObjectID, InternalFormatSpan[]>
 
     constructor(actorId) {
         this.actorId = actorId
@@ -156,7 +157,14 @@ export default class Micromerge {
     getTextWithFormatting(path: Path): Array<FormatSpanWithText> {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
-        const formatSpans = normalize(this.formatSpans[objectId], text.length)
+        const internalFormatSpans = this.formatSpans[objectId]
+        const formatSpans = internalFormatSpans.map(span => ({
+            marks: span.marks,
+            start:
+                span.elemId === "_head"
+                    ? 0
+                    : this.findListElement(objectId, span.elemId).visible,
+        }))
 
         return formatSpans.map((span, index) => {
             const start = span.start
@@ -235,7 +243,7 @@ export default class Micromerge {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []
             // By default, a list has one "unformatted" span covering the whole list.
-            this.formatSpans[op.opId] = [{ marks: {}, start: 0 }]
+            this.formatSpans[op.opId] = [{ marks: {}, elemId: "_head" }]
         }
 
         if (Array.isArray(this.metadata[op.obj])) {
@@ -246,19 +254,36 @@ export default class Micromerge {
             } else if (["addMark", "removeMark"].includes(op.action)) {
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
-                this.formatSpans[op.obj] = applyFormatOp(
-                    this.formatSpans[op.obj],
 
-                    // convert our micromerge op into an op in our formatting system
-                    // todo: align these two types so we don't need a translation here
-                    {
+                // First we convert from cursor-space to number-space
+                const internalFormatSpans = this.formatSpans[op.obj]
+                const formatSpans = internalFormatSpans.map(span => ({
+                    marks: span.marks,
+                    start:
+                        span.elemId === "_head"
+                            ? 0
+                            : this.findListElement(op.obj, span.elemId).visible,
+                }))
+
+                // Then we apply the format op in number-space...
+                const newFormatSpans = normalize(
+                    applyFormatOp(formatSpans, {
                         type: op.action,
                         markType: op.markType,
-                        start: this.findListElement(op.obj, op.start).index,
-                        end: this.findListElement(op.obj, op.end).index,
+                        start: this.findListElement(op.obj, op.start).visible,
+                        end: this.findListElement(op.obj, op.end).visible,
                         id: op.opId,
-                    },
+                    }),
+                    this.objects[op.obj].length,
                 )
+
+                // Finally we convert back to cursor-space for storage.
+                const newInternalFormatSpans = newFormatSpans.map(span => ({
+                    marks: span.marks,
+                    elemId: this.getListElementId(op.obj, span.start),
+                }))
+
+                this.formatSpans[op.obj] = newInternalFormatSpans
             } else {
                 throw new Error(`unknown action: ${op.action}`)
             }

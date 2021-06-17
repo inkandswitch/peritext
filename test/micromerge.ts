@@ -255,6 +255,181 @@ describe.only("Micromerge", () => {
         )
     })
 
+    it("updates format span indexes when chars are inserted before", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text at the beginning,
+        // the formatting should stay attached to the same characters
+
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: "Hello to ".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "Hello to The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("doesn't update format span indexes when chars are inserted after", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text after the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 19,
+                values: " is great".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor is great" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted before", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text before the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 0,
+                count: 4,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted after", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text before the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 12,
+                count: 7,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+        ])
+    })
+
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
             const doc1 = new Micromerge("1234")

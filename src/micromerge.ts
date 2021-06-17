@@ -3,9 +3,9 @@
 type Path = string[]
 type ObjectID = string
 
-import type { ResolvedOp, FormatSpan } from "./operations"
 import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
+import type { FormatSpan } from "./format"
 
 export type FormatSpanWithText = FormatSpan & { text: string }
 
@@ -15,6 +15,8 @@ export type Cursor = { objectId: string; elemId: string }
  * Miniature implementation of a subset of Automerge.
  */
 export default class Micromerge {
+    formatSpans: Record<ObjectID, FormatSpan[]>
+
     constructor(actorId) {
         this.actorId = actorId
         this.seq = 0
@@ -314,6 +316,12 @@ export default class Micromerge {
             deleted: false,
         })
         this.objects[op.obj].splice(visible, 0, value)
+
+        // Update our format span indexes to reflect the new character.
+        // Every span after the character moves to the right by 1.
+        for (const span of this.formatSpans[op.obj]) {
+            if (span.start > visible) span.start += 1
+        }
     }
 
     /**
@@ -325,6 +333,9 @@ export default class Micromerge {
         if (op.action === "del") {
             if (!meta.deleted) this.objects[op.obj].splice(visible, 1)
             meta.deleted = true
+            for (const span of this.formatSpans[op.obj]) {
+                if (span.start > visible) span.start -= 1
+            }
         } else if (compareOpIds(meta.valueId, op.opId) < 0) {
             if (!meta.deleted) {
                 this.objects[op.obj][visible] = op.action.startsWith("make")

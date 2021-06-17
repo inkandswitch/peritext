@@ -186,6 +186,7 @@ function applyFormatting(
 
 /** Return an updated list of format spans where:
  *
+ *  - zero-width spans have been removed
  *  - adjacent spans with the same marks have been combined into a single span
  *  (preferring the leftmost one)
  *  - any spans that are past the end of the document have been removed
@@ -195,23 +196,23 @@ export function normalize(
     docLength: number,
 ): FormatSpan[] {
     return spans.filter((span, index) => {
-        // The first span is always ok to include
-        if (index === 0) {
-            return true
+        // Remove zero-width spans.
+        // If we have two spans starting at the same position,
+        // we choose the last one as authoritative.
+        // This makes sense because the first span to the left
+        // has effectively been collapsed to zero width;
+        // whereas the second span on the right may be more than zero width.
+        if (index < spans.length - 1 && span.start === spans[index + 1].start) {
+            return false
         }
 
-        if (span.start === spans[index - 1].start) {
-            // If we have two spans starting at the same position,
-            // it's dangerous to pick one of them arbitrarily;
-            // instead, we must avoid such cases upstream.
-            throw new Error("Cannot have two spans starting at same position.")
-        }
-
+        // Remove spans past the end of the document
         if (span.start > docLength - 1) {
             return false
         }
 
-        return !marksEqual(spans[index - 1].marks, span.marks)
+        // Remove spans that have the same content as their neighbor to the left
+        return index === 0 || !marksEqual(spans[index - 1].marks, span.marks)
     })
 }
 

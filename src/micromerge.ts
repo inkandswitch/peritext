@@ -281,36 +281,6 @@ export default class Micromerge {
     }
 
     /**
-     * Recomputes rich text after either the character array or the formatting ops have changed
-     */
-    recomputeFormatting(objectId) {
-        // Extremely simplistic implementation -- please replace me with something real!
-        // Make an array with the same length as the array of characters, with each element containing
-        // the formatting for that character.
-        const formatting = this.formatSpans[objectId]
-        formatting.chars = new Array(this.objects[objectId].length)
-        formatting.chars.fill("")
-
-        // Apply the ops in ascending order by opId
-        for (let op of formatting.ops) {
-            if (op.action === "addMark" && op.markType && op.start && op.end) {
-                // Cursors for start and end of the span being formatted
-                // TODO: check this does what we want when characters are deleted
-                const startIndex = this.findListElement(
-                    op.obj,
-                    op.start,
-                ).visible
-                const endIndex = this.findListElement(op.obj, op.end).visible
-
-                for (let i = startIndex; i <= endIndex; i++) {
-                    if (formatting.chars[i] !== "") formatting.chars[i] += ","
-                    formatting.chars[i] += op.type
-                }
-            }
-        }
-    }
-
-    /**
      * Applies a list insertion operation.
      */
     applyListInsert(op) {

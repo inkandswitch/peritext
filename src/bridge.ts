@@ -233,7 +233,12 @@ export function prosemirrorDocFromCRDT(args: {
     spans: FormatSpanWithText[]
 }): Node {
     const { schema, spans } = args
-    console.log("spans", spans)
+
+    // Prosemirror doesn't allow for empty text nodes;
+    // if our doc is empty, we short-circuit and don't add any text nodes.
+    if (spans.length === 1 && spans[0].text === "") {
+        return schema.node("doc", undefined, [schema.node("paragraph", [])])
+    }
 
     const result = schema.node("doc", undefined, [
         schema.node(

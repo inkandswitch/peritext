@@ -533,16 +533,29 @@ export default class Micromerge<M extends GenericMarkType> {
      * object `{index, visible}` where `index` is the index of the element in the metadata array, and
      * `visible` is the number of non-deleted elements that precede the specified element.
      */
-    findListElement(objectId, elemId) {
-        let index = 0,
-            visible = 0,
-            meta = this.metadata[objectId]
+    findListElement(
+        objectId: ObjectId,
+        elemId: OperationId,
+    ): {
+        index: number
+        visible: number
+    } {
+        let index = 0
+        let visible = 0
+        const meta = this.metadata[objectId]
+        if (!meta) {
+            throw new Error(`Object ID not found: ${String(objectId)}`)
+        }
+        if (!Array.isArray(meta)) {
+            throw new Error("Expected array metadata for findListElement")
+        }
         while (index < meta.length && meta[index].elemId !== elemId) {
             if (!meta[index].deleted) visible++
             index++
         }
-        if (index === meta.length)
+        if (index === meta.length) {
             throw new RangeError(`List element not found: ${elemId}`)
+        }
         return { index, visible }
     }
 
@@ -550,14 +563,21 @@ export default class Micromerge<M extends GenericMarkType> {
      * Scans the list object with ID `objectId` and returns the element ID of the `index`-th
      * non-deleted element. This is essentially the inverse of `findListElement()`.
      */
-    getListElementId(objectId, index) {
-        let i = 0,
-            visible = -1,
-            meta = this.metadata[objectId]
-        for (let i = 0; i < meta.length; i++) {
-            if (!meta[i].deleted) {
+    getListElementId(objectId: ObjectId, index: number): OperationId {
+        let visible = -1
+        const meta = this.metadata[objectId]
+        if (!meta) {
+            throw new Error(`Object ID not found: ${String(objectId)}`)
+        }
+        if (!Array.isArray(meta)) {
+            throw new Error("Expected array metadata for findListElement")
+        }
+        for (const element of meta) {
+            if (!element.deleted) {
                 visible++
-                if (visible === index) return meta[i].elemId
+                if (visible === index) {
+                    return element.elemId
+                }
             }
         }
         throw new RangeError(`List index out of bounds: ${index}`)

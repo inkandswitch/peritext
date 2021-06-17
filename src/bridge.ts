@@ -104,13 +104,30 @@ function updateProsemirrorSelection(
     return state.apply(state.tr.setSelection(newSelection))
 }
 
+// Returns a natural language description of an op in our CRDT.
+// Just for demo / debug purposes, doesn't cover all cases
+function describeOp(op: crdt.Operation): string {
+    if (op.action === "set" && op.insert) {
+        return `insert <strong>${op.value}</strong> after <strong>${op.elemId}</strong>`
+    } else if (op.action === "del" && op.elemId) {
+        return `delete <strong>${op.elemId}</strong>`
+    } else if (op.action === "addMark") {
+        return `add mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+    } else if (op.action === "removeMark") {
+        return `remove mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+    } else {
+        return op.action
+    }
+}
+
 export function createEditor(args: {
     actorId: string
     editorNode: Element
+    changesNode: Element
     initialValue: string
     publisher: Publisher<Array<crdt.Change>>
 }): Editor {
-    const { actorId, editorNode, initialValue, publisher } = args
+    const { actorId, editorNode, changesNode, initialValue, publisher } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<crdt.Change>) => {
             publisher.publish(actorId, changes)
@@ -131,8 +148,26 @@ export function createEditor(args: {
     ])
     queue.enqueue(initialChange)
 
+    const outputDebugForChange = (change: crdt.Change) => {
+        const opsHtml = change.ops
+            .map(
+                (op: crdt.Operation) =>
+                    `<div class="change-description">${describeOp(op)}</div>`,
+            )
+            .join("")
+
+        changesNode.insertAdjacentHTML(
+            "beforeend",
+            `<div class="change from-${change.actor}">
+                <div class="ops">${opsHtml}</div>
+            </div>`,
+        )
+        changesNode.scrollTop = changesNode.scrollHeight
+    }
+
     publisher.subscribe(actorId, incomingChanges => {
         for (const change of incomingChanges) {
+            outputDebugForChange(change)
             doc.applyChange(change)
         }
         let state = createNewProsemirrorState(
@@ -167,7 +202,11 @@ export function createEditor(args: {
             console.groupCollapsed("dispatch", txn.steps[0])
 
             // Compute a new automerge doc and selection point
-            applyTransaction({ doc, txn, queue })
+            const change = applyTransaction({ doc, txn })
+            if (change) {
+                queue.enqueue(change)
+                outputDebugForChange(change)
+            }
 
             let state = view.state
 
@@ -269,9 +308,8 @@ export function prosemirrorDocFromCRDT(args: {
 export function applyTransaction(args: {
     doc: Micromerge
     txn: Transaction<DocSchema>
-    queue: ChangeQueue
-}): void {
-    const { doc, txn, queue } = args
+}): crdt.Change | null {
+    const { doc, txn } = args
     const operations: Array<crdt.Operation> = []
 
     for (const step of txn.steps) {
@@ -329,7 +367,8 @@ export function applyTransaction(args: {
     }
 
     if (operations.length > 0) {
-        const change = doc.change(operations)
-        queue.enqueue(change)
+        return doc.change(operations)
+    } else {
+        return null
     }
 }

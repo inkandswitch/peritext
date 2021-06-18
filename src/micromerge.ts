@@ -455,16 +455,21 @@ export default class Micromerge<M extends GenericMarkType> {
     /**
      * Recomputes rich text after either the character array or the formatting ops have changed
      */
-    recomputeFormatting(objectId) {
+    private recomputeFormatting(
+        objectId: Exclude<ObjectId, typeof ROOT>,
+    ): void {
         // Extremely simplistic implementation -- please replace me with something real!
         // Make an array with the same length as the array of characters, with each element containing
         // the formatting for that character.
         const formatting = this.formatSpans[objectId]
-        formatting.chars = new Array(this.objects[objectId].length)
-        formatting.chars.fill("")
+        const obj = this.objects[objectId]
+        if (!Array.isArray(obj)) {
+            throw new Error(`Not a list: ${String(objectId)}`)
+        }
+        formatting.chars = Array.from({ length: obj.length }, () => "")
 
         // Apply the ops in ascending order by opId
-        for (let op of formatting.ops) {
+        for (const op of formatting.ops) {
             if (op.action === "addMark" && op.markType && op.start && op.end) {
                 // Cursors for start and end of the span being formatted
                 // TODO: check this does what we want when characters are deleted
@@ -476,7 +481,7 @@ export default class Micromerge<M extends GenericMarkType> {
 
                 for (let i = startIndex; i <= endIndex; i++) {
                     if (formatting.chars[i] !== "") formatting.chars[i] += ","
-                    formatting.chars[i] += op.type
+                    formatting.chars[i] += op.markType
                 }
             }
         }

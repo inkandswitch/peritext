@@ -246,13 +246,21 @@ type Operation<M extends GenericMarkType> =
  * Tracks the operation ID that set each field.
  */
 type MapMetadata<M extends { [key: string]: Json }> = {
-    [K in keyof M]: M[K] extends JsonPrimitive
-        ? OperationId // Responsible for setting this field.
-        : never
+    // TODO: Metadata contains operation IDs for primitive fields only.
+    // All composite fields are in the CHILDREN sub-object.
+    // Really the type annotation we want is this:
+    // M[K] extends JsonPrimitive
+    //     ? OperationId
+    //     : undefined
+    // But we can't use it because we never actually know M,
+    // so TypeScript resolves indexed lookups to `never`.
+    [K in keyof M]?: OperationId /** Responsible for setting this field. */
 } & {
     // Maps all of the composite object fields to their object IDs.
     [CHILDREN]: {
-        [K in keyof M]: M[K] extends JsonComposite ? ObjectId : never
+        // TODO: Children map contains operation IDs for composite fields only.
+        //    M[K] extends JsonComposite ? ObjectId : never
+        [K in keyof M]?: ObjectId
     }
 }
 
@@ -287,7 +295,7 @@ export default class Micromerge<M extends MarkType> {
     /** Map from actorId to last sequence number seen from that actor. */
     private clock: Record<string, number> = {}
     /** Objects, keyed by the ID of the operation that created the object. */
-    private objects: Record<ObjectId, Json> &
+    private objects: Record<ObjectId, JsonComposite> &
         Record<typeof ROOT, { [key: string]: Json }> = {
         [ROOT]: {},
     }
@@ -449,7 +457,13 @@ export default class Micromerge<M extends MarkType> {
                     )} is a list`,
                 )
             }
-            objectId = meta[CHILDREN][pathElem]
+            const childId: ObjectId | undefined = meta[CHILDREN][pathElem]
+            if (childId === undefined) {
+                throw new Error(
+                    `Child not found: ${pathElem} in ${String(objectId)}`,
+                )
+            }
+            objectId = childId
         }
         return objectId
     }
@@ -543,7 +557,7 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Updates the document state with one of the operations from a change.
      */
-    applyOp(op: Operation<M>): void {
+    private applyOp(op: Operation<M>): void {
         const metadata = this.metadata[op.obj]
 
         if (!metadata) {
@@ -607,16 +621,30 @@ export default class Micromerge<M extends MarkType> {
             }
             // Updating a key in a map. Use last-writer-wins semantics: the operation takes effect if its
             // opId is greater than the last operation for that key; otherwise we ignore it.
-            const meta = metadata[op.key]
-            if (!meta || compareOpIds(metadata[op.key], op.opId) === -1) {
+            const obj = this.objects[op.obj]
+            if (Array.isArray(obj)) {
+                throw new Error(
+                    `Metadata is map but object is array: ${String(op.obj)}`,
+                )
+            }
+            const keyMeta = metadata[op.key]
+            if (
+                keyMeta === undefined ||
+                compareOpIds(keyMeta, op.opId) === -1
+            ) {
                 metadata[op.key] = op.opId
                 if (op.action === "del") {
-                    delete this.objects[op.obj][op.key]
-                } else if (op.action.startsWith("make")) {
-                    this.objects[op.obj][op.key] = this.objects[op.opId]
+                    delete obj[op.key]
+                } else if (
+                    op.action === "makeList" ||
+                    op.action === "makeMap"
+                ) {
+                    obj[op.key] = this.objects[op.opId]
                     metadata[CHILDREN][op.key] = op.opId
+                } else if (op.action === "set") {
+                    obj[op.key] = op.value
                 } else {
-                    this.objects[op.obj][op.key] = op.value
+                    unreachable(op)
                 }
             }
         }

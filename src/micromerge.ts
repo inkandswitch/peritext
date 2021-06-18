@@ -485,18 +485,21 @@ export default class Micromerge<M extends GenericMarkType> {
     /**
      * Applies a list insertion operation.
      */
-    applyListInsert(op) {
+    // TODO: Extend this to take MakeMapOperation and MakeListOperation.
+    private applyListInsert(op: InsertOperation): void {
         const meta = this.metadata[op.obj]
-        const value = op.action.startsWith("make")
-            ? this.objects[op.opId]
-            : op.value
+        if (!Array.isArray(meta)) {
+            throw new Error(`Not a list: ${String(op.obj)}`)
+        }
 
         // op.elemId is the ID of the reference element; we want to insert after this element
         let { index, visible } =
-            op.elemId === "_head"
+            op.elemId === HEAD
                 ? { index: -1, visible: 0 }
                 : this.findListElement(op.obj, op.elemId)
-        if (index >= 0 && !meta[index].deleted) visible++
+        if (index >= 0 && !meta[index].deleted) {
+            visible++
+        }
         index++
 
         // Skip over any elements whose elemId is greater than op.opId
@@ -505,7 +508,9 @@ export default class Micromerge<M extends GenericMarkType> {
             index < meta.length &&
             compareOpIds(op.opId, meta[index].elemId) < 0
         ) {
-            if (!meta[index].deleted) visible++
+            if (!meta[index].deleted) {
+                visible++
+            }
             index++
         }
 
@@ -515,25 +520,56 @@ export default class Micromerge<M extends GenericMarkType> {
             valueId: op.opId,
             deleted: false,
         })
-        this.objects[op.obj].splice(visible, 0, value)
+        const obj = this.objects[op.obj]
+        if (!Array.isArray(obj)) {
+            throw new Error(`Not a list: ${String(op.obj)}`)
+        }
+        const value =
+            // op.action === "makeList" || op.action === "makeMap"
+            //     ? this.objects[op.opId] :
+            op.value
+        obj.splice(visible, 0, value)
     }
 
     /**
      * Applies a list element update (setting the value of a list element, or deleting a list element).
      */
-    applyListUpdate(op) {
+    private applyListUpdate(op: DeleteOperation): void {
         const { index, visible } = this.findListElement(op.obj, op.elemId)
-        const meta = this.metadata[op.obj][index]
+        const listMeta = this.metadata[op.obj]
+        if (listMeta === undefined) {
+            throw new Error(`Object not found: ${String(op.obj)}`)
+        }
+        if (!Array.isArray(listMeta)) {
+            throw new Error(`Not a list: ${String(op.obj)}`)
+        }
+        const meta = listMeta[index]
+        // TODO: Do we need to compare op ids here for deletion?
         if (op.action === "del") {
-            if (!meta.deleted) this.objects[op.obj].splice(visible, 1)
-            meta.deleted = true
-        } else if (compareOpIds(meta.valueId, op.opId) < 0) {
             if (!meta.deleted) {
-                this.objects[op.obj][visible] = op.action.startsWith("make")
-                    ? this.objects[op.opId]
-                    : op.value
+                const obj = this.objects[op.obj]
+                if (!Array.isArray(obj)) {
+                    throw new Error(`Not a list: ${String(op.obj)}`)
+                }
+                obj.splice(visible, 1)
+                meta.deleted = true
             }
-            meta.valueId = op.opId
+        } else if (compareOpIds(meta.valueId, op.opId) < 0) {
+            throw new Error("Not implemented yet")
+            // // Currently this can never happen, but applies when there is an update
+            // // operation that isn't deletion.
+            // // TODO: Can we ever set an element in a list?
+            // if (!meta.deleted) {
+            //     const obj = this.objects[op.obj]
+            //     if (!Array.isArray(obj)) {
+            //         throw new Error(`Not a list: ${String(op.obj)}`)
+            //     }
+            //     obj[visible] =
+            //         op.action === "makeList" || op.action === "makeMap"
+            //             ? this.objects[op.opId]
+            //             : op.value
+            // }
+            // meta.valueId = op.opId
         }
     }
 
@@ -542,9 +578,9 @@ export default class Micromerge<M extends GenericMarkType> {
      * object `{index, visible}` where `index` is the index of the element in the metadata array, and
      * `visible` is the number of non-deleted elements that precede the specified element.
      */
-    findListElement(
+    private findListElement(
         objectId: ObjectId,
-        elemId: OperationId,
+        elemId: ElemId,
     ): {
         index: number
         visible: number
@@ -563,7 +599,7 @@ export default class Micromerge<M extends GenericMarkType> {
             index++
         }
         if (index === meta.length) {
-            throw new RangeError(`List element not found: ${elemId}`)
+            throw new RangeError(`List element not found: ${String(elemId)}`)
         }
         return { index, visible }
     }
@@ -572,7 +608,7 @@ export default class Micromerge<M extends GenericMarkType> {
      * Scans the list object with ID `objectId` and returns the element ID of the `index`-th
      * non-deleted element. This is essentially the inverse of `findListElement()`.
      */
-    getListElementId(objectId: ObjectId, index: number): OperationId {
+    private getListElementId(objectId: ObjectId, index: number): OperationId {
         let visible = -1
         const meta = this.metadata[objectId]
         if (!meta) {

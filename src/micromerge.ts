@@ -10,6 +10,8 @@ const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
 const HEAD = Symbol("_head")
 
+type CONTENT_KEY = "text"
+
 interface FormatSpanWithText {
     text: string
     marks: { [T in MarkType]?: true }
@@ -31,7 +33,7 @@ type Json = JsonPrimitive | JsonComposite
 
 type GenericMarkType = string
 
-type OperationPath = [] | ["text"] // TODO: Change this to string[]
+type OperationPath = [] | [CONTENT_KEY]
 
 /**
  * A vector clock data structure.
@@ -42,7 +44,7 @@ type Clock = Record<ActorId, number>
 /**
  * A batch of operations from a single actor, applied transactionally.
  */
-interface Change<M extends GenericMarkType> {
+export interface Change<M extends GenericMarkType> {
     /** ID of the actor responsible for the change. */
     actor: ActorId
     /** Actor's current change version. */
@@ -141,7 +143,7 @@ export interface RemoveMarkOperationInput<M extends GenericMarkType> {
     markType: M
 }
 
-type InputOperation<M extends GenericMarkType> =
+export type InputOperation<M extends GenericMarkType> =
     | MakeListOperationInput
     | MakeMapOperationInput
     | SetOperationInput
@@ -286,6 +288,9 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
  * Miniature implementation of a subset of Automerge.
  */
 export default class Micromerge<M extends MarkType> {
+    /** Key in the root object containing the text content. */
+    public static contentKey: CONTENT_KEY = "text"
+
     /** ID of the actor using the document. */
     private actorId: string
     /** Current sequence number. */

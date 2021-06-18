@@ -12,7 +12,8 @@ import { schemaSpec } from "./schema"
 import * as crdt from "./crdt"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
-import type { DocSchema } from "./schema"
+
+import type { DocSchema, MarkType } from "./schema"
 import type { Publisher } from "./pubsub"
 
 type RichTextDoc = {
@@ -29,7 +30,7 @@ const richTextKeymap = {
 }
 
 export type Editor = {
-    doc: Micromerge
+    doc: Micromerge<MarkType>
     view: EditorView
     queue: ChangeQueue
 }
@@ -81,9 +82,9 @@ export function createEditor(args: {
     const doc = crdt.create({ actorId })
 
     const initialChange = doc.change([
-        { path: [], action: "makeList", key: "content" },
+        { path: [], action: "makeList", key: Micromerge.contentKey },
         {
-            path: ["content"],
+            path: [Micromerge.contentKey],
             action: "insert",
             index: 0,
             values: initialValue.split(""),
@@ -167,7 +168,7 @@ export function prosemirrorDocFromCRDT(args: {
 // Note: need to derive a PM doc from the new CRDT doc later!
 // TODO: why don't we need to update the selection when we do insertions?
 export function applyTransaction(args: {
-    doc: Micromerge
+    doc: Micromerge<MarkType>
     txn: Transaction<DocSchema>
     queue: ChangeQueue
 }): void {
@@ -182,7 +183,7 @@ export function applyTransaction(args: {
                 // handle insertion
                 if (step.from !== step.to) {
                     operations.push({
-                        path: ["content"],
+                        path: [Micromerge.contentKey],
                         action: "delete",
                         index: contentPosFromProsemirrorPos(step.from),
                         count: step.to - step.from,
@@ -195,7 +196,7 @@ export function applyTransaction(args: {
                 )
 
                 operations.push({
-                    path: ["content"],
+                    path: [Micromerge.contentKey],
                     action: "insert",
                     index: contentPosFromProsemirrorPos(step.from),
                     values: insertedContent.split(""),
@@ -203,7 +204,7 @@ export function applyTransaction(args: {
             } else {
                 // handle deletion
                 operations.push({
-                    path: ["content"],
+                    path: [Micromerge.contentKey],
                     action: "delete",
                     index: contentPosFromProsemirrorPos(step.from),
                     count: step.to - step.from,

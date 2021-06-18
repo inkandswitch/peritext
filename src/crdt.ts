@@ -1,12 +1,13 @@
 /**
  * Logic for interfacing with our CRDT implementation.
  */
-import Micromerge from "./micromerge"
+import * as Micromerge from "./micromerge"
 import * as uuid from "uuid"
 
-export type Change = any
+import type { MarkType } from "./schema"
 
-export type Operation = any
+export type Change = Micromerge.Change<MarkType>
+export type Operation = Micromerge.InputOperation<MarkType>
 
 /**
  * Initialize a new Micromerge document.
@@ -15,6 +16,6 @@ export function create({
     actorId = uuid.v4(),
 }: {
     actorId: string
-}): Micromerge {
-    return new Micromerge(actorId)
+}): Micromerge.default<MarkType> {
+    return new Micromerge.default(actorId)
 }

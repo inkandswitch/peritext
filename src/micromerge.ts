@@ -1,5 +1,6 @@
 import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
+import { ALL_MARKS } from "./schema"
 
 import type { MarkType } from "./schema"
 import type { FormatSpan } from "./format"
@@ -9,7 +10,10 @@ const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
 const HEAD = Symbol("_head")
 
-type FormatSpanWithText = FormatSpan & { text: string }
+interface FormatSpanWithText {
+    text: string
+    marks: { [T in MarkType]?: true }
+}
 
 type ActorId = string
 export type OperationId = string
@@ -450,32 +454,41 @@ export default class Micromerge<M extends MarkType> {
         return objectId
     }
 
-    // /** Given a path to somewhere in the document, return a list of format spans w/ text.
-    //  *  Each span specifies the formatting marks as well as the text within the span.
-    //  *  (This function avoids the need for a caller to manually stitch together
-    //  *  format spans with a text string.)
-    //  */
-    // getTextWithFormatting(path: Path): Array<FormatSpanWithText> {
-    //     const objectId = this.getObjectIdForPath(path)
-    //     const text = this.objects[objectId]
-    //     const formatSpans = normalize(this.formatSpans[objectId], text.length)
+    /** Given a path to somewhere in the document, return a list of format spans w/ text.
+     *  Each span specifies the formatting marks as well as the text within the span.
+     *  (This function avoids the need for a caller to manually stitch together
+     *  format spans with a text string.)
+     */
+    public getTextWithFormatting(
+        path: OperationPath,
+    ): Array<FormatSpanWithText> {
+        const objectId = this.getObjectIdForPath(path)
+        const text = this.objects[objectId]
+        if (!text) {
+            throw new Error(`Object not found: ${String(objectId)}`)
+        }
+        if (!Array.isArray(text)) {
+            throw new Error(`Not a list: ${String(objectId)}`)
+        }
+        const formatSpans = normalize(this.formatSpans[objectId], text.length)
 
-    //     return formatSpans.map((span, index) => {
-    //         const start = span.start
-    //         const end =
-    //             index < formatSpans.length - 1
-    //                 ? formatSpans[index + 1].start
-    //                 : text.length
+        return formatSpans.map((span, index) => {
+            const start = span.start
+            const end =
+                index < formatSpans.length - 1
+                    ? formatSpans[index + 1].start
+                    : text.length
 
-    //         const marks = {}
-    //         for (const [key, value] of Object.entries(span.marks)) {
-    //             if (value.active) {
-    //                 marks[key] = true
-    //             }
-    //         }
-    //         return { marks, text: text.slice(start, end).join("") }
-    //     })
-    // }
+            const marks: { [T in MarkType]?: true } = {}
+            for (const markType of ALL_MARKS) {
+                const spanMark = span.marks[markType]
+                if (spanMark && spanMark.active) {
+                    marks[markType] = true
+                }
+            }
+            return { marks, start, text: text.slice(start, end).join("") }
+        })
+    }
 
     /**
      * Adds an operation to a new change being generated, and also applies it to the document.

@@ -297,14 +297,23 @@ export default class Micromerge<M extends GenericMarkType> {
     /**
      * Returns the ID of the object at a particular path in the document tree.
      */
-    getObjectIdForPath(path: Operation<M>["path"]): ObjectId {
-        let objectId = "_root"
+    getObjectIdForPath(path: InputOperation<M>["path"]): ObjectId {
+        let objectId: ObjectId = ROOT
         for (const pathElem of path) {
-            objectId = this.metadata[objectId].children[pathElem]
-            if (!objectId)
+            const meta: Metadata = this.metadata[objectId]
+            if (meta === undefined) {
                 throw new RangeError(
                     `No object at path ${JSON.stringify(path)}`,
                 )
+            }
+            if (Array.isArray(meta)) {
+                throw new RangeError(
+                    `Object ${pathElem} in path ${JSON.stringify(
+                        path,
+                    )} is a list`,
+                )
+            }
+            objectId = meta[CHILDREN][pathElem]
         }
         return objectId
     }

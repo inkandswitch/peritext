@@ -2,12 +2,13 @@ import { compact } from "lodash"
 import { ALL_MARKS } from "./schema"
 import { compareOpIds } from "./operations"
 
-import type { ResolvedOp, OpId } from "./operations"
+import type { ResolvedOp } from "./operations"
 import type { MarkType } from "./schema"
+import type { OperationId } from "./micromerge"
 
 type MarkValue = {
     active: boolean
-    opId: OpId
+    opId: OperationId
 }
 
 export type MarkMap = { [T in MarkType]?: MarkValue }
@@ -158,7 +159,7 @@ function applyFormatting(
     const newMarks = { ...marks }
     const mark = marks[op.markType]
 
-    switch (op.type) {
+    switch (op.action) {
         case "addMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
             if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {

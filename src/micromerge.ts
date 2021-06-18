@@ -1,15 +1,22 @@
 import { compareOpIds } from "./operations"
 import { applyOp as applyFormatOp, normalize } from "./format"
 
+import type { MarkType } from "./schema"
 import type { FormatSpan } from "./format"
+import type { ResolvedOp } from "./operations"
+
+const CHILDREN = Symbol("children")
+const ROOT = Symbol("_root")
+const HEAD = Symbol("_head")
 
 type FormatSpanWithText = FormatSpan & { text: string }
 
 type ActorId = string
-type OperationId = string
+export type OperationId = string
 
 /** The operation that created the object. */
-type ObjectId = OperationId | "_root"
+type ObjectId = OperationId | typeof ROOT
+type ElemId = OperationId | typeof HEAD
 type ChangeNumber = number
 type OpNumber = number
 
@@ -21,9 +28,6 @@ type Json = JsonPrimitive | JsonComposite
 type GenericMarkType = string
 
 type OperationPath = [] | ["text"] // TODO: Change this to string[]
-
-const CHILDREN = Symbol("children")
-const ROOT = Symbol("root")
 
 /**
  * A vector clock data structure.
@@ -44,10 +48,10 @@ interface Change<M extends GenericMarkType> {
     /** Number of the first operation in the change. */
     startOp: OpNumber
     /** Operations contained in the change, ordered temporally. */
-    ops: Operation<M>[]
+    ops: DistributiveOmit<Operation<M>, "opId">[]
 }
 
-interface InsertOperation {
+interface InsertOperationInput {
     action: "insert"
     /** Path to the array to modify. */
     path: OperationPath
@@ -57,7 +61,7 @@ interface InsertOperation {
     values: Char[]
 }
 
-interface DeleteOperation {
+interface DeleteOperationInput {
     action: "delete"
     /** Path to the array to modify. */
     path: OperationPath
@@ -71,7 +75,7 @@ interface DeleteOperation {
 // TODO: What about inserting arrays into arrays?
 // TODO: Is it illegal to insert at key "foo" in an array?
 // TODO: Can `key` be a number when inserting into an array?
-interface MakeListOperation {
+interface MakeListOperationInput {
     action: "makeList"
     /** Path to an object in which to insert a new field. */
     path: OperationPath
@@ -81,7 +85,7 @@ interface MakeListOperation {
 }
 
 /** Create a new map field with the given key, at the chosen path. */
-interface MakeMapOperation {
+interface MakeMapOperationInput {
     action: "makeMap"
     /** Path to an object in which to insert a new field. */
     path: OperationPath
@@ -89,7 +93,7 @@ interface MakeMapOperation {
     key: string
 }
 
-interface SetOperation {
+interface SetOperationInput {
     action: "set"
     /** Path to an object containing the field to set. */
     path: OperationPath
@@ -99,7 +103,7 @@ interface SetOperation {
     value: JsonPrimitive
 }
 
-interface DelOperation {
+interface DelOperationInput {
     action: "del"
     /** Path to an object containing the field to delete. */
     path: OperationPath
@@ -107,7 +111,7 @@ interface DelOperation {
     key: string
 }
 
-interface AddMarkOperation<M extends GenericMarkType> {
+export interface AddMarkOperationInput<M extends GenericMarkType> {
     action: "addMark"
     /** Path to a list object. */
     path: OperationPath
@@ -121,7 +125,7 @@ interface AddMarkOperation<M extends GenericMarkType> {
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
-interface RemoveMarkOperation<M extends GenericMarkType> {
+export interface RemoveMarkOperationInput<M extends GenericMarkType> {
     action: "removeMark"
     /** Path to a list object. */
     path: OperationPath
@@ -130,6 +134,97 @@ interface RemoveMarkOperation<M extends GenericMarkType> {
     /** Index in the list to end the mark removal, inclusive. */
     end: number
     /** Mark to remove. */
+    markType: M
+}
+
+type InputOperation<M extends GenericMarkType> =
+    | MakeListOperationInput
+    | MakeMapOperationInput
+    | SetOperationInput
+    | DelOperationInput
+    | InsertOperationInput
+    | DeleteOperationInput
+    | AddMarkOperationInput<M>
+    | RemoveMarkOperationInput<M>
+
+interface BaseOperation {
+    /** ID of the object at the given path. */
+    obj: ObjectId
+    /** ID of the operation. In a different namespace than changes. */
+    opId: OperationId
+}
+
+interface InsertOperation extends BaseOperation {
+    action: "set"
+    /** Element ID at which to insert item. */
+    elemId: ElemId
+    /** Individual item to insert. */
+    value: Json
+    /** Indicates the operation should be handled as an insertion. */
+    insert: true
+    /** To allow type refinements. */
+    key?: undefined
+}
+
+interface DeleteOperation extends BaseOperation {
+    action: "del"
+    /** Element ID at which to delete item. */
+    elemId: ElemId
+    /** To allow type refinements. */
+    key?: undefined
+}
+
+/** Create a new array field with the given key, in the chosen object. */
+interface MakeListOperation extends BaseOperation {
+    action: "makeList"
+    /** Key at which to create the array field. 
+        Only present if `obj` points to a map.  */
+    key: string
+}
+
+/** Create a new map field with the given key, in the chosen object. */
+interface MakeMapOperation extends BaseOperation {
+    action: "makeMap"
+    /** Key at which to create the map field. 
+        Only present if `obj` points to a map.  */
+    key: string
+}
+
+interface SetOperation extends BaseOperation {
+    action: "set"
+    /** Field to set at the given path. */
+    key: string
+    /** Value to set at the given field. */
+    value: JsonPrimitive
+    /** To allow type refinements. */
+    elemId?: undefined
+}
+
+interface DelOperation extends BaseOperation {
+    action: "del"
+    /** Field to delete at the given path. */
+    key: string
+    /** To allow type refinements. */
+    elemId?: undefined
+}
+
+interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
+    action: "addMark"
+    /** List element to apply the mark start. */
+    start: OperationId
+    /** List element to apply the mark end, inclusive. */
+    end: OperationId
+    /** Mark to add. */
+    markType: M
+}
+
+interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
+    action: "removeMark"
+    /** List element to apply the mark start. */
+    start: OperationId
+    /** List element to apply the mark end, inclusive. */
+    end: OperationId
+    /** Mark to add. */
     markType: M
 }
 
@@ -142,8 +237,6 @@ type Operation<M extends GenericMarkType> =
     | DeleteOperation
     | AddMarkOperation<M>
     | RemoveMarkOperation<M>
-
-type InputOperation<M extends GenericMarkType> = Operation<M>
 
 /**
  * Tracks the operation ID that set each field.
@@ -180,7 +273,7 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 /**
  * Miniature implementation of a subset of Automerge.
  */
-export default class Micromerge<M extends GenericMarkType> {
+export default class Micromerge<M extends MarkType> {
     /** ID of the actor using the document. */
     private actorId: string
     /** Current sequence number. */
@@ -190,17 +283,19 @@ export default class Micromerge<M extends GenericMarkType> {
     /** Map from actorId to last sequence number seen from that actor. */
     private clock: Record<string, number> = {}
     /** Objects, keyed by the ID of the operation that created the object. */
-    private objects: { [operationId: string]: unknown } & {
-        [ROOT]: Record<string, Json>
-    } = {
+    private objects: Record<ObjectId, Json> &
+        Record<typeof ROOT, { [key: string]: Json }> = {
         [ROOT]: {},
     }
     /** Map from object ID to CRDT metadata for each object field. */
     private metadata: Record<ObjectId, Metadata> = {
-        _root: { [CHILDREN]: {} },
+        [ROOT]: { [CHILDREN]: {} },
     }
     /** Map from object ID to formatting information. */
-    private formatSpans: Record<string, unknown> = {}
+    private formatSpans: Record<ObjectId, Array<FormatSpan>> = {
+        // TODO: Why does this require ROOT to be a key?
+        [ROOT]: [],
+    }
 
     constructor(actorId: string) {
         this.actorId = actorId
@@ -209,7 +304,7 @@ export default class Micromerge<M extends GenericMarkType> {
     /**
      * Returns the document root object.
      */
-    get root(): Json {
+    get root(): { [key: string]: Json } {
         return this.objects[ROOT]
     }
 
@@ -218,76 +313,113 @@ export default class Micromerge<M extends GenericMarkType> {
      * object, which can be JSON-encoded to send to another node.
      */
     public change(ops: Array<InputOperation<M>>): Change<M> {
-        // Record the dependencies of this change:
-        // anything in our clock before we generate the change.
-        const deps = Object.assign({}, this.clock)
-
         // Record a new local seq number in our clock,
         // to remember we've incorporated this new change
         this.seq += 1
         this.clock[this.actorId] = this.seq
 
-        const change = {
+        const change: Change<M> = {
             actor: this.actorId,
             seq: this.seq,
-            deps,
+            // Record the dependencies of this change:
+            // anything in our clock before we generate the change.
+            deps: { ...this.clock },
             startOp: this.maxOp + 1,
             ops: [],
         }
 
         for (const inputOp of ops) {
-            const obj = this.getObjectIdForPath(inputOp.path)
-            const { action, key, value } = inputOp
+            const objId = this.getObjectIdForPath(inputOp.path)
+            const obj = this.objects[objId]
 
-            if (Array.isArray(this.objects[obj])) {
-                // The operation is modifying a list object
-                if (action === "insert") {
+            if (!obj) {
+                throw new Error(`Object doesn't exist: ${String(objId)}`)
+            }
+
+            // Check if the operation is modifying a list object.
+            if (Array.isArray(obj)) {
+                if (inputOp.action === "insert") {
                     let elemId =
                         inputOp.index === 0
-                            ? "_head"
-                            : this.getListElementId(obj, inputOp.index - 1)
-                    for (let value of inputOp.values) {
-                        elemId = this.makeNewOp(change, {
+                            ? HEAD
+                            : this.getListElementId(objId, inputOp.index - 1)
+                    for (const value of inputOp.values) {
+                        const result = this.makeNewOp(change, {
                             action: "set",
-                            obj,
+                            obj: objId,
                             elemId,
                             insert: true,
                             value,
                         })
+                        elemId = result
                     }
-                } else if (action === "delete") {
+                } else if (inputOp.action === "delete") {
+                    const elemId = this.getListElementId(objId, inputOp.index)
                     for (let i = 0; i < inputOp.count; i++) {
-                        const elemId = this.getListElementId(
-                            obj,
-                            inputOp.index + i,
-                        )
                         this.makeNewOp(change, {
                             action: "del",
-                            obj,
+                            obj: objId,
                             elemId,
-                            insert: false,
                         })
                     }
-                } else if (action === "addMark") {
-                    const start = this.getListElementId(obj, inputOp.start)
-                    const end = this.getListElementId(obj, inputOp.end)
+                } else if (
+                    inputOp.action === "addMark" ||
+                    inputOp.action === "removeMark"
+                ) {
                     this.makeNewOp(change, {
-                        action,
-                        obj,
-                        start,
-                        end,
+                        action: inputOp.action,
+                        obj: objId,
+                        start: this.getListElementId(objId, inputOp.start),
+                        end: this.getListElementId(objId, inputOp.end),
                         markType: inputOp.markType,
                     })
+                } else if (inputOp.action === "del") {
+                    throw new Error("Use the remove action")
+                } else if (
+                    inputOp.action === "makeList" ||
+                    inputOp.action === "makeMap" ||
+                    inputOp.action === "set"
+                ) {
+                    throw new Error("Unimplemented")
+                } else {
+                    unreachable(inputOp)
                 }
             } else {
-                // The operation is modifying a map object
-                this.makeNewOp(change, {
-                    action,
-                    obj,
-                    key,
-                    value,
-                    insert: false,
-                })
+                // The operation is modifying a map object.
+                if (
+                    inputOp.action === "makeList" ||
+                    inputOp.action === "makeMap"
+                    // TODO: Why can't I handle the "del" case here????
+                    // inputOp.action === "del"
+                ) {
+                    this.makeNewOp(change, {
+                        action: inputOp.action,
+                        obj: objId,
+                        key: inputOp.key,
+                    })
+                } else if (inputOp.action === "del") {
+                    this.makeNewOp(change, {
+                        action: inputOp.action,
+                        obj: objId,
+                        key: inputOp.key,
+                    })
+                } else if (inputOp.action === "set") {
+                    this.makeNewOp(change, {
+                        action: inputOp.action,
+                        obj: objId,
+                        key: inputOp.key,
+                        value: inputOp.value,
+                    })
+                } else if (
+                    inputOp.action === "addMark" ||
+                    inputOp.action === "removeMark" ||
+                    inputOp.action === "insert" ||
+                    inputOp.action === "delete"
+                ) {
+                    throw new Error(`Not a list: ${inputOp.path}`)
+                } else {
+                    unreachable(inputOp)
+                }
             }
         }
 
@@ -318,41 +450,44 @@ export default class Micromerge<M extends GenericMarkType> {
         return objectId
     }
 
-    /** Given a path to somewhere in the document, return a list of format spans w/ text.
-     *  Each span specifies the formatting marks as well as the text within the span.
-     *  (This function avoids the need for a caller to manually stitch together
-     *  format spans with a text string.)
-     */
-    getTextWithFormatting(path: Path): Array<FormatSpanWithText> {
-        const objectId = this.getObjectIdForPath(path)
-        const text = this.objects[objectId]
-        const formatSpans = normalize(this.formatSpans[objectId], text.length)
+    // /** Given a path to somewhere in the document, return a list of format spans w/ text.
+    //  *  Each span specifies the formatting marks as well as the text within the span.
+    //  *  (This function avoids the need for a caller to manually stitch together
+    //  *  format spans with a text string.)
+    //  */
+    // getTextWithFormatting(path: Path): Array<FormatSpanWithText> {
+    //     const objectId = this.getObjectIdForPath(path)
+    //     const text = this.objects[objectId]
+    //     const formatSpans = normalize(this.formatSpans[objectId], text.length)
 
-        return formatSpans.map((span, index) => {
-            const start = span.start
-            const end =
-                index < formatSpans.length - 1
-                    ? formatSpans[index + 1].start
-                    : text.length
+    //     return formatSpans.map((span, index) => {
+    //         const start = span.start
+    //         const end =
+    //             index < formatSpans.length - 1
+    //                 ? formatSpans[index + 1].start
+    //                 : text.length
 
-            const marks = {}
-            for (const [key, value] of Object.entries(span.marks)) {
-                if (value.active) {
-                    marks[key] = true
-                }
-            }
-            return { marks, text: text.slice(start, end).join("") }
-        })
-    }
+    //         const marks = {}
+    //         for (const [key, value] of Object.entries(span.marks)) {
+    //             if (value.active) {
+    //                 marks[key] = true
+    //             }
+    //         }
+    //         return { marks, text: text.slice(start, end).join("") }
+    //     })
+    // }
 
     /**
      * Adds an operation to a new change being generated, and also applies it to the document.
      * Returns the new operation's opId.
      */
-    makeNewOp(change, op) {
+    private makeNewOp(
+        change: Change<M>,
+        op: DistributiveOmit<Operation<M>, "opId">,
+    ): OperationId {
         this.maxOp += 1
         const opId = `${this.maxOp}@${this.actorId}`
-        this.applyOp(Object.assign({ opId }, op))
+        this.applyOp({ opId, ...op })
         change.ops.push(op)
         return opId
     }
@@ -361,7 +496,7 @@ export default class Micromerge<M extends GenericMarkType> {
      * Updates the document state by applying the change object `change`, in the format documented here:
      * https://github.com/automerge/automerge/blob/performance/BINARY_FORMAT.md#json-representation-of-changes
      */
-    applyChange(change) {
+    applyChange(change: Change<M>): void {
         // Check that the change's dependencies are met
         const lastSeq = this.clock[change.actor] || 0
         if (change.seq !== lastSeq + 1) {
@@ -369,7 +504,7 @@ export default class Micromerge<M extends GenericMarkType> {
                 `Expected sequence number ${lastSeq + 1}, got ${change.seq}`,
             )
         }
-        for (let [actor, dep] of Object.entries(change.deps || {})) {
+        for (const [actor, dep] of Object.entries(change.deps || {})) {
             if (!this.clock[actor] || this.clock[actor] < dep) {
                 throw new RangeError(
                     `Missing dependency: change ${dep} by actor ${actor}`,
@@ -395,9 +530,12 @@ export default class Micromerge<M extends GenericMarkType> {
     /**
      * Updates the document state with one of the operations from a change.
      */
-    applyOp(op) {
-        if (!this.metadata[op.obj])
-            throw new RangeError(`Object does not exist: ${op.obj}`)
+    applyOp(op: Operation<M>): void {
+        const metadata = this.metadata[op.obj]
+
+        if (!metadata) {
+            throw new RangeError(`Object does not exist: ${String(op.obj)}`)
+        }
         if (op.action === "makeMap") {
             this.objects[op.opId] = {}
             this.metadata[op.opId] = { [CHILDREN]: {} }
@@ -408,80 +546,64 @@ export default class Micromerge<M extends GenericMarkType> {
             this.formatSpans[op.opId] = [{ marks: {}, start: 0 }]
         }
 
-        if (Array.isArray(this.metadata[op.obj])) {
+        if (Array.isArray(metadata)) {
             // Updating an array object (including text or rich text)
-            if (["set", "del", "makeMap", "makeList"].includes(op.action)) {
-                if (op.insert) this.applyListInsert(op)
-                else this.applyListUpdate(op)
-            } else if (["addMark", "removeMark"].includes(op.action)) {
+            if (op.action === "set") {
+                if (op.elemId === undefined) {
+                    throw new Error(
+                        "Must specify elemId when calling set on an array",
+                    )
+                }
+                this.applyListInsert(op)
+            } else if (op.action === "del") {
+                if (op.elemId === undefined) {
+                    throw new Error(
+                        "Must specify elemId when calling del on an array",
+                    )
+                }
+                this.applyListUpdate(op)
+            } else if (op.action === "addMark" || op.action === "removeMark") {
+                // convert our micromerge op into an op in our formatting system
+                // todo: align these two types so we don't need a translation here
+                const formatOp: ResolvedOp = {
+                    action: op.action,
+                    markType: op.markType,
+                    start: this.findListElement(op.obj, op.start).index,
+                    end: this.findListElement(op.obj, op.end).index,
+                    id: op.opId,
+                }
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
                 this.formatSpans[op.obj] = applyFormatOp(
                     this.formatSpans[op.obj],
-
-                    // convert our micromerge op into an op in our formatting system
-                    // todo: align these two types so we don't need a translation here
-                    {
-                        type: op.action,
-                        markType: op.markType,
-                        start: this.findListElement(op.obj, op.start).index,
-                        end: this.findListElement(op.obj, op.end).index,
-                        id: op.opId,
-                    },
+                    formatOp,
                 )
+            } else if (op.action === "makeList" || op.action === "makeMap") {
+                throw new Error("Unimplemented")
             } else {
-                throw new Error(`unknown action: ${op.action}`)
+                unreachable(op)
             }
         } else {
+            if (op.action === "addMark" || op.action === "removeMark") {
+                throw new Error("Can't call addMark or removeMark on a map")
+            }
+            if (op.key === undefined) {
+                throw new Error(
+                    "Must specify key when calling set or del on a map",
+                )
+            }
             // Updating a key in a map. Use last-writer-wins semantics: the operation takes effect if its
             // opId is greater than the last operation for that key; otherwise we ignore it.
-            if (
-                !this.metadata[op.obj][op.key] ||
-                compareOpIds(this.metadata[op.obj][op.key], op.opId) === -1
-            ) {
-                this.metadata[op.obj][op.key] = op.opId
+            const meta = metadata[op.key]
+            if (!meta || compareOpIds(metadata[op.key], op.opId) === -1) {
+                metadata[op.key] = op.opId
                 if (op.action === "del") {
                     delete this.objects[op.obj][op.key]
                 } else if (op.action.startsWith("make")) {
                     this.objects[op.obj][op.key] = this.objects[op.opId]
-                    this.metadata[op.obj].children[op.key] = op.opId
+                    metadata[CHILDREN][op.key] = op.opId
                 } else {
                     this.objects[op.obj][op.key] = op.value
-                }
-            }
-        }
-    }
-
-    /**
-     * Recomputes rich text after either the character array or the formatting ops have changed
-     */
-    private recomputeFormatting(
-        objectId: Exclude<ObjectId, typeof ROOT>,
-    ): void {
-        // Extremely simplistic implementation -- please replace me with something real!
-        // Make an array with the same length as the array of characters, with each element containing
-        // the formatting for that character.
-        const formatting = this.formatSpans[objectId]
-        const obj = this.objects[objectId]
-        if (!Array.isArray(obj)) {
-            throw new Error(`Not a list: ${String(objectId)}`)
-        }
-        formatting.chars = Array.from({ length: obj.length }, () => "")
-
-        // Apply the ops in ascending order by opId
-        for (const op of formatting.ops) {
-            if (op.action === "addMark" && op.markType && op.start && op.end) {
-                // Cursors for start and end of the span being formatted
-                // TODO: check this does what we want when characters are deleted
-                const startIndex = this.findListElement(
-                    op.obj,
-                    op.start,
-                ).visible
-                const endIndex = this.findListElement(op.obj, op.end).visible
-
-                for (let i = startIndex; i <= endIndex; i++) {
-                    if (formatting.chars[i] !== "") formatting.chars[i] += ","
-                    formatting.chars[i] += op.markType
                 }
             }
         }
@@ -530,6 +652,7 @@ export default class Micromerge<M extends GenericMarkType> {
             throw new Error(`Not a list: ${String(op.obj)}`)
         }
         const value =
+            // TODO: Add this back in.
             // op.action === "makeList" || op.action === "makeMap"
             //     ? this.objects[op.opId] :
             op.value

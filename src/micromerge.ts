@@ -183,7 +183,7 @@ interface DeleteOperation extends BaseOperation {
 /** Create a new array field with the given key, in the chosen object. */
 interface MakeListOperation extends BaseOperation {
     action: "makeList"
-    /** Key at which to create the array field. 
+    /** Key at which to create the array field.
         Only present if `obj` points to a map.  */
     key: string
 }
@@ -191,7 +191,7 @@ interface MakeListOperation extends BaseOperation {
 /** Create a new map field with the given key, in the chosen object. */
 interface MakeMapOperation extends BaseOperation {
     action: "makeMap"
-    /** Key at which to create the map field. 
+    /** Key at which to create the map field.
         Only present if `obj` points to a map.  */
     key: string
 }
@@ -330,6 +330,10 @@ export default class Micromerge<M extends MarkType> {
      * object, which can be JSON-encoded to send to another node.
      */
     public change(ops: Array<InputOperation<M>>): Change<M> {
+        // Record the dependencies of this change:
+        // anything in our clock before we generate the change.
+        const deps = Object.assign({}, this.clock)
+
         // Record a new local seq number in our clock,
         // to remember we've incorporated this new change
         this.seq += 1
@@ -338,9 +342,7 @@ export default class Micromerge<M extends MarkType> {
         const change: Change<M> = {
             actor: this.actorId,
             seq: this.seq,
-            // Record the dependencies of this change:
-            // anything in our clock before we generate the change.
-            deps: { ...this.clock },
+            deps,
             startOp: this.maxOp + 1,
             ops: [],
         }
@@ -505,7 +507,7 @@ export default class Micromerge<M extends MarkType> {
                     marks[markType] = true
                 }
             }
-            return { marks, start, text: text.slice(start, end).join("") }
+            return { marks, text: text.slice(start, end).join("") }
         })
     }
 

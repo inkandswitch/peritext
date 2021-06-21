@@ -1,6 +1,8 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
 
+import type { RootDoc } from "../src/micromerge"
+
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
         const doc1 = new Micromerge("1234")
@@ -23,7 +25,12 @@ describe.only("Micromerge", () => {
             },
         ])
 
-        assert.deepStrictEqual(doc1.root.text.join(""), "de")
+        const root = doc1.getRoot<RootDoc>()
+        if (root.text) {
+            assert.deepStrictEqual(root.text.join(""), "de")
+        } else {
+            assert.fail("Doc does not contain text")
+        }
     })
 
     it("records local changes in the deps clock", () => {

@@ -15,11 +15,7 @@ import { ChangeQueue } from "./changeQueue"
 
 import type { DocSchema, MarkType } from "./schema"
 import type { Publisher } from "./pubsub"
-
-type RichTextDoc = {
-    /** Array of single characters. */
-    content: Array<string>
-}
+import type { RootDoc } from "./micromerge"
 
 const schema = new Schema(schemaSpec)
 
@@ -35,7 +31,7 @@ export type Editor = {
     queue: ChangeQueue
 }
 
-function updateProsemirrorView(view: EditorView, doc: RichTextDoc) {
+function updateProsemirrorView(view: EditorView, doc: Partial<RootDoc>) {
     let state = view.state
 
     // Derive a new PM doc from the new CRDT doc
@@ -96,7 +92,7 @@ export function createEditor(args: {
         for (const change of incomingChanges) {
             doc.applyChange(change)
         }
-        updateProsemirrorView(view, doc.root)
+        updateProsemirrorView(view, doc.getRoot<RootDoc>())
     })
 
     // Generate an empty document conforming to the schema,
@@ -122,7 +118,7 @@ export function createEditor(args: {
             // Compute a new automerge doc and selection point
             applyTransaction({ doc, txn, queue })
 
-            updateProsemirrorView(view, doc.root)
+            updateProsemirrorView(view, doc.getRoot<RootDoc>())
 
             console.log(
                 "steps",
@@ -152,13 +148,14 @@ function contentPosFromProsemirrorPos(position: number) {
 // Given a micromerge doc representation, produce a prosemirror doc.
 export function prosemirrorDocFromCRDT(args: {
     schema: DocSchema
-    doc: RichTextDoc
+    doc: Partial<RootDoc>
 }): Node {
     const { schema, doc } = args
-    const textContent = doc.content.join("")
+    const textContent = doc.text?.join("")
+    const children = textContent === undefined ? [] : [schema.text(textContent)]
 
     const result = schema.node("doc", undefined, [
-        schema.node("paragraph", undefined, [schema.text(textContent)]),
+        schema.node("paragraph", undefined, children),
     ])
 
     return result

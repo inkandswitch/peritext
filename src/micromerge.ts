@@ -27,7 +27,7 @@ type ElemId = OperationId | typeof HEAD
 type ChangeNumber = number
 type OpNumber = number
 
-type Char = string /** 1-string */
+export type Char = string /** 1-string */
 type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
@@ -35,6 +35,7 @@ type Json = JsonPrimitive | JsonComposite
 type GenericMarkType = string
 
 type OperationPath = [] | [CONTENT_KEY]
+export type RootDoc = { text: Array<Char> }
 
 /**
  * A vector clock data structure.
@@ -302,7 +303,7 @@ export default class Micromerge<M extends MarkType> {
     private clock: Record<string, number> = {}
     /** Objects, keyed by the ID of the operation that created the object. */
     private objects: Record<ObjectId, JsonComposite> &
-        Record<typeof ROOT, { [key: string]: Json }> = {
+        Record<typeof ROOT, Record<string, Json>> = {
         [ROOT]: {},
     }
     /** Map from object ID to CRDT metadata for each object field. */
@@ -322,8 +323,18 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Returns the document root object.
      */
-    get root(): { [key: string]: Json } {
+    get root(): Record<string, Json> {
         return this.objects[ROOT]
+    }
+
+    /**
+     * Return the document root object, cast to a given shape.
+     * The result will still make all fields optional, so the consumer
+     * needs to do runtime checking.
+     */
+    // TODO: Make RecursivePartial<T>.
+    public getRoot<T extends Record<string, Json>>(): Partial<T> {
+        return this.objects[ROOT] as T
     }
 
     /**

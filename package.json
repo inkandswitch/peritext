@@ -34,7 +34,6 @@
         "@types/prosemirror-view": "1.17.1",
         "@types/shuffle-seed": "^1.1.0",
         "@types/uuid": "^8.3.0",
-        "automerge": "https://github.com/automerge/automerge.git#cursors-v2",
         "lodash": "^4.17.21",
         "mocha": "^8.4.0",
         "prosemirror-commands": "1.1.8",

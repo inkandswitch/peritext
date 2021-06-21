@@ -19,6 +19,7 @@ interface FormatSpanWithText {
 
 type ActorId = string
 export type OperationId = string
+export type Cursor = { objectId: ObjectId; elemId: ElemId }
 
 /** The operation that created the object. */
 type ObjectId = OperationId | typeof ROOT
@@ -373,8 +374,32 @@ export default class Micromerge<M extends MarkType> {
                         elemId = result
                     }
                 } else if (inputOp.action === "delete") {
-                    const elemId = this.getListElementId(objId, inputOp.index)
+                    // It might seem like we should increment the index we delete at
+                    // as we delete characters. However, because we delete a character
+                    // at each iteration, the start index for the "delete" input operation
+                    // always points to the next character to delete, without incrementing.
+                    //
+                    // For example, see what happens when we delete first 3 chars from index 0:
+                    // { action: "delete", index: 0, count: 3 }
+                    //
+                    // 0123456
+                    //
+                    // del 0
+                    // v
+                    // x123456
+                    //
+                    //  del 0 (= "delete first visible elem")
+                    //  v
+                    // xx23456
+                    //
+                    //   del 0 (= "delete first visible elem")
+                    //   v
+                    // xxx3456
                     for (let i = 0; i < inputOp.count; i++) {
+                        const elemId = this.getListElementId(
+                            objId,
+                            inputOp.index,
+                        )
                         this.makeNewOp(change, {
                             action: "del",
                             obj: objId,
@@ -509,6 +534,19 @@ export default class Micromerge<M extends MarkType> {
             }
             return { marks, text: text.slice(start, end).join("") }
         })
+    }
+
+    public getCursor(path: OperationPath, index: number): Cursor {
+        const objectId = this.getObjectIdForPath(path)
+
+        return {
+            objectId,
+            elemId: this.getListElementId(objectId, index),
+        }
+    }
+
+    public resolveCursor(cursor: Cursor): number {
+        return this.findListElement(cursor.objectId, cursor.elemId).visible
     }
 
     /**

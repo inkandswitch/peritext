@@ -2,6 +2,30 @@ import assert from "assert"
 import Micromerge from "../src/micromerge"
 
 describe.only("Micromerge", () => {
+    it("can insert and delete text", () => {
+        const doc1 = new Micromerge("1234")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: ["a", "b", "c", "d", "e"],
+            },
+        ])
+
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 0,
+                count: 3,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.root.text.join(""), "de")
+    })
+
     it("records local changes in the deps clock", () => {
         const doc1 = new Micromerge("1234")
         const doc2 = new Micromerge("abcd")
@@ -229,5 +253,363 @@ describe.only("Micromerge", () => {
             doc2.getTextWithFormatting(["text"]),
             expectedTextWithFormatting,
         )
+    })
+
+    it("updates format span indexes when chars are inserted before", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text at the beginning,
+        // the formatting should stay attached to the same characters
+
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: "Hello to ".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "Hello to The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("doesn't update format span indexes when chars are inserted after", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text after the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 19,
+                values: " is great".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor is great" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted before", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text before the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 0,
+                count: 4,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted after", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text before the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 12,
+                count: 7,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+        ])
+    })
+
+    describe("cursors", () => {
+        it("can resolve a cursor position", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("increments cursor position when insert happens before cursor", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters at beginning of the string
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5 + 3)
+        })
+
+        it("does not move cursor position when insert happens after cursor", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 7,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("moves cursor left if deletion happens before cursor", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 0,
+                    count: 3,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5 - 3)
+        })
+
+        it("doesn't move cursor if deletion happens after cursor", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 7,
+                    count: 3,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("returns index 0 if everything before the cursor is deleted", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+
+            // Delete the first 7 chars, including the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 0,
+                    count: 7,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 0)
+        })
     })
 })

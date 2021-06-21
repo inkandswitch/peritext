@@ -216,8 +216,8 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, textChars)
 
         const expectedTextWithFormatting = [
-            { marks: { strong: true }, text: "The Peritext" },
-            { marks: {}, text: " editor" },
+            { marks: { strong: true }, text: "The " },
+            { marks: {}, text: "Peritext editor" },
         ]
 
         // And the same correct flattened format spans:

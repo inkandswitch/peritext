@@ -733,6 +733,13 @@ export default class Micromerge<M extends MarkType> {
             valueId: op.opId,
             deleted: false,
         })
+
+        // Update our format span indexes to reflect the new character.
+        // Every span after the character moves to the right by 1.
+        for (const span of this.formatSpans[op.obj]) {
+            if (span.start > visible) span.start += 1
+        }
+
         const obj = this.objects[op.obj]
         if (!Array.isArray(obj)) {
             throw new Error(`Not a list: ${String(op.obj)}`)
@@ -767,6 +774,9 @@ export default class Micromerge<M extends MarkType> {
                 }
                 obj.splice(visible, 1)
                 meta.deleted = true
+                for (const span of this.formatSpans[op.obj]) {
+                    if (span.start > visible) span.start -= 1
+                }
             }
         } else if (compareOpIds(meta.valueId, op.opId) < 0) {
             throw new Error("Not implemented yet")

@@ -1,12 +1,14 @@
 import { compact } from "lodash"
 import { ALL_MARKS } from "./schema"
+import { compareOpIds } from "./operations"
 
-import type { ResolvedOp, OpId } from "./operations"
+import type { ResolvedOp } from "./operations"
 import type { MarkType } from "./schema"
+import type { OperationId } from "./micromerge"
 
 type MarkValue = {
     active: boolean
-    opId: OpId
+    opId: OperationId
 }
 
 export type MarkMap = { [T in MarkType]?: MarkValue }
@@ -35,7 +37,7 @@ export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
  * operations that have already been incorporated, we will correctly
  * converge to a result as if the ops had been played in causal order.
  */
-function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
+export function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
 
@@ -157,10 +159,10 @@ function applyFormatting(
     const newMarks = { ...marks }
     const mark = marks[op.markType]
 
-    switch (op.type) {
+    switch (op.action) {
         case "addMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || op.id > mark.opId) {
+            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
                 newMarks[op.markType] = {
                     active: true,
                     opId: op.id,
@@ -170,7 +172,7 @@ function applyFormatting(
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || op.id > mark.opId) {
+            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
                 newMarks[op.markType] = {
                     active: false,
                     opId: op.id,
@@ -185,6 +187,7 @@ function applyFormatting(
 
 /** Return an updated list of format spans where:
  *
+ *  - zero-width spans have been removed
  *  - adjacent spans with the same marks have been combined into a single span
  *  (preferring the leftmost one)
  *  - any spans that are past the end of the document have been removed
@@ -194,22 +197,27 @@ export function normalize(
     docLength: number,
 ): FormatSpan[] {
     return spans.filter((span, index) => {
+        // Remove zero-width spans.
+        // If we have two spans starting at the same position,
+        // we choose the last one as authoritative.
+        // This makes sense because the first span to the left
+        // has effectively been collapsed to zero width;
+        // whereas the second span on the right may be more than zero width.
+        if (index < spans.length - 1 && span.start === spans[index + 1].start) {
+            return false
+        }
+
         // The first span is always ok to include
         if (index === 0) {
             return true
         }
 
-        if (span.start === spans[index - 1].start) {
-            // If we have two spans starting at the same position,
-            // it's dangerous to pick one of them arbitrarily;
-            // instead, we must avoid such cases upstream.
-            throw new Error("Cannot have two spans starting at same position.")
-        }
-
+        // Remove spans past the end of the doc
         if (span.start > docLength - 1) {
             return false
         }
 
+        // Remove a span if it has same contents as span to the left
         return !marksEqual(spans[index - 1].marks, span.marks)
     })
 }

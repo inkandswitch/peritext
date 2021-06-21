@@ -28,7 +28,7 @@ function assertOpsPlayedInAnyOrder(
 ) {
     const shuffleSeeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     for (const seed of shuffleSeeds) {
-        const opsWithIds = ops.map((op, index) => ({ ...op, id: index }))
+        const opsWithIds = ops.map((op, index) => ({ ...op, id: `${index}@a` }))
         const shuffledOps = shuffleSeed.shuffle(opsWithIds, seed)
         const actual = replayOps(shuffledOps, docLength).map(span => ({
             start: span.start,
@@ -53,7 +53,7 @@ describe("applying format spans", function () {
         //   |------| b
         //          |----------|
         const ops = [
-            { type: "addMark", markType: "strong", start: 2, end: 9 },
+            { action: "addMark", markType: "strong", start: 2, end: 9 },
         ] as const
 
         const expected = [
@@ -81,9 +81,9 @@ describe("applying format spans", function () {
             //           |----| b
             //                 |--|
             const ops = [
-                { type: "addMark", markType: "strong", start: 2, end: 9 },
-                { type: "removeMark", markType: "strong", start: 5, end: 13 },
-                { type: "addMark", markType: "strong", start: 11, end: 16 },
+                { action: "addMark", markType: "strong", start: 2, end: 9 },
+                { action: "removeMark", markType: "strong", start: 5, end: 13 },
+                { action: "addMark", markType: "strong", start: 11, end: 16 },
             ] as const
 
             const expected = [
@@ -109,9 +109,9 @@ describe("applying format spans", function () {
             //             |--| b
             //                |---|
             const ops = [
-                { type: "addMark", markType: "strong", start: 2, end: 9 },
-                { type: "addMark", markType: "strong", start: 11, end: 16 },
-                { type: "removeMark", markType: "strong", start: 5, end: 13 },
+                { action: "addMark", markType: "strong", start: 2, end: 9 },
+                { action: "addMark", markType: "strong", start: 11, end: 16 },
+                { action: "removeMark", markType: "strong", start: 5, end: 13 },
             ] as const
 
             const expected = [
@@ -138,9 +138,9 @@ describe("applying format spans", function () {
         //          |---------| i
 
         const ops = [
-            { type: "addMark", markType: "strong", start: 4, end: 14 },
-            { type: "removeMark", markType: "strong", start: 9, end: 19 },
-            { type: "addMark", markType: "em", start: 1, end: 19 },
+            { action: "addMark", markType: "strong", start: 4, end: 14 },
+            { action: "removeMark", markType: "strong", start: 9, end: 19 },
+            { action: "addMark", markType: "em", start: 1, end: 19 },
         ] as const
 
         const expected = [
@@ -162,8 +162,8 @@ describe("applying format spans", function () {
         //           |----| b
 
         const ops = [
-            { type: "addMark", markType: "strong", start: 4, end: 14 },
-            { type: "removeMark", markType: "strong", start: 4, end: 9 },
+            { action: "addMark", markType: "strong", start: 4, end: 14 },
+            { action: "removeMark", markType: "strong", start: 4, end: 9 },
         ] as const
 
         const expected = [
@@ -185,8 +185,8 @@ describe("applying format spans", function () {
         //          |---------|
 
         const ops = [
-            { type: "addMark", markType: "strong", start: 4, end: 14 },
-            { type: "removeMark", markType: "strong", start: 9, end: 14 },
+            { action: "addMark", markType: "strong", start: 4, end: 14 },
+            { action: "removeMark", markType: "strong", start: 9, end: 14 },
         ] as const
 
         const expected = [
@@ -208,8 +208,8 @@ describe("applying format spans", function () {
         //          |---------|
 
         const ops = [
-            { type: "addMark", markType: "strong", start: 4, end: 14 },
-            { type: "removeMark", markType: "strong", start: 9, end: 14 },
+            { action: "addMark", markType: "strong", start: 4, end: 14 },
+            { action: "removeMark", markType: "strong", start: 9, end: 14 },
         ] as const
 
         const expected = [
@@ -232,9 +232,9 @@ describe("applying format spans", function () {
         //          |---------|
 
         const ops = [
-            { type: "addMark", markType: "strong", start: 4, end: 14 },
-            { type: "removeMark", markType: "strong", start: 9, end: 14 },
-            { type: "removeMark", markType: "strong", start: 9, end: 12 },
+            { action: "addMark", markType: "strong", start: 4, end: 14 },
+            { action: "removeMark", markType: "strong", start: 9, end: 14 },
+            { action: "removeMark", markType: "strong", start: 9, end: 12 },
         ] as const
 
         const expected = [
@@ -358,31 +358,31 @@ describe("normalize", () => {
         const spans: FormatSpan[] = [
             { marks: {}, start: 0 },
             { marks: {}, start: 3 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 4 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 7 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 12 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 7 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 12 },
             {
                 marks: {
-                    strong: { active: true, opId: 0 },
-                    em: { active: true, opId: 0 },
+                    strong: { active: true, opId: "0@a" },
+                    em: { active: true, opId: "0@a" },
                 },
                 start: 14,
             },
-            { marks: { em: { active: true, opId: 0 } }, start: 16 },
-            { marks: { em: { active: true, opId: 0 } }, start: 18 },
+            { marks: { em: { active: true, opId: "0@a" } }, start: 16 },
+            { marks: { em: { active: true, opId: "0@a" } }, start: 18 },
         ]
 
         assert.deepStrictEqual(normalize(spans, 1000), [
             { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 4 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
             {
                 marks: {
-                    strong: { active: true, opId: 0 },
-                    em: { active: true, opId: 0 },
+                    strong: { active: true, opId: "0@a" },
+                    em: { active: true, opId: "0@a" },
                 },
                 start: 14,
             },
-            { marks: { em: { active: true, opId: 0 } }, start: 16 },
+            { marks: { em: { active: true, opId: "0@a" } }, start: 16 },
         ])
     })
 
@@ -390,14 +390,14 @@ describe("normalize", () => {
         const spans: FormatSpan[] = [
             { marks: {}, start: 0 },
             { marks: {}, start: 3 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 4 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 7 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 7 },
             { marks: {}, start: 10 },
         ]
 
         assert.deepStrictEqual(normalize(spans, 10), [
             { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: 0 } }, start: 4 },
+            { marks: { strong: { active: true, opId: "0@a" } }, start: 4 },
         ])
     })
 })

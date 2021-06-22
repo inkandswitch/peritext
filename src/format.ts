@@ -1,10 +1,17 @@
 import { compact } from "lodash"
 import { ALL_MARKS } from "./schema"
-import { compareOpIds } from "./operations"
+import { compareOpIds } from "./micromerge"
 
-import type { ResolvedOp } from "./operations"
+import type {
+    OperationId,
+    AddMarkOperationInput,
+    RemoveMarkOperationInput,
+} from "./micromerge"
 import type { MarkType } from "./schema"
-import type { OperationId } from "./micromerge"
+
+export type ResolvedOp =
+    | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
+    | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
 
 type MarkValue = {
     active: boolean
@@ -207,18 +214,13 @@ export function normalize(
             return false
         }
 
-        // The first span is always ok to include
-        if (index === 0) {
-            return true
-        }
-
-        // Remove spans past the end of the doc
+        // Remove spans past the end of the document
         if (span.start > docLength - 1) {
             return false
         }
 
-        // Remove a span if it has same contents as span to the left
-        return !marksEqual(spans[index - 1].marks, span.marks)
+        // Remove spans that have the same content as their neighbor to the left
+        return index === 0 || !marksEqual(spans[index - 1].marks, span.marks)
     })
 }
 

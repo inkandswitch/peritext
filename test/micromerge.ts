@@ -137,9 +137,10 @@ describe.only("Micromerge", () => {
         ])
     })
 
-    it("handles an annotation with data", () => {
+    it.only("handles an annotation with data", () => {
         const doc1 = new Micromerge("1234")
         const textChars = "The Peritext editor".split("")
+        const commentData = { text: "This is a comment!" }
 
         doc1.change([
             { path: [], action: "makeList", key: "text" },
@@ -156,6 +157,7 @@ describe.only("Micromerge", () => {
                 start: 4,
                 end: 11,
                 markType: "comment",
+                data: commentData,
             },
         ])
 
@@ -163,7 +165,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { comment: new Set([commentData]) }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })

@@ -51,22 +51,25 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
  * Marks.
  ***********************************************/
 
-const markSpec = {
+export const markSpec = {
     strong: {
         toDOM() {
             return ["strong"] as const
         },
+        hasIdentity: false,
     },
     em: {
         toDOM() {
             return ["em"] as const
         },
+        hasIdentity: false,
     },
     comment: {
         toDOM() {
             // todo: not sure if this is a correct DOM output
             return ["span", { class: "comment" }] as const
         },
+        hasIdentity: true,
     },
 } as const
 

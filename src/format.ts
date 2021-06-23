@@ -1,5 +1,5 @@
 import { compact } from "lodash"
-import { ALL_MARKS } from "./schema"
+import { ALL_MARKS, markSpec } from "./schema"
 import { compareOpIds } from "./micromerge"
 
 import type {
@@ -13,12 +13,18 @@ export type ResolvedOp =
     | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
     | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
 
-type MarkValue = {
-    active: boolean
-    opId: OperationId
-}
+// TODO: I think we can reorganize MarkValue a bit so that
+// every kind of mark has state, but then depending on the mark type,
+// the MarkMap either contains a single winner value per mark type (eg bold),
+// or a set of all active values (eg comments)
+export type MarkValue =
+    | {
+          active: boolean
+          opId: OperationId
+      }
+    | { text: string }
 
-export type MarkMap = { [T in MarkType]?: MarkValue }
+export type MarkMap = { [T in MarkType]?: MarkValue | Set<MarkValue> }
 
 export type FormatSpan = {
     marks: MarkMap
@@ -168,16 +174,35 @@ function applyFormatting(
 
     switch (op.action) {
         case "addMark": {
-            // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
-                newMarks[op.markType] = {
-                    active: true,
-                    opId: op.id,
+            if (markSpec[op.markType].hasIdentity && op.data !== undefined) {
+                if (
+                    newMarks[op.markType] === undefined ||
+                    !(newMarks[op.markType] instanceof Set)
+                ) {
+                    newMarks[op.markType] = new Set()
+                }
+
+                newMarks[op.markType].add(op.data)
+            } else {
+                // Only apply the op if its ID is greater than the last op that touched this mark
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    newMarks[op.markType] = {
+                        active: true,
+                        opId: op.id,
+                    }
                 }
             }
             break
         }
         case "removeMark": {
+            if (!markSpec[op.markType].hasIdentity) {
+                throw new Error(
+                    "removeMark isn't implemented yet for marks with identity",
+                )
+            }
             // Only apply the op if its ID is greater than the last op that touched this mark
             if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
                 newMarks[op.markType] = {

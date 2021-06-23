@@ -1,5 +1,5 @@
-import { applyOp as applyFormatOp, normalize } from "./format"
-import { ALL_MARKS } from "./schema"
+import { applyOp as applyFormatOp, MarkValue, normalize } from "./format"
+import { ALL_MARKS, markSpec } from "./schema"
 import uuid from "uuid"
 
 import type { MarkType } from "./schema"
@@ -13,7 +13,7 @@ type CONTENT_KEY = "text"
 
 export interface FormatSpanWithText {
     text: string
-    marks: { [T in MarkType]?: true }
+    marks: { [T in MarkType]?: true | Set<MarkValue> }
 }
 
 type ActorId = string
@@ -128,6 +128,8 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     end: number
     /** Mark to add. */
     markType: M
+
+    data?: any // todo: specify type here
 }
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -223,6 +225,8 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     end: OperationId
     /** Mark to add. */
     markType: M
+
+    data?: any // todo: specify type here
 }
 
 interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
@@ -416,10 +420,16 @@ export default class Micromerge<M extends MarkType> {
                             elemId,
                         })
                     }
-                } else if (
-                    inputOp.action === "addMark" ||
-                    inputOp.action === "removeMark"
-                ) {
+                } else if (inputOp.action === "addMark") {
+                    this.makeNewOp(change, {
+                        action: inputOp.action,
+                        obj: objId,
+                        start: this.getListElementId(objId, inputOp.start),
+                        end: this.getListElementId(objId, inputOp.end),
+                        markType: inputOp.markType,
+                        data: inputOp.data,
+                    })
+                } else if (inputOp.action === "removeMark") {
                     this.makeNewOp(change, {
                         action: inputOp.action,
                         obj: objId,
@@ -537,9 +547,16 @@ export default class Micromerge<M extends MarkType> {
 
             const marks: { [T in MarkType]?: true } = {}
             for (const markType of ALL_MARKS) {
-                const spanMark = span.marks[markType]
-                if (spanMark && spanMark.active) {
-                    marks[markType] = true
+                if (
+                    markSpec[markType].hasIdentity &&
+                    span.marks[markType] !== undefined
+                ) {
+                    marks[markType] = span.marks[markType]
+                } else {
+                    const spanMark = span.marks[markType]
+                    if (spanMark && spanMark.active) {
+                        marks[markType] = true
+                    }
                 }
             }
             return { marks, text: text.slice(start, end).join("") }
@@ -638,7 +655,24 @@ export default class Micromerge<M extends MarkType> {
                     )
                 }
                 this.applyListUpdate(op)
-            } else if (op.action === "addMark" || op.action === "removeMark") {
+            } else if (op.action === "addMark") {
+                // convert our micromerge op into an op in our formatting system
+                // todo: align these two types so we don't need a translation here
+                const formatOp: ResolvedOp = {
+                    action: op.action,
+                    markType: op.markType,
+                    start: this.findListElement(op.obj, op.start).index,
+                    end: this.findListElement(op.obj, op.end).index,
+                    id: op.opId,
+                    data: op.data,
+                }
+                // Incrementally apply this formatting operation to
+                // the list of flattened spans that we are storing
+                this.formatSpans[op.obj] = applyFormatOp(
+                    this.formatSpans[op.obj],
+                    formatOp,
+                )
+            } else if (op.action === "removeMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
                 const formatOp: ResolvedOp = {

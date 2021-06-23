@@ -137,6 +137,37 @@ describe.only("Micromerge", () => {
         ])
     })
 
+    it("handles an annotation with data", () => {
+        const doc1 = new Micromerge("1234")
+        const textChars = "The Peritext editor".split("")
+
+        doc1.change([
+            { path: [], action: "makeList", key: "text" },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: textChars,
+            },
+            // Add a comment to the word Peritext
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "comment",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.root.text, textChars)
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: true }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
     it("correctly merges concurrent overlapping bold and italic", () => {
         const doc1 = new Micromerge("1234")
         const doc2 = new Micromerge("abcd")

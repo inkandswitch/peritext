@@ -37,3 +37,7 @@
 .change.from-bob {
     background-color: rgba(0, 200, 200, 0.1);
 }
+
+.editor span.comment {
+    background-color: rgba(255, 241, 50, 0.4);
+}

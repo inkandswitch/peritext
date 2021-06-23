@@ -24,10 +24,31 @@ import type {
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
 
+// A Prosemirror Command that adds a comment to the document.
+// We don't use the built-in toggleMark command because comments
+// can't be "toggled" the same way bold/italic can.
+// TODO: we can generalize this, by making a higher-order function
+// that returns a command for adding any kind of annotation.
+// TODO: For now this makes a bunch of assumptions about the selection etc.;
+// could definitely do more error handling.
+function addComment(
+    state: EditorState,
+    dispatch: (t: Transaction) => void,
+): boolean {
+    const tr = state.tr
+    const { $from, $to } = state.selection.ranges[0]
+    const from = $from.pos,
+        to = $to.pos
+    tr.addMark(from, to, schema.marks.comment.create())
+    dispatch(tr)
+    return true
+}
+
 const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
+    "Mod-Shift-c": addComment,
 }
 
 // Represents a selection position: either after a character, or at the beginning

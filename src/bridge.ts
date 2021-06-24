@@ -5,10 +5,10 @@
 import Micromerge from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
+import { Schema, Slice, Node, ResolvedPos, Mark } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, MarkType, schemaSpec } from "./schema"
+import { isMarkType, markSpec, MarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -39,7 +39,11 @@ function addComment(
     const { $from, $to } = state.selection.ranges[0]
     const from = $from.pos,
         to = $to.pos
-    tr.addMark(from, to, schema.marks.comment.create())
+    tr.addMark(
+        from,
+        to,
+        schema.marks.comment.create({ text: "A random comment" }),
+    )
     dispatch(tr)
     return true
 }
@@ -251,8 +255,6 @@ export function createEditor(args: {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            console.groupCollapsed("dispatch", txn.steps[0])
-
             // Compute a new automerge doc and selection point
             const change = applyTransaction({ doc, txn })
             if (change) {
@@ -303,7 +305,6 @@ export function createEditor(args: {
                 "newState",
                 state,
             )
-            console.groupEnd()
         },
     })
 
@@ -329,6 +330,8 @@ export function prosemirrorDocFromCRDT(args: {
 }): Node {
     const { schema, spans } = args
 
+    console.log("spans", spans)
+
     // Prosemirror doesn't allow for empty text nodes;
     // if our doc is empty, we short-circuit and don't add any text nodes.
     if (spans.length === 1 && spans[0].text === "") {
@@ -340,13 +343,24 @@ export function prosemirrorDocFromCRDT(args: {
             "paragraph",
             undefined,
             spans.map(span => {
-                const marks = []
-                for (const [markType, active] of Object.entries(span.marks)) {
-                    if (active) {
-                        marks.push(schema.mark(markType))
-                    }
-                }
-                return schema.text(span.text, marks)
+                return schema.text(
+                    span.text,
+                    span.marks.map(mark =>
+                        schema.mark(
+                            mark.markType,
+
+                            // TODO: this is quite awkward and needs a rethink.
+                            // For a mark that allows a set of attributes values,
+                            // we don't have a great way of telling Prosemirror about the multiple values;
+                            // so we're forced to just take the first one here which is insufficient.
+                            // Maybe a better thing to do would be to just have the attrs be a list?
+
+                            markSpec[mark.markType].allowMultiple
+                                ? [...mark.attrs][0]
+                                : mark.attrs,
+                        ),
+                    ),
+                )
             }),
         ),
     ])
@@ -414,7 +428,7 @@ export function applyTransaction(args: {
                 // CRDT range, not just a single position at a time.
                 end: contentPosFromProsemirrorPos(step.to - 1),
                 markType: step.mark.type.name,
-                data: step.mark.attrs,
+                attrs: step.mark.attrs,
             })
         } else if (step instanceof RemoveMarkStep) {
             if (!isMarkType(step.mark.type.name)) {

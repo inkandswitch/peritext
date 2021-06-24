@@ -17,7 +17,7 @@ if (aliceNode && aliceEditor && aliceChanges) {
         actorId: "alice",
         editorNode: aliceEditor,
         changesNode: aliceChanges,
-        initialValue: "text",
+        initialValue: "Welcome to the Peritext editor",
         publisher,
     })
 } else {
@@ -32,7 +32,7 @@ if (bobNode && bobEditor && bobChanges) {
         actorId: "bob",
         editorNode: bobEditor,
         changesNode: bobChanges,
-        initialValue: "text",
+        initialValue: "Welcome to the Peritext editor",
         publisher,
     })
 } else {

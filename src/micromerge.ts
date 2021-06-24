@@ -1,5 +1,5 @@
-import { applyOp as applyFormatOp, MarkValue, normalize } from "./format"
-import { ALL_MARKS, markSpec } from "./schema"
+import { applyOp as applyFormatOp, normalize } from "./format"
+import { ALL_MARKS, MarkAttributes } from "./schema"
 import uuid from "uuid"
 
 import type { MarkType } from "./schema"
@@ -13,7 +13,7 @@ type CONTENT_KEY = "text"
 
 export interface FormatSpanWithText {
     text: string
-    marks: { [T in MarkType]?: true | Set<MarkValue> }
+    marks: { markType: MarkType; attrs: MarkAttributes }[]
 }
 
 type ActorId = string
@@ -129,7 +129,7 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     /** Mark to add. */
     markType: M
 
-    data?: { [key: string]: any } // todo: specify type here
+    attrs?: { [key: string]: any } // todo: specify type here
 }
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -226,7 +226,7 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     /** Mark to add. */
     markType: M
 
-    data?: { [key: string]: any } // todo: specify type here
+    attrs?: { [key: string]: any } // todo: specify type here
 }
 
 interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
@@ -427,7 +427,7 @@ export default class Micromerge<M extends MarkType> {
                         start: this.getListElementId(objId, inputOp.start),
                         end: this.getListElementId(objId, inputOp.end),
                         markType: inputOp.markType,
-                        data: inputOp.data,
+                        attrs: inputOp.attrs,
                     })
                 } else if (inputOp.action === "removeMark") {
                     this.makeNewOp(change, {
@@ -545,20 +545,14 @@ export default class Micromerge<M extends MarkType> {
                     ? formatSpans[index + 1].start
                     : text.length
 
-            const marks: { [T in MarkType]?: true } = {}
+            const marks = []
             for (const markType of ALL_MARKS) {
-                if (
-                    markSpec[markType].allowMultiple &&
-                    span.marks[markType] !== undefined
-                ) {
-                    marks[markType] = span.marks[markType]
-                } else {
-                    const spanMark = span.marks[markType]
-                    if (spanMark && spanMark.active) {
-                        marks[markType] = true
-                    }
+                const mark = span.marks[markType]
+                if (mark?.active) {
+                    marks.push({ markType, attrs: mark.attrs })
                 }
             }
+
             return { marks, text: text.slice(start, end).join("") }
         })
     }
@@ -664,7 +658,7 @@ export default class Micromerge<M extends MarkType> {
                     start: this.findListElement(op.obj, op.start).index,
                     end: this.findListElement(op.obj, op.end).index,
                     id: op.opId,
-                    data: op.data,
+                    attrs: op.attrs,
                 }
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing

@@ -48,6 +48,8 @@ interface NodeSpec {
 
 type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
 
+export type MarkAttributes = { [key: string]: any }
+
 /***********************************************
  * Marks.
  ***********************************************/
@@ -66,16 +68,21 @@ export const markSpec = {
         allowMultiple: false,
     },
     comment: {
-        toDOM() {
-            return ["span", { class: "comment" }] as const
+        toDOM(mark: Mark) {
+            return [
+                "span",
+                { class: "comment", "data-text": mark.attrs.text },
+            ] as const
         },
         allowMultiple: true,
+        attrs: { text: {} },
     },
     link: {
         toDOM(mark: Mark) {
             return ["a", { href: mark.attrs.href }] as const
         },
         allowMultiple: false,
+        attrs: { href: {} },
     },
 } as const
 

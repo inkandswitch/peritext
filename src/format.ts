@@ -1,5 +1,5 @@
 import { compact } from "lodash"
-import { ALL_MARKS, markSpec } from "./schema"
+import { ALL_MARKS, MarkAttributes, markSpec } from "./schema"
 import { compareOpIds } from "./micromerge"
 
 import type {
@@ -13,18 +13,16 @@ export type ResolvedOp =
     | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
     | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
 
-// TODO: I think we can reorganize MarkValue a bit so that
-// every kind of mark has state, but then depending on the mark type,
-// the MarkMap either contains a single winner value per mark type (eg bold),
-// or a set of all active values (eg comments)
-export type MarkValue =
-    | {
-          active: boolean
-          opId: OperationId
-      }
-    | { text: string }
+// TODO: is it bad that OperationId is up at this level?
+// Do we want Op IDs at more granular points, eg having MarkAttributes
+// be an Automerge map with per-key OpIds?
+export type MarkValue = {
+    active: boolean
+    opId: OperationId
+    attrs: MarkAttributes | Set<MarkAttributes>
+}
 
-export type MarkMap = { [T in MarkType]?: MarkValue | Set<MarkValue> }
+export type MarkMap = { [T in MarkType]?: MarkValue }
 
 export type FormatSpan = {
     marks: MarkMap
@@ -174,15 +172,18 @@ function applyFormatting(
 
     switch (op.action) {
         case "addMark": {
-            if (markSpec[op.markType].allowMultiple && op.data !== undefined) {
-                if (
-                    newMarks[op.markType] === undefined ||
-                    !(newMarks[op.markType] instanceof Set)
-                ) {
-                    newMarks[op.markType] = new Set()
-                }
+            if (markSpec[op.markType].allowMultiple) {
+                // TODO: Hmm, should we be doing an op ID comparison here?
+                // How does it work when people add/remove comments concurrently...?
+                // For now let's ignore op ID and come back to it.
 
-                newMarks[op.markType].add(op.data)
+                newMarks[op.markType] = {
+                    active: true,
+                    attrs: (newMarks[op.markType]?.attrs || new Set()).add(
+                        op.attrs,
+                    ),
+                    opId: op.id,
+                }
             } else {
                 // Only apply the op if its ID is greater than the last op that touched this mark
                 if (
@@ -192,13 +193,14 @@ function applyFormatting(
                     newMarks[op.markType] = {
                         active: true,
                         opId: op.id,
+                        attrs: op.attrs || {},
                     }
                 }
             }
             break
         }
         case "removeMark": {
-            if (!markSpec[op.markType].allowMultiple) {
+            if (markSpec[op.markType].allowMultiple) {
                 throw new Error(
                     "removeMark isn't implemented yet for marks with identity",
                 )
@@ -208,6 +210,7 @@ function applyFormatting(
                 newMarks[op.markType] = {
                     active: false,
                     opId: op.id,
+                    attrs: {}, // clear out attrs on an inactive mark
                 }
             }
             break
@@ -245,24 +248,25 @@ export function normalize(
         }
 
         // Remove spans that have the same content as their neighbor to the left
-        return index === 0 || !marksEqual(spans[index - 1].marks, span.marks)
+        return index === 0 || !markMapsEqual(spans[index - 1].marks, span.marks)
     })
 }
 
-// TODO: Should this function compare metadata?
-function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
+// Two MarkMaps are equal if for each mark, they have the same active state + metadata
+function markMapsEqual(s1: MarkMap, s2: MarkMap): boolean {
     return ALL_MARKS.every(mark => {
         const mark1 = s1[mark]
         const mark2 = s2[mark]
 
-        if (isInactive(mark1) && isInactive(mark2)) {
-            return true
-        } else if (!isInactive(mark1) && !isInactive(mark2)) {
-            return true
-        } else {
-            // One is active and one isn't.
-            return false
-        }
+        const bothInactive = isInactive(mark1) && isInactive(mark2)
+        const sameAttrs =
+            !isInactive(mark1) &&
+            !isInactive(mark2) &&
+            mark1?.attrs === mark2?.attrs
+
+        const result = bothInactive || sameAttrs
+
+        return result
     })
 }
 

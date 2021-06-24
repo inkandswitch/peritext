@@ -5,10 +5,22 @@
 import Micromerge from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node, ResolvedPos, Mark } from "prosemirror-model"
+import {
+    Schema,
+    Slice,
+    Node,
+    ResolvedPos,
+    MarkType as BaseMarkType,
+} from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, markSpec, MarkType, schemaSpec } from "./schema"
+import {
+    isMarkType,
+    MarkAttributes,
+    markSpec,
+    MarkType,
+    schemaSpec,
+} from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -24,53 +36,33 @@ import type {
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
 
-// A Prosemirror Command that adds a comment to the document.
-// We don't use the built-in toggleMark command because comments
-// can't be "toggled" the same way bold/italic can.
-// TODO: we can generalize this, by making a higher-order function
-// that returns a command for adding any kind of annotation.
-// TODO: For now this makes a bunch of assumptions about the selection etc.;
-// could definitely do more error handling.
-function addComment(
-    state: EditorState,
-    dispatch: (t: Transaction) => void,
-): boolean {
-    const tr = state.tr
-    const { $from, $to } = state.selection.ranges[0]
-    const from = $from.pos,
-        to = $to.pos
-    tr.addMark(
-        from,
-        to,
-        schema.marks.comment.create({ text: "A random comment" }),
-    )
-    dispatch(tr)
-    return true
-}
-
-function addLink(
-    state: EditorState,
-    dispatch: (t: Transaction) => void,
-): boolean {
-    const tr = state.tr
-    const { $from, $to } = state.selection.ranges[0]
-    const from = $from.pos,
-        to = $to.pos
-    tr.addMark(
-        from,
-        to,
-        schema.marks.link.create({ href: "https://www.google.com" }),
-    )
-    dispatch(tr)
-    return true
+// This is a factory which returns a Prosemirror command.
+// The Prosemirror command adds a mark to the document.
+// The mark takes on the position of the current selection,
+// and has the given type and attributes.
+// (The structure/usage of this is similar to the toggleMark command factory
+// built in to prosemirror)
+function addMark(markType: BaseMarkType, attrs: MarkAttributes) {
+    return (
+        state: EditorState,
+        dispatch: (t: Transaction<Schema<MarkType>>) => void,
+    ) => {
+        const tr = state.tr
+        const { $from, $to } = state.selection.ranges[0]
+        const from = $from.pos,
+            to = $to.pos
+        tr.addMark(from, to, markType.create(attrs))
+        dispatch(tr)
+        return true
+    }
 }
 
 const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
-    "Mod-Shift-c": addComment,
-    "Mod-k": addLink,
+    "Mod-Shift-c": addMark(schema.marks.comment, { text: "A random comment" }),
+    "Mod-k": addMark(schema.marks.link, { href: "https://www.google.com" }),
 }
 
 // Represents a selection position: either after a character, or at the beginning
@@ -255,6 +247,8 @@ export function createEditor(args: {
         state,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
+            console.groupCollapsed("dispatch", txn.steps[0])
+
             // Compute a new automerge doc and selection point
             const change = applyTransaction({ doc, txn })
             if (change) {
@@ -305,6 +299,7 @@ export function createEditor(args: {
                 "newState",
                 state,
             )
+            console.groupEnd()
         },
     })
 
@@ -329,8 +324,6 @@ export function prosemirrorDocFromCRDT(args: {
     spans: FormatSpanWithText[]
 }): Node {
     const { schema, spans } = args
-
-    console.log("spans", spans)
 
     // Prosemirror doesn't allow for empty text nodes;
     // if our doc is empty, we short-circuit and don't add any text nodes.

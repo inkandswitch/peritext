@@ -202,7 +202,7 @@ function applyFormatting(
         case "removeMark": {
             if (markSpec[op.markType].allowMultiple) {
                 throw new Error(
-                    "removeMark isn't implemented yet for marks with identity",
+                    "removeMark isn't implemented yet for marks with allowMultiple",
                 )
             }
             // Only apply the op if its ID is greater than the last op that touched this mark

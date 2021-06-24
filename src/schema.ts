@@ -5,6 +5,7 @@ import {
     SchemaSpec,
     DOMOutputSpec,
     DOMOutputSpecArray,
+    Mark,
 } from "prosemirror-model"
 
 /***********************************************
@@ -56,24 +57,34 @@ export const markSpec = {
         toDOM() {
             return ["strong"] as const
         },
-        hasIdentity: false,
+        allowMultiple: false,
     },
     em: {
         toDOM() {
             return ["em"] as const
         },
-        hasIdentity: false,
+        allowMultiple: false,
     },
     comment: {
         toDOM() {
-            // todo: not sure if this is a correct DOM output
             return ["span", { class: "comment" }] as const
         },
-        hasIdentity: true,
+        allowMultiple: true,
+    },
+    link: {
+        toDOM(mark: Mark) {
+            return ["a", { href: mark.attrs.href }] as const
+        },
+        allowMultiple: false,
     },
 } as const
 
-export const ALL_MARKS = ["strong" as const, "em" as const, "comment" as const]
+export const ALL_MARKS = [
+    "strong" as const,
+    "em" as const,
+    "comment" as const,
+    "link" as const,
+]
 
 type AssertAllListedAreMarks = Assert<Inner<typeof ALL_MARKS>, MarkType>
 type AssertAllMarksAreListed = Assert<MarkType, Inner<typeof ALL_MARKS>>
@@ -85,7 +96,7 @@ type AssertMarksMatchSpec = Assert<
 >
 
 export function isMarkType(s: string): s is MarkType {
-    if (s === "strong" || s === "em" || s === "comment") {
+    if (s === "strong" || s === "em" || s === "comment" || s === "link") {
         type AssertSound = Assert<typeof s, MarkType>
         type AssertComplete = Assert<MarkType, typeof s>
         return true

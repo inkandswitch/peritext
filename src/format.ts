@@ -174,7 +174,7 @@ function applyFormatting(
 
     switch (op.action) {
         case "addMark": {
-            if (markSpec[op.markType].hasIdentity && op.data !== undefined) {
+            if (markSpec[op.markType].allowMultiple && op.data !== undefined) {
                 if (
                     newMarks[op.markType] === undefined ||
                     !(newMarks[op.markType] instanceof Set)
@@ -198,7 +198,7 @@ function applyFormatting(
             break
         }
         case "removeMark": {
-            if (!markSpec[op.markType].hasIdentity) {
+            if (!markSpec[op.markType].allowMultiple) {
                 throw new Error(
                     "removeMark isn't implemented yet for marks with identity",
                 )

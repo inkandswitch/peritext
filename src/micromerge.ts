@@ -129,7 +129,7 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     /** Mark to add. */
     markType: M
 
-    data?: any // todo: specify type here
+    data?: { [key: string]: any } // todo: specify type here
 }
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -226,7 +226,7 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     /** Mark to add. */
     markType: M
 
-    data?: any // todo: specify type here
+    data?: { [key: string]: any } // todo: specify type here
 }
 
 interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
@@ -548,7 +548,7 @@ export default class Micromerge<M extends MarkType> {
             const marks: { [T in MarkType]?: true } = {}
             for (const markType of ALL_MARKS) {
                 if (
-                    markSpec[markType].hasIdentity &&
+                    markSpec[markType].allowMultiple &&
                     span.marks[markType] !== undefined
                 ) {
                     marks[markType] = span.marks[markType]

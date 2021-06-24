@@ -44,11 +44,29 @@ function addComment(
     return true
 }
 
+function addLink(
+    state: EditorState,
+    dispatch: (t: Transaction) => void,
+): boolean {
+    const tr = state.tr
+    const { $from, $to } = state.selection.ranges[0]
+    const from = $from.pos,
+        to = $to.pos
+    tr.addMark(
+        from,
+        to,
+        schema.marks.link.create({ href: "https://www.google.com" }),
+    )
+    dispatch(tr)
+    return true
+}
+
 const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
     "Mod-Shift-c": addComment,
+    "Mod-k": addLink,
 }
 
 // Represents a selection position: either after a character, or at the beginning
@@ -325,13 +343,10 @@ export function prosemirrorDocFromCRDT(args: {
                 const marks = []
                 for (const [markType, active] of Object.entries(span.marks)) {
                     if (active) {
-                        marks.push(markType)
+                        marks.push(schema.mark(markType))
                     }
                 }
-                return schema.text(
-                    span.text,
-                    marks.map(m => schema.mark(m)),
-                )
+                return schema.text(span.text, marks)
             }),
         ),
     ])
@@ -399,6 +414,7 @@ export function applyTransaction(args: {
                 // CRDT range, not just a single position at a time.
                 end: contentPosFromProsemirrorPos(step.to - 1),
                 markType: step.mark.type.name,
+                data: step.mark.attrs,
             })
         } else if (step instanceof RemoveMarkStep) {
             if (!isMarkType(step.mark.type.name)) {

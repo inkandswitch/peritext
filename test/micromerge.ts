@@ -132,7 +132,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
@@ -184,9 +184,12 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, textChars)
 
         const expectedTextWithFormatting = [
-            { marks: { strong: true }, text: "The " },
-            { marks: { strong: true, em: true }, text: "Peritext" },
-            { marks: { em: true }, text: " editor" },
+            { marks: { strong: { active: true } }, text: "The " },
+            {
+                marks: { strong: { active: true }, em: { active: true } },
+                text: "Peritext",
+            },
+            { marks: { em: { active: true } }, text: " editor" },
         ]
 
         // And the same correct flattened format spans:
@@ -247,7 +250,7 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, textChars)
 
         const expectedTextWithFormatting = [
-            { marks: { strong: true }, text: "The " },
+            { marks: { strong: { active: true } }, text: "The " },
             { marks: {}, text: "Peritext editor" },
         ]
 
@@ -284,7 +287,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -302,7 +305,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "Hello to The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
@@ -329,7 +332,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -346,7 +349,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor is great" },
         ])
     })
@@ -373,7 +376,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -389,7 +392,7 @@ describe.only("Micromerge", () => {
         ])
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
@@ -416,7 +419,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -433,7 +436,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
         ])
     })
 

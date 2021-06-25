@@ -27,7 +27,7 @@ type IdMarkValue = {
     opId: OperationId
 }
 
-type MarkValue = Assert<
+export type MarkValue = Assert<
     {
         strong: BooleanMarkValue
         em: BooleanMarkValue

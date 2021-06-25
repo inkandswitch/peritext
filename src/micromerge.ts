@@ -1,9 +1,9 @@
-import { applyOp as applyFormatOp, normalize } from "./format"
-import { ALL_MARKS } from "./schema"
+import { applyOp as applyFormatOp, MarkMap, normalize } from "./format"
+import { ALL_MARKS, Marks } from "./schema"
 import uuid from "uuid"
 
 import type { MarkType } from "./schema"
-import type { FormatSpan, ResolvedOp } from "./format"
+import type { FormatSpan, ResolvedOp, MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -11,9 +11,15 @@ const HEAD = Symbol("_head")
 
 type CONTENT_KEY = "text"
 
+type MarkMapWithoutOpIds = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+        ? Array<Omit<MarkValue[K], "opId">>
+        : Omit<MarkValue[K], "opId">
+}
+
 export interface FormatSpanWithText {
     text: string
-    marks: { [T in MarkType]?: true }
+    marks: MarkMapWithoutOpIds
 }
 
 export type ActorId = string
@@ -534,11 +540,21 @@ export default class Micromerge<M extends MarkType> {
                     ? formatSpans[index + 1].start
                     : text.length
 
-            const marks: { [T in MarkType]?: true } = {}
+            const marks: MarkMapWithoutOpIds = {}
+
             for (const markType of ALL_MARKS) {
-                const spanMark = span.marks[markType]
-                if (spanMark && spanMark.active) {
-                    marks[markType] = true
+                if (markType === "strong" || markType === "em") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined && spanMark.active) {
+                        marks[markType] = { active: true }
+                    }
+                } else if (markType === "comment") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined) {
+                        marks[markType] = spanMark
+                    }
+                } else {
+                    unreachable(markType)
                 }
             }
             return { marks, text: text.slice(start, end).join("") }

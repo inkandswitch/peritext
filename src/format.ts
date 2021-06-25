@@ -1,6 +1,8 @@
-import { compact } from "lodash"
+import { compact, isEqual } from "lodash"
 import { ALL_MARKS } from "./schema"
 import { compareOpIds } from "./micromerge"
+
+import type { Marks } from "./schema"
 
 import type {
     OperationId,
@@ -13,12 +15,32 @@ export type ResolvedOp =
     | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
     | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
 
-type MarkValue = {
+type BooleanMarkValue = {
     active: boolean
+    /** A MarkValue should always have the ID of the operation that last modified it. */
     opId: OperationId
 }
 
-export type MarkMap = { [T in MarkType]?: MarkValue }
+type IdMarkValue = {
+    id: string
+    /** A MarkValue should always have the ID of the operation that last modified it. */
+    opId: OperationId
+}
+
+type MarkValue = Assert<
+    {
+        strong: BooleanMarkValue
+        em: BooleanMarkValue
+        comment: IdMarkValue
+    },
+    { [K in MarkType]: Record<string, unknown> }
+>
+
+export type MarkMap = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+        ? Array<MarkValue[K]>
+        : MarkValue[K]
+}
 
 export type FormatSpan = {
     marks: MarkMap
@@ -164,26 +186,80 @@ function applyFormatting(
     op: ResolvedOp,
 ): FormatSpan {
     const newMarks = { ...marks }
-    const mark = marks[op.markType]
 
     switch (op.action) {
         case "addMark": {
-            // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
-                newMarks[op.markType] = {
-                    active: true,
+            if (op.markType === "strong" || op.markType === "em") {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    // Only apply the op if its ID is greater than the last op that touched this mark
+                    newMarks[op.markType] = {
+                        active: true,
+                        opId: op.id,
+                    }
+                }
+            } else if (op.markType === "comment") {
+                const newMark = {
+                    id: op.data.id,
                     opId: op.id,
                 }
+
+                const existing = marks[op.markType]
+                if (existing === undefined) {
+                    newMarks[op.markType] = [newMark]
+                } else {
+                    // Check existing list of annotations.
+                    // Find the comment with the same comment ID.
+                    const match = existing.find(m => m.id === op.data.id)
+                    // If it doesn't exist, append.
+                    if (match === undefined) {
+                        existing.push(newMark)
+                    } else if (
+                        // Otherwise, compare operation IDs and update operation ID if greater.
+                        // Only apply the op if its ID is greater than the last op that touched this mark
+                        compareOpIds(op.id, match.id) === 1
+                    ) {
+                        newMarks[op.markType] = existing.map(m =>
+                            m.id === op.id
+                                ? {
+                                      ...m,
+                                      opId: op.id,
+                                  }
+                                : m,
+                        )
+                    }
+                }
+            } else {
+                unreachable(op.markType)
             }
             break
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
-                newMarks[op.markType] = {
-                    active: false,
-                    opId: op.id,
+            if (op.markType === "strong" || op.markType === "em") {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    newMarks[op.markType] = {
+                        active: false,
+                        opId: op.id,
+                    }
                 }
+            } else if (op.markType === "comment") {
+                // Remove the mark with the same ID if it exists.
+                const existing = marks[op.markType]
+                if (existing !== undefined) {
+                    newMarks[op.markType] = existing.filter(
+                        m => m.id !== op.data.id,
+                    )
+                }
+            } else {
+                unreachable(op.markType)
             }
             break
         }
@@ -227,20 +303,29 @@ export function normalize(
 // TODO: Should this function compare metadata?
 function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
     return ALL_MARKS.every(mark => {
-        const mark1 = s1[mark]
-        const mark2 = s2[mark]
+        if (mark === "strong" || mark === "em") {
+            const mark1 = s1[mark]
+            const mark2 = s2[mark]
 
-        if (isInactive(mark1) && isInactive(mark2)) {
-            return true
-        } else if (!isInactive(mark1) && !isInactive(mark2)) {
-            return true
+            if (isInactive(mark1) && isInactive(mark2)) {
+                return true
+            } else if (!isInactive(mark1) && !isInactive(mark2)) {
+                return true
+            } else {
+                // One is active and one isn't.
+                return false
+            }
+        } else if (mark === "comment") {
+            const marks1 = new Set((s1[mark] || []).map(m => m.id))
+            const marks2 = new Set((s2[mark] || []).map(m => m.id))
+
+            return isEqual(marks1, marks2)
         } else {
-            // One is active and one isn't.
-            return false
+            unreachable(mark)
         }
     })
 }
 
-function isInactive(mark: MarkValue | undefined): boolean {
+function isInactive(mark: BooleanMarkValue | undefined): boolean {
     return mark === undefined || mark.active === false
 }

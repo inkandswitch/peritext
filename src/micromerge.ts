@@ -16,7 +16,7 @@ export interface FormatSpanWithText {
     marks: { [T in MarkType]?: true }
 }
 
-type ActorId = string
+export type ActorId = string
 export type OperationId = string
 export type Cursor = { objectId: ObjectId; elemId: ElemId }
 
@@ -31,7 +31,6 @@ type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
 
-export type RootDoc = { text: Array<Char> }
 export type GenericMarkType = string
 
 type OperationPath = [] | [CONTENT_KEY]

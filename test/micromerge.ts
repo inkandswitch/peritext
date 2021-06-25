@@ -1,7 +1,7 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
 
-import type { RootDoc } from "../src/micromerge"
+import type { RootDoc } from "../src/bridge"
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {

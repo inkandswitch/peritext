@@ -14,15 +14,23 @@ import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
 import type {
+    ActorId,
+    Char,
     FormatSpanWithText,
+    Change,
     Cursor,
     Operation as InternalOperation,
-    Change,
     InputOperation,
 } from "./micromerge"
+import type { Comment, CommentId } from "./comment"
 
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
+
+export type RootDoc = {
+    text: Array<Char>
+    comments: Record<CommentId, Comment>
+}
 
 const richTextKeymap = {
     ...baseKeymap,
@@ -133,8 +141,33 @@ function describeOp(op: InternalOperation<MarkType>): string {
     }
 }
 
+/**
+ * Creates a new Micromerge instance wrapping a RootDoc structure.
+ */
+function createRootDoc(args: { actorId: ActorId; initialValue: string }): {
+    doc: Micromerge<MarkType>
+    initialChange: Change<MarkType>
+} {
+    const { actorId, initialValue } = args
+    const doc = new Micromerge(actorId)
+    const initialChange = doc.change([
+        { path: [], action: "makeList", key: Micromerge.contentKey },
+        { path: [], action: "makeMap", key: "comments" },
+        {
+            path: [Micromerge.contentKey],
+            action: "insert",
+            index: 0,
+            values: initialValue.split(""),
+        },
+    ])
+    return {
+        doc,
+        initialChange,
+    }
+}
+
 export function createEditor(args: {
-    actorId: string
+    actorId: ActorId
     editorNode: Element
     changesNode: Element
     initialValue: string
@@ -147,18 +180,12 @@ export function createEditor(args: {
         },
     })
     queue.start()
-    const doc = new Micromerge(actorId)
     let selection: Selection = undefined
 
-    const initialChange = doc.change([
-        { path: [], action: "makeList", key: Micromerge.contentKey },
-        {
-            path: [Micromerge.contentKey],
-            action: "insert",
-            index: 0,
-            values: initialValue.split(""),
-        },
-    ])
+    const { initialChange, doc } = createRootDoc({
+        actorId,
+        initialValue,
+    })
     queue.enqueue(initialChange)
 
     const outputDebugForChange = (change: Change<MarkType>) => {

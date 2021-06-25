@@ -133,6 +133,8 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     end: number
     /** Mark to add. */
     markType: M
+    /** Data attributes for the mark. */
+    attrs?: any // TODO: constrain this further using MarkValue
 }
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -147,6 +149,8 @@ export interface RemoveMarkOperationInput<M extends GenericMarkType> {
     end: number
     /** Mark to remove. */
     markType: M
+    /** Data attributes for the mark. */
+    attrs?: any // TODO: constrain this further using MarkValue
 }
 
 export type InputOperation<M extends GenericMarkType> =
@@ -228,6 +232,8 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     end: OperationId
     /** Mark to add. */
     markType: M
+    /** Data attributes for the mark. */
+    attrs?: any // TODO: constrain this further using MarkValue
 }
 
 interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
@@ -238,6 +244,8 @@ interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
     end: OperationId
     /** Mark to add. */
     markType: M
+    /** Data attributes for the mark. */
+    attrs?: any // TODO: constrain this further using MarkValue
 }
 
 export type Operation<M extends GenericMarkType> =
@@ -431,6 +439,7 @@ export default class Micromerge<M extends MarkType> {
                         start: this.getListElementId(objId, inputOp.start),
                         end: this.getListElementId(objId, inputOp.end),
                         markType: inputOp.markType,
+                        attrs: inputOp.attrs,
                     })
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
@@ -551,7 +560,9 @@ export default class Micromerge<M extends MarkType> {
                 } else if (markType === "comment") {
                     const spanMark = span.marks[markType]
                     if (spanMark !== undefined) {
-                        marks[markType] = spanMark
+                        marks[markType] = spanMark.map(comment => ({
+                            id: comment.id,
+                        }))
                     }
                 } else {
                     unreachable(markType)
@@ -662,7 +673,9 @@ export default class Micromerge<M extends MarkType> {
                     start: this.findListElement(op.obj, op.start).index,
                     end: this.findListElement(op.obj, op.end).index,
                     id: op.opId,
+                    attrs: op.attrs,
                 }
+
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
                 this.formatSpans[op.obj] = applyFormatOp(

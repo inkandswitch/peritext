@@ -203,7 +203,7 @@ function applyFormatting(
                 }
             } else if (op.markType === "comment") {
                 const newMark = {
-                    id: op.data.id,
+                    id: op.attrs.id,
                     opId: op.id,
                 }
 
@@ -213,7 +213,7 @@ function applyFormatting(
                 } else {
                     // Check existing list of annotations.
                     // Find the comment with the same comment ID.
-                    const match = existing.find(m => m.id === op.data.id)
+                    const match = existing.find(m => m.id === op.attrs.id)
                     // If it doesn't exist, append.
                     if (match === undefined) {
                         existing.push(newMark)
@@ -255,7 +255,7 @@ function applyFormatting(
                 const existing = marks[op.markType]
                 if (existing !== undefined) {
                     newMarks[op.markType] = existing.filter(
-                        m => m.id !== op.data.id,
+                        m => m.id !== op.attrs.id,
                     )
                 }
             } else {

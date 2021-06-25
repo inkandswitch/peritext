@@ -440,6 +440,87 @@ describe.only("Micromerge", () => {
         ])
     })
 
+    describe("comments", () => {
+        it("returns a single comment in the flattened spans", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+                // Comment on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }] },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("returns two overlapping comments in the flattened spans", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+                // Comment on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+                // Comment on "Peritext editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }, { id: "def-789" }] },
+                    text: "Peritext",
+                },
+                { marks: { comment: [{ id: "def-789" }] }, text: " editor" },
+            ])
+        })
+    })
+
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
             const doc1 = new Micromerge("1234")

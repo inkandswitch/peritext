@@ -36,6 +36,9 @@ const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
+    "Mod-Shift-c": toggleMark(schema.marks.comment, {
+        id: "hihihi",
+    }),
 }
 
 // Represents a selection position: either after a character, or at the beginning

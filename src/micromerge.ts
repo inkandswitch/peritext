@@ -13,9 +13,11 @@ type CONTENT_KEY = "text"
 
 type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-        ? Array<Omit<MarkValue[K], "opId">>
-        : Omit<MarkValue[K], "opId">
+        ? Array<WithoutOpId<MarkValue[K]>>
+        : WithoutOpId<MarkValue[K]>
 }
+
+type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
 
 export interface FormatSpanWithText {
     text: string

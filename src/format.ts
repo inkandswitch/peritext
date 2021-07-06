@@ -2,18 +2,29 @@ import { compact, isEqual } from "lodash"
 import { ALL_MARKS } from "./schema"
 import { compareOpIds } from "./micromerge"
 
-import type { Marks } from "./schema"
-
 import type {
     OperationId,
+    InputOperation,
     AddMarkOperationInput,
     RemoveMarkOperationInput,
 } from "./micromerge"
-import type { MarkType } from "./schema"
+import type { Marks, MarkType } from "./schema"
 
+/**
+ * Using this intermediate operation representation for formatting.
+ * Remove the path to the CRDT object, and use the operation ID for
+ * operation comparisons.
+ *
+ * NOTE: The `id` here is the newly-generated CRDT ID, *NOT* the
+ * resolved path.
+ */
 export type ResolvedOp =
-    | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
-    | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
+    | ResolveOp<AddMarkOperationInput<MarkType>>
+    | ResolveOp<RemoveMarkOperationInput<MarkType>>
+
+type ResolveOp<O extends InputOperation<MarkType>> = Omit<O, "path"> & {
+    id: OperationId
+}
 
 type BooleanMarkValue = {
     active: boolean

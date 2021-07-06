@@ -8,7 +8,7 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, MarkType, schemaSpec } from "./schema"
+import { isMarkType, markSpec, MarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -23,6 +23,8 @@ import type {
     InputOperation,
 } from "./micromerge"
 import type { Comment, CommentId } from "./comment"
+import { v4 as uuid } from "uuid"
+import { MarkValue } from "./format"
 
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
@@ -36,8 +38,9 @@ const richTextKeymap = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
-    "Mod-Shift-c": toggleMark(schema.marks.comment, {
-        id: "hihihi",
+    "Mod-e": addMark<"comment">({
+        markType: "comment",
+        attrs: { id: uuid() },
     }),
 }
 
@@ -63,6 +66,31 @@ export type Editor = {
     // If the selection is at the very beginning of the doc, we represent that with a
     // special value of "_head", inspired by Automerge's similar approach for list insertion.
     selection: Selection
+}
+
+// This is a factory which returns a Prosemirror command.
+// The Prosemirror command adds a mark to the document.
+// The mark takes on the position of the current selection,
+// and has the given type and attributes.
+// (The structure/usage of this is similar to the toggleMark command factory
+// built in to prosemirror)
+function addMark<M extends MarkType>(args: {
+    markType: M
+    attrs: Omit<MarkValue[M], "opId">
+}) {
+    const { markType, attrs } = args
+    return (
+        state: EditorState,
+        dispatch: (t: Transaction<Schema<MarkType>>) => void,
+    ) => {
+        const tr = state.tr
+        const { $from, $to } = state.selection.ranges[0]
+        const from = $from.pos,
+            to = $to.pos
+        tr.addMark(from, to, schema.marks[markType].create(attrs))
+        dispatch(tr)
+        return true
+    }
 }
 
 function createNewProsemirrorState(
@@ -332,15 +360,18 @@ export function prosemirrorDocFromCRDT(args: {
             undefined,
             spans.map(span => {
                 const marks = []
-                for (const [markType, active] of Object.entries(span.marks)) {
-                    if (active) {
-                        marks.push(markType)
+                for (const [markType, markValue] of Object.entries(
+                    span.marks,
+                )) {
+                    if (markSpec[markType as MarkType].allowMultiple) {
+                        for (const value of markValue) {
+                            marks.push(schema.mark(markType, value))
+                        }
+                    } else if (markValue.active) {
+                        marks.push(schema.mark(markType, markValue))
                     }
                 }
-                return schema.text(
-                    span.text,
-                    marks.map(m => schema.mark(m)),
-                )
+                return schema.text(span.text, marks)
             }),
         ),
     ])
@@ -408,6 +439,7 @@ export function applyTransaction(args: {
                 // CRDT range, not just a single position at a time.
                 end: contentPosFromProsemirrorPos(step.to - 1),
                 markType: step.mark.type.name,
+                attrs: step.mark.attrs,
             })
         } else if (step instanceof RemoveMarkStep) {
             if (!isMarkType(step.mark.type.name)) {

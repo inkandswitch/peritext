@@ -17,6 +17,10 @@
     margin-bottom: 20px;
 }
 
+.editor span[data-mark="comment"] {
+    background-color: rgba(255, 241, 50, 0.4);
+}
+
 .changes {
     height: 300px;
     overflow-y: scroll;

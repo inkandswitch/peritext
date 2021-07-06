@@ -14,7 +14,7 @@
 }
 
 .editor span[data-mark="comment"] {
-    background-color: rgba(255, 241, 50, 0.4);
+    background-color: rgba(255, 241, 50, 0.3);
 }
 
 #toggle-connect {

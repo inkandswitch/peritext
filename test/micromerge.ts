@@ -488,11 +488,11 @@ describe.only("Micromerge", () => {
                     index: 0,
                     values: textChars,
                 },
-                // Comment on the word "Peritext"
+                // Comment on the word "The Peritext"
                 {
                     path: ["text"],
                     action: "addMark",
-                    start: 4,
+                    start: 0,
                     end: 11,
                     markType: "comment",
                     attrs: { id: "abc-123" },
@@ -511,7 +511,7 @@ describe.only("Micromerge", () => {
             assert.deepStrictEqual(doc1.root.text, textChars)
 
             assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
                 {
                     marks: { comment: [{ id: "abc-123" }, { id: "def-789" }] },
                     text: "Peritext",

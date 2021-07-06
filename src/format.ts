@@ -138,7 +138,6 @@ export function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         ...spans.slice(end.index + 1),
     ])
 
-    // Normalize output before returning to keep span list short as we apply each op
     return newSpans
 }
 
@@ -230,7 +229,7 @@ function applyFormatting(
                     const match = existing.find(m => m.id === op.attrs.id)
                     // If it doesn't exist, append.
                     if (match === undefined) {
-                        existing.push(newMark)
+                        newMarks[op.markType] = [...existing, newMark]
                     } else if (
                         // Otherwise, compare operation IDs and update operation ID if greater.
                         // Only apply the op if its ID is greater than the last op that touched this mark

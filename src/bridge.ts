@@ -8,7 +8,7 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, MarkType, schemaSpec } from "./schema"
+import { isMarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -51,9 +51,9 @@ type Selection =
     | undefined
 
 export type Editor = {
-    doc: Micromerge<MarkType>
+    doc: Micromerge
     view: EditorView
-    queue: ChangeQueue<MarkType>
+    queue: ChangeQueue
 
     // Todo: eventually we don't want to manage selection as cursors;
     // incrementally updating the prosemirror doc should mean that
@@ -88,7 +88,7 @@ function createNewProsemirrorState(
 function prosemirrorPosFromSelectionPos(
     selectionPos: SelectionPos,
     state: EditorState,
-    doc: Micromerge<MarkType>,
+    doc: Micromerge,
 ): ResolvedPos {
     let position: number
     if (selectionPos === HEAD) {
@@ -111,7 +111,7 @@ function prosemirrorPosFromSelectionPos(
 function updateProsemirrorSelection(
     state: EditorState,
     selection: Selection,
-    doc: Micromerge<MarkType>,
+    doc: Micromerge,
 ): EditorState {
     if (selection === undefined) {
         return state
@@ -128,7 +128,7 @@ function updateProsemirrorSelection(
 
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
-function describeOp(op: InternalOperation<MarkType>): string {
+function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
         return `insert <strong>${op.value}</strong> after <strong>${String(
             op.elemId,
@@ -148,8 +148,8 @@ function describeOp(op: InternalOperation<MarkType>): string {
  * Creates a new Micromerge instance wrapping a RootDoc structure.
  */
 function createRootDoc(args: { actorId: ActorId; initialValue: string }): {
-    doc: Micromerge<MarkType>
-    initialChange: Change<MarkType>
+    doc: Micromerge
+    initialChange: Change
 } {
     const { actorId, initialValue } = args
     const doc = new Micromerge(actorId)
@@ -174,11 +174,11 @@ export function createEditor(args: {
     editorNode: Element
     changesNode: Element
     initialValue: string
-    publisher: Publisher<Array<Change<MarkType>>>
+    publisher: Publisher<Array<Change>>
 }): Editor {
     const { actorId, editorNode, changesNode, initialValue, publisher } = args
     const queue = new ChangeQueue({
-        handleFlush: (changes: Array<Change<MarkType>>) => {
+        handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
         },
     })
@@ -191,10 +191,10 @@ export function createEditor(args: {
     })
     queue.enqueue(initialChange)
 
-    const outputDebugForChange = (change: Change<MarkType>) => {
+    const outputDebugForChange = (change: Change) => {
         const opsHtml = change.ops
             .map(
-                (op: InternalOperation<MarkType>) =>
+                (op: InternalOperation) =>
                     `<div class="change-description">${describeOp(op)}</div>`,
             )
             .join("")
@@ -352,11 +352,11 @@ export function prosemirrorDocFromCRDT(args: {
 // Note: need to derive a PM doc from the new CRDT doc later!
 // TODO: why don't we need to update the selection when we do insertions?
 export function applyTransaction(args: {
-    doc: Micromerge<MarkType>
+    doc: Micromerge
     txn: Transaction<DocSchema>
-}): Change<MarkType> | null {
+}): Change | null {
     const { doc, txn } = args
-    const operations: Array<InputOperation<MarkType>> = []
+    const operations: Array<InputOperation> = []
 
     for (const step of txn.steps) {
         console.log("step", step)
@@ -398,30 +398,59 @@ export function applyTransaction(args: {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            operations.push({
-                path: [Micromerge.contentKey],
-                action: "addMark",
-                start: contentPosFromProsemirrorPos(step.from),
-                // The end of a prosemirror addMark step refers to the index _after_ the end,
-                // but in the CRDT we use the index of the last character in the range.
-                // TODO: define a helper that converts a whole Prosemirror range into a
-                // CRDT range, not just a single position at a time.
-                end: contentPosFromProsemirrorPos(step.to - 1),
-                markType: step.mark.type.name,
-            })
+            const start = contentPosFromProsemirrorPos(step.from)
+            // The end of a prosemirror addMark step refers to the index _after_ the end,
+            // but in the CRDT we use the index of the last character in the range.
+            // TODO: define a helper that converts a whole Prosemirror range into a
+            // CRDT range, not just a single position at a time.
+            const end = contentPosFromProsemirrorPos(step.to - 1)
+
+            if (step.mark.type.name === "comment") {
+                operations.push({
+                    action: "addMark",
+                    path: [Micromerge.contentKey],
+                    start,
+                    end,
+                    markType: step.mark.type.name,
+                    // TODO: Generate a comment ID here.
+                    attrs: { id: "aaaaaaaaaa" },
+                })
+            } else {
+                operations.push({
+                    action: "addMark",
+                    path: [Micromerge.contentKey],
+                    start,
+                    end,
+                    markType: step.mark.type.name,
+                })
+            }
         } else if (step instanceof RemoveMarkStep) {
             if (!isMarkType(step.mark.type.name)) {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            operations.push({
-                path: [Micromerge.contentKey],
-                action: "removeMark",
-                start: contentPosFromProsemirrorPos(step.from),
-                // Same as above, translate Prosemirror's end range into a Micromerge position
-                end: contentPosFromProsemirrorPos(step.to - 1),
-                markType: step.mark.type.name,
-            })
+            const start = contentPosFromProsemirrorPos(step.from)
+            const end = contentPosFromProsemirrorPos(step.to - 1)
+
+            if (step.mark.type.name === "comment") {
+                operations.push({
+                    action: "removeMark",
+                    path: [Micromerge.contentKey],
+                    start,
+                    end,
+                    markType: step.mark.type.name,
+                    // TODO: Use the comment ID from the user.
+                    attrs: { id: "aaaaaaaaaa" },
+                })
+            } else {
+                operations.push({
+                    action: "removeMark",
+                    path: [Micromerge.contentKey],
+                    start,
+                    end,
+                    markType: step.mark.type.name,
+                })
+            }
         }
     }
 

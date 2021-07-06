@@ -3,15 +3,15 @@
  */
 import type { Change } from "./micromerge"
 
-export class ChangeQueue<M extends string> {
-    private changes: Array<Change<M>> = []
+export class ChangeQueue {
+    private changes: Array<Change> = []
     private timer: number | undefined = undefined
 
     /** Milliseconds between flushes. */
     private interval: number
 
     /** Flush action. */
-    private handleFlush: (changes: Array<Change<M>>) => void
+    private handleFlush: (changes: Array<Change>) => void
 
     constructor({
         // Can tune this sync interval to simulate network latency,
@@ -21,13 +21,13 @@ export class ChangeQueue<M extends string> {
     }: {
         interval?: number
         /** Flush action. */
-        handleFlush: (changes: Array<Change<M>>) => void
+        handleFlush: (changes: Array<Change>) => void
     }) {
         this.interval = interval
         this.handleFlush = handleFlush
     }
 
-    public enqueue(...changes: Array<Change<M>>): void {
+    public enqueue(...changes: Array<Change>): void {
         this.changes.push(...changes)
     }
 

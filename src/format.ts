@@ -19,12 +19,15 @@ import type { Marks, MarkType } from "./schema"
  * resolved path.
  */
 export type ResolvedOp =
-    | ResolveOp<AddMarkOperationInput<MarkType>>
-    | ResolveOp<RemoveMarkOperationInput<MarkType>>
+    | ResolveOp<AddMarkOperationInput>
+    | ResolveOp<RemoveMarkOperationInput>
 
-type ResolveOp<O extends InputOperation<MarkType>> = Omit<O, "path"> & {
-    id: OperationId
-}
+type ResolveOp<O extends InputOperation> = DistributiveOmit<
+    O & {
+        id: OperationId
+    },
+    "path"
+>
 
 type BooleanMarkValue = {
     active: boolean
@@ -244,7 +247,7 @@ function applyFormatting(
                     }
                 }
             } else {
-                unreachable(op.markType)
+                unreachable(op)
             }
             break
         }
@@ -270,7 +273,7 @@ function applyFormatting(
                     )
                 }
             } else {
-                unreachable(op.markType)
+                unreachable(op)
             }
             break
         }

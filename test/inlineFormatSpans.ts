@@ -1,3 +1,8 @@
+/**
+ * TODO: Many of these tests have equivalents in test/micromerge.ts
+ * and some of those equivalents have already been ported.
+ * Port all of the remaining tests and delete this file.
+ */
 import assert from "assert"
 import {
     FormatSpan,
@@ -15,13 +20,19 @@ function toMarkSet(map: MarkMap): Set<MarkType> {
     return new Set(
         ALL_MARKS.filter(mark => {
             const value = map[mark]
-            return value && value.active
+            if (value === undefined) {
+                return false
+            } else if ("active" in value) {
+                return true
+            } else {
+                return value.length > 0
+            }
         }),
     )
 }
 
 function assertOpsPlayedInAnyOrder(
-    ops: readonly Omit<ResolvedOp, "id">[],
+    ops: readonly DistributiveOmit<ResolvedOp, "id">[],
     docLength: number,
     expected: { start: number; marks: Set<MarkType> }[],
 ) {

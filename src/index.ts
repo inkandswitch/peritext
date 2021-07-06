@@ -1,11 +1,9 @@
 import { createEditor } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change } from "./micromerge"
-
 import type { Editor } from "./bridge"
-import { MarkType } from "./schema"
 
-const publisher = new Publisher<Array<Change<MarkType>>>()
+const publisher = new Publisher<Array<Change>>()
 
 const editors: { [key: string]: Editor } = {}
 

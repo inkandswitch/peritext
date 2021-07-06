@@ -39,8 +39,6 @@ type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
 
-export type GenericMarkType = string
-
 type OperationPath = [] | [CONTENT_KEY]
 
 /**
@@ -52,7 +50,7 @@ type Clock = Record<ActorId, number>
 /**
  * A batch of operations from a single actor, applied transactionally.
  */
-export interface Change<M extends GenericMarkType> {
+export interface Change {
     /** ID of the actor responsible for the change. */
     actor: ActorId
     /** Actor's current change version. */
@@ -62,7 +60,7 @@ export interface Change<M extends GenericMarkType> {
     /** Number of the first operation in the change. */
     startOp: OpNumber
     /** Operations contained in the change, ordered temporally. */
-    ops: Operation<M>[]
+    ops: Operation[]
 }
 
 interface InsertOperationInput {
@@ -125,7 +123,7 @@ interface DelOperationInput {
     key: string
 }
 
-export interface AddMarkOperationInput<M extends GenericMarkType> {
+interface AddMarkOperationInputBase<M extends MarkType> {
     action: "addMark"
     /** Path to a list object. */
     path: OperationPath
@@ -135,13 +133,23 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     end: number
     /** Mark to add. */
     markType: M
-    /** Data attributes for the mark. */
-    attrs?: any // TODO: constrain this further using MarkValue
 }
+
+export type AddMarkOperationInput =
+    | (AddMarkOperationInputBase<"strong"> & {
+          attrs?: undefined
+      })
+    | (AddMarkOperationInputBase<"em"> & {
+          attrs?: undefined
+      })
+    | (AddMarkOperationInputBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: Omit<MarkValue["comment"], "opId">
+      })
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
-export interface RemoveMarkOperationInput<M extends GenericMarkType> {
+interface RemoveMarkOperationInputBase<M extends MarkType> {
     action: "removeMark"
     /** Path to a list object. */
     path: OperationPath
@@ -151,19 +159,29 @@ export interface RemoveMarkOperationInput<M extends GenericMarkType> {
     end: number
     /** Mark to remove. */
     markType: M
-    /** Data attributes for the mark. */
-    attrs?: any // TODO: constrain this further using MarkValue
 }
 
-export type InputOperation<M extends GenericMarkType> =
+export type RemoveMarkOperationInput =
+    | (RemoveMarkOperationInputBase<"strong"> & {
+          attrs?: undefined
+      })
+    | (RemoveMarkOperationInputBase<"em"> & {
+          attrs?: undefined
+      })
+    | (RemoveMarkOperationInputBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: Omit<MarkValue["comment"], "opId">
+      })
+
+export type InputOperation =
     | MakeListOperationInput
     | MakeMapOperationInput
     | SetOperationInput
     | DelOperationInput
     | InsertOperationInput
     | DeleteOperationInput
-    | AddMarkOperationInput<M>
-    | RemoveMarkOperationInput<M>
+    | AddMarkOperationInput
+    | RemoveMarkOperationInput
 
 interface BaseOperation {
     /** ID of the object at the given path. */
@@ -226,7 +244,7 @@ interface DelOperation extends BaseOperation {
     elemId?: undefined
 }
 
-interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
+interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "addMark"
     /** List element to apply the mark start. */
     start: OperationId
@@ -234,11 +252,17 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     end: OperationId
     /** Mark to add. */
     markType: M
-    /** Data attributes for the mark. */
-    attrs?: any // TODO: constrain this further using MarkValue
 }
 
-interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
+type AddMarkOperation =
+    | AddMarkOperationBase<"strong">
+    | AddMarkOperationBase<"em">
+    | (AddMarkOperationBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: DistributiveOmit<MarkValue["comment"], "opId">
+      })
+
+interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
     /** List element to apply the mark start. */
     start: OperationId
@@ -246,19 +270,25 @@ interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
     end: OperationId
     /** Mark to add. */
     markType: M
-    /** Data attributes for the mark. */
-    attrs?: any // TODO: constrain this further using MarkValue
 }
 
-export type Operation<M extends GenericMarkType> =
+type RemoveMarkOperation =
+    | RemoveMarkOperationBase<"strong">
+    | RemoveMarkOperationBase<"em">
+    | (RemoveMarkOperationBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: DistributiveOmit<MarkValue["comment"], "opId">
+      })
+
+export type Operation =
     | MakeListOperation
     | MakeMapOperation
     | SetOperation
     | DelOperation
     | InsertOperation
     | DeleteOperation
-    | AddMarkOperation<M>
-    | RemoveMarkOperation<M>
+    | AddMarkOperation
+    | RemoveMarkOperation
 
 /**
  * Tracks the operation ID that set each field.
@@ -303,7 +333,7 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 /**
  * Miniature implementation of a subset of Automerge.
  */
-export default class Micromerge<M extends MarkType> {
+export default class Micromerge {
     /** Key in the root object containing the text content. */
     public static contentKey: CONTENT_KEY = "text"
 
@@ -355,7 +385,7 @@ export default class Micromerge<M extends MarkType> {
      * Generates a new change containing operations described in the array `ops`. Returns the change
      * object, which can be JSON-encoded to send to another node.
      */
-    public change(ops: Array<InputOperation<M>>): Change<M> {
+    public change(ops: Array<InputOperation>): Change {
         // Record the dependencies of this change:
         // anything in our clock before we generate the change.
         const deps = Object.assign({}, this.clock)
@@ -365,7 +395,7 @@ export default class Micromerge<M extends MarkType> {
         this.seq += 1
         this.clock[this.actorId] = this.seq
 
-        const change: Change<M> = {
+        const change: Change = {
             actor: this.actorId,
             seq: this.seq,
             deps,
@@ -431,18 +461,44 @@ export default class Micromerge<M extends MarkType> {
                             elemId,
                         })
                     }
-                } else if (
-                    inputOp.action === "addMark" ||
-                    inputOp.action === "removeMark"
-                ) {
-                    this.makeNewOp(change, {
+                } else if (inputOp.action === "addMark") {
+                    const partialOp = {
                         action: inputOp.action,
                         obj: objId,
                         start: this.getListElementId(objId, inputOp.start),
                         end: this.getListElementId(objId, inputOp.end),
-                        markType: inputOp.markType,
-                        attrs: inputOp.attrs,
-                    })
+                    } as const
+                    if (inputOp.markType === "comment") {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                            attrs: inputOp.attrs,
+                        })
+                    } else {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                        })
+                    }
+                } else if (inputOp.action === "removeMark") {
+                    const partialOp = {
+                        action: inputOp.action,
+                        obj: objId,
+                        start: this.getListElementId(objId, inputOp.start),
+                        end: this.getListElementId(objId, inputOp.end),
+                    } as const
+                    if (inputOp.markType === "comment") {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                            attrs: inputOp.attrs,
+                        })
+                    } else {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                        })
+                    }
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
                 } else if (
@@ -499,7 +555,7 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Returns the ID of the object at a particular path in the document tree.
      */
-    getObjectIdForPath(path: InputOperation<M>["path"]): ObjectId {
+    getObjectIdForPath(path: InputOperation["path"]): ObjectId {
         let objectId: ObjectId = ROOT
         for (const pathElem of path) {
             const meta: Metadata = this.metadata[objectId]
@@ -592,8 +648,8 @@ export default class Micromerge<M extends MarkType> {
      * Returns the new operation's opId.
      */
     private makeNewOp(
-        change: Change<M>,
-        op: DistributiveOmit<Operation<M>, "opId">,
+        change: Change,
+        op: DistributiveOmit<Operation, "opId">,
     ): OperationId {
         this.maxOp += 1
         const opId = `${this.maxOp}@${this.actorId}`
@@ -607,7 +663,7 @@ export default class Micromerge<M extends MarkType> {
      * Updates the document state by applying the change object `change`, in the format documented here:
      * https://github.com/automerge/automerge/blob/performance/BINARY_FORMAT.md#json-representation-of-changes
      */
-    applyChange(change: Change<M>): void {
+    applyChange(change: Change): void {
         // Check that the change's dependencies are met
         const lastSeq = this.clock[change.actor] || 0
         if (change.seq !== lastSeq + 1) {
@@ -634,7 +690,7 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Updates the document state with one of the operations from a change.
      */
-    private applyOp = (op: Operation<M>): void => {
+    private applyOp = (op: Operation): void => {
         const metadata = this.metadata[op.obj]
 
         if (!metadata) {
@@ -669,14 +725,23 @@ export default class Micromerge<M extends MarkType> {
             } else if (op.action === "addMark" || op.action === "removeMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
-                const formatOp: ResolvedOp = {
+                const partialOp = {
+                    id: op.opId,
                     action: op.action,
-                    markType: op.markType,
                     start: this.findListElement(op.obj, op.start).index,
                     end: this.findListElement(op.obj, op.end).index,
-                    id: op.opId,
-                    attrs: op.attrs,
                 }
+                const formatOp: ResolvedOp =
+                    op.markType === "comment"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : {
+                              ...partialOp,
+                              markType: op.markType,
+                          }
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing

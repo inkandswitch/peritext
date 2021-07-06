@@ -8,7 +8,7 @@ import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, MarkType, schemaSpec } from "./schema"
+import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -363,15 +363,22 @@ export function prosemirrorDocFromCRDT(args: {
             undefined,
             spans.map(span => {
                 const marks = []
-                for (const [markType, active] of Object.entries(span.marks)) {
-                    if (active) {
-                        marks.push(markType)
+                for (const markType of ALL_MARKS) {
+                    const markValue = span.marks[markType]
+                    if (markValue === undefined) {
+                        continue
+                    }
+                    if (Array.isArray(markValue)) {
+                        for (const value of markValue) {
+                            marks.push(schema.mark(markType, value))
+                        }
+                    } else {
+                        if (markValue.active) {
+                            marks.push(schema.mark(markType, markValue))
+                        }
                     }
                 }
-                return schema.text(
-                    span.text,
-                    marks.map(m => schema.mark(m)),
-                )
+                return schema.text(span.text, marks)
             }),
         ),
     ])
@@ -437,14 +444,19 @@ export function applyTransaction(args: {
             const end = contentPosFromProsemirrorPos(step.to - 1)
 
             if (step.mark.type.name === "comment") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.id !== "string"
+                ) {
+                    throw new Error("Expected comment mark to have id attrs")
+                }
                 operations.push({
                     action: "addMark",
                     path: [Micromerge.contentKey],
                     start,
                     end,
                     markType: step.mark.type.name,
-                    // TODO: Generate a comment ID here.
-                    attrs: { id: "aaaaaaaaaa" },
+                    attrs: step.mark.attrs as { id: string },
                 })
             } else {
                 operations.push({
@@ -464,14 +476,19 @@ export function applyTransaction(args: {
             const end = contentPosFromProsemirrorPos(step.to - 1)
 
             if (step.mark.type.name === "comment") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.id !== "string"
+                ) {
+                    throw new Error("Expected comment mark to have id attrs")
+                }
                 operations.push({
                     action: "removeMark",
                     path: [Micromerge.contentKey],
                     start,
                     end,
                     markType: step.mark.type.name,
-                    // TODO: Use the comment ID from the user.
-                    attrs: { id: "aaaaaaaaaa" },
+                    attrs: step.mark.attrs as { id: string },
                 })
             } else {
                 operations.push({

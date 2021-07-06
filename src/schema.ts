@@ -5,6 +5,7 @@ import {
     SchemaSpec,
     DOMOutputSpec,
     DOMOutputSpecArray,
+    Mark,
 } from "prosemirror-model"
 
 /***********************************************
@@ -51,7 +52,7 @@ type AssertNodesMatchSpec = Assert<Nodes, { [T in NodeType]: NodeSpec }>
  * Marks.
  ***********************************************/
 
-const markSpec = {
+export const markSpec = {
     strong: {
         toDOM() {
             return ["strong"] as const
@@ -70,10 +71,13 @@ const markSpec = {
         },
         inclusive: false,
         excludes: "" as const, // Allow overlapping with other marks of the same type.
-        toDOM() {
-            return ["span", { "data-mark": "comment" }] as const
+        toDOM(mark: Mark) {
+            return [
+                "span",
+                { "data-mark": "comment", "data-comment-id": mark.attrs.id },
+            ] as const
         },
-        /** TODO: We should not be spamming this config with our own attributes. 
+        /** TODO: We should not be spamming this config with our own attributes.
             However, in the real world we would define a custom config structure
             that compiled down to a ProseMirror schema spec, so I will allow it. */
         allowMultiple: true,

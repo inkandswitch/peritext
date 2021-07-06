@@ -664,6 +664,7 @@ export default class Micromerge {
      * https://github.com/automerge/automerge/blob/performance/BINARY_FORMAT.md#json-representation-of-changes
      */
     applyChange(change: Change): void {
+        console.log(change)
         // Check that the change's dependencies are met
         const lastSeq = this.clock[change.actor] || 0
         if (change.seq !== lastSeq + 1) {

@@ -1,4 +1,4 @@
-import { applyOp as applyFormatOp, MarkMap, normalize } from "./format"
+import { applyOp as applyFormatOp, normalize } from "./format"
 import { ALL_MARKS, Marks } from "./schema"
 import uuid from "uuid"
 

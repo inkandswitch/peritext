@@ -6,9 +6,9 @@ import Micromerge from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
-import { baseKeymap, toggleMark } from "prosemirror-commands"
+import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, schemaSpec } from "./schema"
+import { isMarkType, MarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
@@ -23,6 +23,8 @@ import type {
     InputOperation,
 } from "./micromerge"
 import type { Comment, CommentId } from "./comment"
+import { MarkValue } from "./format"
+import { v4 as uuid } from "uuid"
 
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
@@ -32,12 +34,41 @@ export type RootDoc = {
     comments: Record<CommentId, Comment>
 }
 
-const richTextKeymap = {
+// This is a factory which returns a Prosemirror command.
+// The Prosemirror command adds a mark to the document.
+// The mark takes on the position of the current selection,
+// and has the given type and attributes.
+// (The structure/usage of this is similar to the toggleMark command factory
+// built in to prosemirror)
+function addMark<M extends MarkType>(args: {
+    markType: M
+    makeAttrs: () => Omit<MarkValue[M], "opId">
+}) {
+    const { markType, makeAttrs } = args
+    const command: Command<DocSchema> = (
+        state: EditorState,
+        dispatch: ((t: Transaction<DocSchema>) => void) | undefined,
+    ) => {
+        const tr = state.tr
+        const { $from, $to } = state.selection.ranges[0]
+        const from = $from.pos,
+            to = $to.pos
+        tr.addMark(from, to, schema.marks[markType].create(makeAttrs()))
+        if (dispatch !== undefined) {
+            dispatch(tr)
+        }
+        return true
+    }
+    return command
+}
+
+const richTextKeymap: Keymap<DocSchema> = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
-    "Mod-Shift-c": toggleMark(schema.marks.comment, {
-        id: "hihihi",
+    "Mod-e": addMark({
+        markType: "comment",
+        makeAttrs: () => ({ id: uuid() }),
     }),
 }
 

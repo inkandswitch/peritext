@@ -521,6 +521,120 @@ describe.only("Micromerge", () => {
         })
     })
 
+    describe("links", () => {
+        it("returns a single link in the flattened spans", () => {
+            const doc1 = new Micromerge("1234")
+            const textChars = "The Peritext editor".split("")
+
+            doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+                // Link on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://inkandswitch.com" },
+                    },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("arbitrarily chooses one link as the winner when fully overlapping", () => {
+            const doc1 = new Micromerge("1234")
+            const doc2 = new Micromerge("abcd")
+            const textChars = "The Peritext editor".split("")
+
+            const change1 = doc1.change([
+                { path: [], action: "makeList", key: "text" },
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: textChars,
+                },
+            ])
+
+            doc2.applyChange(change1)
+
+            // Two peers concurrently add a link to same text
+            const change2 = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
+                    },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+
+            assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
+                    },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("resolves partially overlapping links correctly")
+    })
+
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
             const doc1 = new Micromerge("1234")

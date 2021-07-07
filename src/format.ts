@@ -29,11 +29,16 @@ type ResolveOp<O extends InputOperation> = DistributiveOmit<
     "path"
 >
 
-type BooleanMarkValue = {
-    active: boolean
-    /** A MarkValue should always have the ID of the operation that last modified it. */
-    opId: OperationId
-}
+type BooleanMarkValue =
+    | {
+          active: true
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+      }
+    | {
+          active: false
+          opId: OperationId
+      }
 
 type IdMarkValue = {
     id: string
@@ -250,13 +255,21 @@ function applyFormatting(
                         compareOpIds(op.id, match.id) === 1
                     ) {
                         newMarks[op.markType] = existing.map(m =>
-                            m.id === op.id
-                                ? {
-                                      ...m,
-                                      opId: op.id,
-                                  }
-                                : m,
+                            m.id === op.id ? { ...m, opId: op.id } : m,
                         )
+                    }
+                }
+            } else if (op.markType === "link") {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    // Only apply the op if its ID is greater than the last op that touched this mark
+                    newMarks[op.markType] = {
+                        active: true,
+                        url: op.attrs.url,
+                        opId: op.id,
                     }
                 }
             } else {
@@ -266,7 +279,11 @@ function applyFormatting(
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (op.markType === "strong" || op.markType === "em") {
+            if (
+                op.markType === "strong" ||
+                op.markType === "em" ||
+                op.markType === "link"
+            ) {
                 const mark = marks[op.markType]
                 if (
                     mark === undefined ||
@@ -338,6 +355,21 @@ function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
                 return true
             } else if (!isInactive(mark1) && !isInactive(mark2)) {
                 return true
+            } else {
+                // One is active and one isn't.
+                return false
+            }
+        } else if (mark === "link") {
+            const mark1 = s1[mark]
+            const mark2 = s2[mark]
+
+            if (isInactive(mark1) && isInactive(mark2)) {
+                return true
+            } else if (!isInactive(mark1) && !isInactive(mark2)) {
+                return (
+                    (mark1 !== undefined && mark1.url) ===
+                    (mark2 !== undefined && mark2.url)
+                )
             } else {
                 // One is active and one isn't.
                 return false

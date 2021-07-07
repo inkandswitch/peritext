@@ -1,8 +1,8 @@
 import { applyOp as applyFormatOp, normalize } from "./format"
-import { ALL_MARKS, Marks } from "./schema"
+import { ALL_MARKS } from "./schema"
 import uuid from "uuid"
 
-import type { MarkType } from "./schema"
+import type { Marks, MarkType } from "./schema"
 import type { FormatSpan, ResolvedOp, MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
@@ -136,23 +136,18 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 }
 
 // TODO: automatically populate attrs type w/o manual enumeration
-export type AddMarkOperationInput =
-    | (AddMarkOperationInputBase<"strong"> & {
-          attrs?: undefined
-      })
-    | (AddMarkOperationInputBase<"em"> & {
-          attrs?: undefined
-      })
-    | (AddMarkOperationInputBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: Omit<MarkValue["comment"], "opId">
-      })
-    | (AddMarkOperationInputBase<"link"> & {
-          /** Data attributes for the mark. */
-          /* TODO: rather than omitting various properties from Markvalue,
-             actively enumerate the properties from prosemirror schema / other config */
-          attrs: Omit<MarkValue["link"], "opId" | "active">
-      })
+export type AddMarkOperationInput = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+            : AddMarkOperationInputBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
@@ -265,17 +260,18 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     markType: M
 }
 
-type AddMarkOperation =
-    | AddMarkOperationBase<"strong">
-    | AddMarkOperationBase<"em">
-    | (AddMarkOperationBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: DistributiveOmit<MarkValue["comment"], "opId">
-      })
-    | (AddMarkOperationBase<"link"> & {
-          /** Data attributes for the mark. */
-          attrs: DistributiveOmit<MarkValue["link"], "opId" | "active">
-      })
+export type AddMarkOperation = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationBase<M> & { attrs?: undefined }
+            : AddMarkOperationBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
@@ -484,11 +480,20 @@ export default class Micromerge {
                         start: this.getListElementId(objId, inputOp.start),
                         end: this.getListElementId(objId, inputOp.end),
                     } as const
+
                     if (inputOp.markType === "comment") {
+                        const { markType, attrs } = inputOp
                         this.makeNewOp(change, {
                             ...partialOp,
-                            markType: inputOp.markType,
-                            attrs: inputOp.attrs,
+                            markType,
+                            attrs,
+                        })
+                    } else if (inputOp.markType === "link") {
+                        const { markType, attrs } = inputOp
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType,
+                            attrs,
                         })
                     } else {
                         this.makeNewOp(change, {
@@ -638,6 +643,11 @@ export default class Micromerge {
                             id: comment.id,
                         }))
                     }
+                } else if (markType === "link") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined && spanMark.active) {
+                        marks[markType] = { active: true, url: spanMark.url }
+                    }
                 } else {
                     unreachable(markType)
                 }
@@ -739,9 +749,40 @@ export default class Micromerge {
                     )
                 }
                 this.applyListUpdate(op)
-            } else if (op.action === "addMark" || op.action === "removeMark") {
+            } else if (op.action === "addMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
+                const partialOp = {
+                    id: op.opId,
+                    action: op.action,
+                    start: this.findListElement(op.obj, op.start).index,
+                    end: this.findListElement(op.obj, op.end).index,
+                }
+                const formatOp: ResolvedOp =
+                    op.markType === "comment"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : op.markType === "link"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : {
+                              ...partialOp,
+                              markType: op.markType,
+                          }
+
+                // Incrementally apply this formatting operation to
+                // the list of flattened spans that we are storing
+                this.formatSpans[op.obj] = applyFormatOp(
+                    this.formatSpans[op.obj],
+                    formatOp,
+                )
+            } else if (op.action === "removeMark") {
                 const partialOp = {
                     id: op.opId,
                     action: op.action,

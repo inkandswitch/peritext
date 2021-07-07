@@ -39,7 +39,7 @@ type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
 
-type OperationPath = [] | [CONTENT_KEY]
+export type OperationPath = [] | [CONTENT_KEY]
 
 /**
  * A vector clock data structure.
@@ -135,6 +135,7 @@ interface AddMarkOperationInputBase<M extends MarkType> {
     markType: M
 }
 
+// TODO: automatically populate attrs type w/o manual enumeration
 export type AddMarkOperationInput =
     | (AddMarkOperationInputBase<"strong"> & {
           attrs?: undefined
@@ -145,6 +146,12 @@ export type AddMarkOperationInput =
     | (AddMarkOperationInputBase<"comment"> & {
           /** Data attributes for the mark. */
           attrs: Omit<MarkValue["comment"], "opId">
+      })
+    | (AddMarkOperationInputBase<"link"> & {
+          /** Data attributes for the mark. */
+          /* TODO: rather than omitting various properties from Markvalue,
+             actively enumerate the properties from prosemirror schema / other config */
+          attrs: Omit<MarkValue["link"], "opId" | "active">
       })
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -171,6 +178,10 @@ export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"comment"> & {
           /** Data attributes for the mark. */
           attrs: Omit<MarkValue["comment"], "opId">
+      })
+    | (RemoveMarkOperationInputBase<"link"> & {
+          /** Data attributes for the mark. */
+          attrs?: undefined
       })
 
 export type InputOperation =
@@ -261,6 +272,10 @@ type AddMarkOperation =
           /** Data attributes for the mark. */
           attrs: DistributiveOmit<MarkValue["comment"], "opId">
       })
+    | (AddMarkOperationBase<"link"> & {
+          /** Data attributes for the mark. */
+          attrs: DistributiveOmit<MarkValue["link"], "opId" | "active">
+      })
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
@@ -279,6 +294,7 @@ type RemoveMarkOperation =
           /** Data attributes for the mark. */
           attrs: DistributiveOmit<MarkValue["comment"], "opId">
       })
+    | RemoveMarkOperationBase<"link">
 
 export type Operation =
     | MakeListOperation

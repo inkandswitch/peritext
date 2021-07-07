@@ -41,11 +41,25 @@ type IdMarkValue = {
     opId: OperationId
 }
 
+type LinkMarkValue =
+    | {
+          url: string
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+          active: true
+      }
+    | {
+          url?: undefined
+          opId: OperationId
+          active: false
+      }
+
 export type MarkValue = Assert<
     {
         strong: BooleanMarkValue
         em: BooleanMarkValue
         comment: IdMarkValue
+        link: LinkMarkValue
     },
     { [K in MarkType]: Record<string, unknown> }
 >

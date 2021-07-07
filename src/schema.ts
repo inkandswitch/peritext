@@ -70,7 +70,6 @@ export const markSpec = {
             id: {},
         },
         inclusive: false,
-        excludes: "" as const, // Allow overlapping with other marks of the same type.
         toDOM(mark: Mark) {
             return [
                 "span",
@@ -81,12 +80,28 @@ export const markSpec = {
             However, in the real world we would define a custom config structure
             that compiled down to a ProseMirror schema spec, so I will allow it. */
         allowMultiple: true,
+        excludes: "" as const, // Allow overlapping with other marks of the same type.
+    },
+    link: {
+        attrs: {
+            url: {},
+        },
+        inclusive: false,
+        allowMultiple: false,
+        toDOM(mark: Mark) {
+            return ["a", { href: mark.attrs.url }] as const
+        },
     },
 } as const
 
 export type Marks = typeof markSpec
 
-export const ALL_MARKS = ["strong" as const, "em" as const, "comment" as const]
+export const ALL_MARKS = [
+    "strong" as const,
+    "em" as const,
+    "comment" as const,
+    "link" as const,
+]
 
 type AssertAllListedAreMarks = Assert<Inner<typeof ALL_MARKS>, MarkType>
 type AssertAllMarksAreListed = Assert<MarkType, Inner<typeof ALL_MARKS>>
@@ -98,7 +113,7 @@ type AssertMarksMatchSpec = Assert<
 >
 
 export function isMarkType(s: string): s is MarkType {
-    if (s === "strong" || s === "em" || s === "comment") {
+    if (s === "strong" || s === "em" || s === "comment" || s === "link") {
         type AssertSound = Assert<typeof s, MarkType>
         type AssertComplete = Assert<MarkType, typeof s>
         return true

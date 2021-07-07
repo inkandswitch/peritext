@@ -2,7 +2,7 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge from "./micromerge"
+import Micromerge, { OperationPath } from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
@@ -443,6 +443,18 @@ export function applyTransaction(args: {
             // CRDT range, not just a single position at a time.
             const end = contentPosFromProsemirrorPos(step.to - 1)
 
+            const partialOp: {
+                action: "addMark"
+                path: OperationPath
+                start: number
+                end: number
+            } = {
+                action: "addMark",
+                path: [Micromerge.contentKey],
+                start,
+                end,
+            }
+
             if (step.mark.type.name === "comment") {
                 if (
                     !step.mark.attrs ||
@@ -451,19 +463,25 @@ export function applyTransaction(args: {
                     throw new Error("Expected comment mark to have id attrs")
                 }
                 operations.push({
-                    action: "addMark",
-                    path: [Micromerge.contentKey],
-                    start,
-                    end,
+                    ...partialOp,
                     markType: step.mark.type.name,
                     attrs: step.mark.attrs as { id: string },
                 })
+            } else if (step.mark.type.name === "link") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.url !== "string"
+                ) {
+                    throw new Error("Expected link mark to have url attrs")
+                }
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                    attrs: step.mark.attrs as { url: string },
+                })
             } else {
                 operations.push({
-                    action: "addMark",
-                    path: [Micromerge.contentKey],
-                    start,
-                    end,
+                    ...partialOp,
                     markType: step.mark.type.name,
                 })
             }
@@ -475,6 +493,18 @@ export function applyTransaction(args: {
             const start = contentPosFromProsemirrorPos(step.from)
             const end = contentPosFromProsemirrorPos(step.to - 1)
 
+            const partialOp: {
+                action: "removeMark"
+                path: OperationPath
+                start: number
+                end: number
+            } = {
+                action: "removeMark",
+                path: [Micromerge.contentKey],
+                start,
+                end,
+            }
+
             if (step.mark.type.name === "comment") {
                 if (
                     !step.mark.attrs ||
@@ -483,19 +513,13 @@ export function applyTransaction(args: {
                     throw new Error("Expected comment mark to have id attrs")
                 }
                 operations.push({
-                    action: "removeMark",
-                    path: [Micromerge.contentKey],
-                    start,
-                    end,
+                    ...partialOp,
                     markType: step.mark.type.name,
                     attrs: step.mark.attrs as { id: string },
                 })
             } else {
                 operations.push({
-                    action: "removeMark",
-                    path: [Micromerge.contentKey],
-                    start,
-                    end,
+                    ...partialOp,
                     markType: step.mark.type.name,
                 })
             }

@@ -1,20 +1,37 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
-
 import type { RootDoc } from "../src/bridge"
+
+const defaultText = "The Peritext editor"
+const textChars = defaultText.split("")
+
+/** Create and return two Micromerge documents with the same text content.
+ *  Useful for creating a baseline upon which to play further changes
+ */
+const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
+    const doc1 = new Micromerge("1234")
+    const doc2 = new Micromerge("abcd")
+    const textChars = text.split("")
+
+    // Generate a change on doc1
+    const change1 = doc1.change([
+        { path: [], action: "makeList", key: "text" },
+        {
+            path: ["text"],
+            action: "insert",
+            index: 0,
+            values: textChars,
+        },
+    ])
+
+    // Generate change2 on doc2, which depends on change1
+    doc2.applyChange(change1)
+    return [doc1, doc2]
+}
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
-        const doc1 = new Micromerge("1234")
-        doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a", "b", "c", "d", "e"],
-            },
-        ])
+        const [doc1] = generateDocs("abcde")
 
         doc1.change([
             {
@@ -34,22 +51,7 @@ describe.only("Micromerge", () => {
     })
 
     it("records local changes in the deps clock", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-
-        // Generate a change on doc1
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a"],
-            },
-        ])
-
-        // Generate change2 on doc2, which depends on change1
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs("a")
         const change2 = doc2.change([
             { path: ["text"], action: "insert", index: 1, values: ["b"] },
         ])
@@ -66,21 +68,7 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly handles concurrent deletion and insertion", () => {
-        const doc1 = new Micromerge("1234"),
-            doc2 = new Micromerge("abcd")
-
-        // insert 'abrxabra'
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a", "b", "r", "x", "a", "b", "r", "a"],
-            },
-        ])
-
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs("abrxabra")
 
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
         const change2 = doc1.change([
@@ -107,17 +95,9 @@ describe.only("Micromerge", () => {
     })
 
     it("flattens local formatting operations into flat spans", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
 
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             // Bold the word "Peritext"
             {
                 path: ["text"],
@@ -204,21 +184,7 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly merges concurrent bold and unbold", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-        const textChars = "The Peritext editor".split("")
-
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
-        ])
-
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs()
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
@@ -266,16 +232,8 @@ describe.only("Micromerge", () => {
     })
 
     it("updates format span indexes when chars are inserted before", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -311,16 +269,8 @@ describe.only("Micromerge", () => {
     })
 
     it("doesn't update format span indexes when chars are inserted after", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -355,16 +305,8 @@ describe.only("Micromerge", () => {
     })
 
     it("updates format span indexes when chars are deleted before", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -398,16 +340,8 @@ describe.only("Micromerge", () => {
     })
 
     it("updates format span indexes when chars are deleted after", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -442,17 +376,9 @@ describe.only("Micromerge", () => {
 
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
+            const [doc1] = generateDocs()
 
             doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
                 // Comment on the word "Peritext"
                 {
                     path: ["text"],
@@ -477,17 +403,9 @@ describe.only("Micromerge", () => {
         })
 
         it("returns two overlapping comments in the flattened spans", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
+            const [doc1] = generateDocs()
 
             doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
                 // Comment on the word "The Peritext"
                 {
                     path: ["text"],
@@ -523,17 +441,9 @@ describe.only("Micromerge", () => {
 
     describe("links", () => {
         it("returns a single link in the flattened spans", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
+            const [doc1] = generateDocs()
 
             doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
                 // Link on the word "Peritext"
                 {
                     path: ["text"],
@@ -560,23 +470,7 @@ describe.only("Micromerge", () => {
         })
 
         it("arbitrarily chooses one link as the winner when fully overlapping", () => {
-            const doc1 = new Micromerge("1234")
-            const doc2 = new Micromerge("abcd")
-            const textChars = "The Peritext editor".split("")
-
-            const change1 = doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
-
-            doc2.applyChange(change1)
-
-            // Two peers concurrently add a link to same text
+            const [doc1, doc2] = generateDocs()
             const change2 = doc1.change([
                 {
                     path: ["text"],
@@ -637,17 +531,7 @@ describe.only("Micromerge", () => {
 
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -659,17 +543,7 @@ describe.only("Micromerge", () => {
         })
 
         it("increments cursor position when insert happens before cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -691,17 +565,7 @@ describe.only("Micromerge", () => {
         })
 
         it("does not move cursor position when insert happens after cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -723,17 +587,7 @@ describe.only("Micromerge", () => {
         })
 
         it("moves cursor left if deletion happens before cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -755,17 +609,7 @@ describe.only("Micromerge", () => {
         })
 
         it("doesn't move cursor if deletion happens after cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -787,17 +631,7 @@ describe.only("Micromerge", () => {
         })
 
         it("returns index 0 if everything before the cursor is deleted", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)

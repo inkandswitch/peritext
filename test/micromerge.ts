@@ -513,20 +513,57 @@ describe.only("Micromerge", () => {
                 },
                 { marks: {}, text: " editor" },
             ])
+        })
 
-            assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
+        it("arbitrarily chooses one link as the winner when partially overlapping", () => {
+            const [doc1, doc2] = generateDocs()
+            const change2 = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                {
+                    marks: {
+                        link: { active: true, url: "https://inkandswitch.com" },
+                    },
+                    text: "The ",
+                },
                 {
                     marks: {
                         link: { active: true, url: "https://google.com" },
                     },
-                    text: "Peritext",
+                    text: "Peritext editor",
                 },
-                { marks: {}, text: " editor" },
             ])
         })
-
-        it("resolves partially overlapping links correctly")
     })
 
     describe("cursors", () => {

@@ -212,8 +212,24 @@ export function createEditor(args: {
     changesNode: Element
     initialValue: string
     publisher: Publisher<Array<Change>>
+    handleClickOn?: (
+        this: unknown,
+        view: EditorView<Schema>,
+        pos: number,
+        node: Node<Schema>,
+        nodePos: number,
+        event: MouseEvent,
+        direct: boolean,
+    ) => boolean
 }): Editor {
-    const { actorId, editorNode, changesNode, initialValue, publisher } = args
+    const {
+        actorId,
+        editorNode,
+        changesNode,
+        initialValue,
+        publisher,
+        handleClickOn,
+    } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -277,6 +293,7 @@ export function createEditor(args: {
         // Each document has a unique valid representation.
         // Order of marks specified by schema.
         state,
+        handleClickOn,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             console.groupCollapsed("dispatch", txn.steps[0])

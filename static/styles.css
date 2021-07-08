@@ -1,3 +1,7 @@
+body {
+    font-family: sans-serif;
+}
+
 .editors-container {
     width: 100%;
     display: flex;
@@ -21,6 +25,12 @@
     margin-bottom: 20px;
 }
 
+.marks {
+    height: 40px;
+    padding: 5px;
+    font-size: 12px;
+}
+
 .changes {
     height: 300px;
     overflow-y: scroll;
@@ -31,7 +41,6 @@
     margin: 5px;
     padding: 5px;
     font-size: 12px;
-    font-family: sans-serif;
 }
 
 .change.from-alice {
@@ -40,4 +49,10 @@
 
 .change.from-bob {
     background-color: rgba(0, 200, 200, 0.1);
+}
+
+h3 {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 5px;
 }

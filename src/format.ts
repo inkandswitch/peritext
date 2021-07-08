@@ -9,6 +9,7 @@ import type {
     RemoveMarkOperationInput,
 } from "./micromerge"
 import type { Marks, MarkType } from "./schema"
+import sortBy from "lodash/sortBy"
 
 /**
  * Using this intermediate operation representation for formatting.
@@ -246,9 +247,15 @@ function applyFormatting(
                     // Check existing list of annotations.
                     // Find the comment with the same comment ID.
                     const match = existing.find(m => m.id === op.attrs.id)
-                    // If it doesn't exist, append.
+                    // If it doesn't exist, add it.
                     if (match === undefined) {
-                        newMarks[op.markType] = [...existing, newMark]
+                        // We keep this list sorted by ID because order doesn't matter
+                        // (it's basically an unordered set), and it's useful for testing
+                        // to have a consistent ordering
+                        newMarks[op.markType] = sortBy(
+                            [...existing, newMark],
+                            v => v.id,
+                        )
                     } else if (
                         // Otherwise, compare operation IDs and update operation ID if greater.
                         // Only apply the op if its ID is greater than the last op that touched this mark

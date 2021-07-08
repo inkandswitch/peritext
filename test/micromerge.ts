@@ -402,11 +402,11 @@ describe.only("Micromerge", () => {
             ])
         })
 
-        it("returns two overlapping comments in the flattened spans", () => {
+        it("correctly flattens two comments from the same user", () => {
             const [doc1] = generateDocs()
 
             doc1.change([
-                // Comment on the word "The Peritext"
+                // Comment on "The Peritext"
                 {
                     path: ["text"],
                     action: "addMark",
@@ -427,6 +427,56 @@ describe.only("Micromerge", () => {
             ])
 
             assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }, { id: "def-789" }] },
+                    text: "Peritext",
+                },
+                { marks: { comment: [{ id: "def-789" }] }, text: " editor" },
+            ])
+        })
+
+        // This case shouldn't be any different from the previous test;
+        // we don't really care which node comments are added on since
+        // adding a comment is inherently a commutative operation.
+        it("correctly overlaps two comments from different users", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const change2 = doc1.change([
+                // Comment on the word "The Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                // Comment on "Peritext Editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
 
             assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
                 { marks: { comment: [{ id: "abc-123" }] }, text: "The " },

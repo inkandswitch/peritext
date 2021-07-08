@@ -42,7 +42,7 @@ export type RootDoc = {
 // built in to prosemirror)
 function addMark<M extends MarkType>(args: {
     markType: M
-    makeAttrs: () => Omit<MarkValue[M], "opId">
+    makeAttrs: () => Omit<MarkValue[M], "opId" | "active">
 }) {
     const { markType, makeAttrs } = args
     const command: Command<DocSchema> = (
@@ -69,6 +69,12 @@ const richTextKeymap: Keymap<DocSchema> = {
     "Mod-e": addMark({
         markType: "comment",
         makeAttrs: () => ({ id: uuid() }),
+    }),
+    "Mod-k": addMark({
+        markType: "link",
+        makeAttrs: () => ({
+            url: `https://www.google.com/search?q=${uuid()}`,
+        }),
     }),
 }
 

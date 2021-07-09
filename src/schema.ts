@@ -8,6 +8,9 @@ import {
     Mark,
 } from "prosemirror-model"
 
+import ColorHash from "color-hash"
+const colorHash = new ColorHash()
+
 /***********************************************
  * Nodes.
  ***********************************************/
@@ -73,7 +76,10 @@ export const markSpec = {
         toDOM(mark: Mark) {
             return [
                 "span",
-                { "data-mark": "comment", "data-comment-id": mark.attrs.id },
+                {
+                    "data-mark": "comment",
+                    "data-comment-id": mark.attrs.id,
+                },
             ] as const
         },
         /** TODO: We should not be spamming this config with our own attributes.
@@ -89,7 +95,13 @@ export const markSpec = {
         inclusive: false,
         allowMultiple: false,
         toDOM(mark: Mark) {
-            return ["a", { href: mark.attrs.url }] as const
+            return [
+                "a",
+                {
+                    href: mark.attrs.url,
+                    style: `color: ${colorHash.hex(mark.attrs.url)};`,
+                },
+            ] as const
         },
     },
 } as const

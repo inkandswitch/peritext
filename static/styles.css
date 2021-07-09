@@ -18,7 +18,12 @@ body {
 }
 
 .editor span[data-mark="comment"] {
-    background-color: rgba(255, 241, 50, 0.3);
+    background-color: rgba(255, 241, 50, 0.25);
+}
+
+/* If two comments overlap, render an extra-intense yellow */
+.editor span[data-mark="comment"] span[data-mark="comment"] {
+    background-color: rgba(255, 241, 50, 0.6);
 }
 
 #toggle-connect {
@@ -32,7 +37,7 @@ body {
 }
 
 .changes {
-    height: 300px;
+    height: 150px;
     overflow-y: scroll;
     scroll-snap-type: y proximity;
 }

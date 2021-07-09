@@ -16,7 +16,7 @@ export class ChangeQueue {
     constructor({
         // Can tune this sync interval to simulate network latency,
         // make it easier to observe sync behavior, etc.
-        interval = 1000,
+        interval = 10,
         handleFlush,
     }: {
         interval?: number

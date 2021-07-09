@@ -1,20 +1,37 @@
 import assert from "assert"
 import Micromerge from "../src/micromerge"
+import type { RootDoc } from "../src/bridge"
 
-import type { RootDoc } from "../src/micromerge"
+const defaultText = "The Peritext editor"
+const textChars = defaultText.split("")
+
+/** Create and return two Micromerge documents with the same text content.
+ *  Useful for creating a baseline upon which to play further changes
+ */
+const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
+    const doc1 = new Micromerge("1234")
+    const doc2 = new Micromerge("abcd")
+    const textChars = text.split("")
+
+    // Generate a change on doc1
+    const change1 = doc1.change([
+        { path: [], action: "makeList", key: "text" },
+        {
+            path: ["text"],
+            action: "insert",
+            index: 0,
+            values: textChars,
+        },
+    ])
+
+    // Generate change2 on doc2, which depends on change1
+    doc2.applyChange(change1)
+    return [doc1, doc2]
+}
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
-        const doc1 = new Micromerge("1234")
-        doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a", "b", "c", "d", "e"],
-            },
-        ])
+        const [doc1] = generateDocs("abcde")
 
         doc1.change([
             {
@@ -34,22 +51,7 @@ describe.only("Micromerge", () => {
     })
 
     it("records local changes in the deps clock", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-
-        // Generate a change on doc1
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a"],
-            },
-        ])
-
-        // Generate change2 on doc2, which depends on change1
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs("a")
         const change2 = doc2.change([
             { path: ["text"], action: "insert", index: 1, values: ["b"] },
         ])
@@ -66,21 +68,7 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly handles concurrent deletion and insertion", () => {
-        const doc1 = new Micromerge("1234"),
-            doc2 = new Micromerge("abcd")
-
-        // insert 'abrxabra'
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: ["a", "b", "r", "x", "a", "b", "r", "a"],
-            },
-        ])
-
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs("abrxabra")
 
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
         const change2 = doc1.change([
@@ -107,17 +95,9 @@ describe.only("Micromerge", () => {
     })
 
     it("flattens local formatting operations into flat spans", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
 
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             // Bold the word "Peritext"
             {
                 path: ["text"],
@@ -132,7 +112,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
@@ -184,9 +164,12 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, textChars)
 
         const expectedTextWithFormatting = [
-            { marks: { strong: true }, text: "The " },
-            { marks: { strong: true, em: true }, text: "Peritext" },
-            { marks: { em: true }, text: " editor" },
+            { marks: { strong: { active: true } }, text: "The " },
+            {
+                marks: { strong: { active: true }, em: { active: true } },
+                text: "Peritext",
+            },
+            { marks: { em: { active: true } }, text: " editor" },
         ]
 
         // And the same correct flattened format spans:
@@ -201,21 +184,7 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly merges concurrent bold and unbold", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-        const textChars = "The Peritext editor".split("")
-
-        const change1 = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
-        ])
-
-        doc2.applyChange(change1)
+        const [doc1, doc2] = generateDocs()
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
@@ -247,7 +216,7 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, textChars)
 
         const expectedTextWithFormatting = [
-            { marks: { strong: true }, text: "The " },
+            { marks: { strong: { active: true } }, text: "The " },
             { marks: {}, text: "Peritext editor" },
         ]
 
@@ -263,16 +232,8 @@ describe.only("Micromerge", () => {
     })
 
     it("updates format span indexes when chars are inserted before", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -284,7 +245,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -302,22 +263,14 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "Hello to The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
 
     it("doesn't update format span indexes when chars are inserted after", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -329,7 +282,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -346,22 +299,14 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor is great" },
         ])
     })
 
     it("updates format span indexes when chars are deleted before", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -373,7 +318,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -389,22 +334,14 @@ describe.only("Micromerge", () => {
         ])
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
     })
 
     it("updates format span indexes when chars are deleted after", () => {
-        const doc1 = new Micromerge("1234")
-        const textChars = "The Peritext editor".split("")
+        const [doc1] = generateDocs()
         doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
             {
                 path: ["text"],
                 action: "addMark",
@@ -416,7 +353,7 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
             { marks: {}, text: " editor" },
         ])
 
@@ -433,23 +370,255 @@ describe.only("Micromerge", () => {
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
-            { marks: { strong: true }, text: "Peritext" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
         ])
+    })
+
+    describe("comments", () => {
+        it("returns a single comment in the flattened spans", () => {
+            const [doc1] = generateDocs()
+
+            doc1.change([
+                // Comment on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }] },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("correctly flattens two comments from the same user", () => {
+            const [doc1] = generateDocs()
+
+            doc1.change([
+                // Comment on "The Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+                // Comment on "Peritext editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }, { id: "def-789" }] },
+                    text: "Peritext",
+                },
+                { marks: { comment: [{ id: "def-789" }] }, text: " editor" },
+            ])
+        })
+
+        // This case shouldn't be any different from the previous test;
+        // we don't really care which node comments are added on since
+        // adding a comment is inherently a commutative operation.
+        it("correctly overlaps two comments from different users", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const change2 = doc1.change([
+                // Comment on the word "The Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                // Comment on "Peritext Editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }, { id: "def-789" }] },
+                    text: "Peritext",
+                },
+                { marks: { comment: [{ id: "def-789" }] }, text: " editor" },
+            ])
+        })
+    })
+
+    describe("links", () => {
+        it("returns a single link in the flattened spans", () => {
+            const [doc1] = generateDocs()
+
+            doc1.change([
+                // Link on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://inkandswitch.com" },
+                    },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("arbitrarily chooses one link as the winner when fully overlapping", () => {
+            const [doc1, doc2] = generateDocs()
+            const change2 = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
+                    },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
+
+        it("arbitrarily chooses one link as the winner when partially overlapping", () => {
+            const [doc1, doc2] = generateDocs()
+            const change2 = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
+
+            const change3 = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
+
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
+
+            // Confirm that both peers converge to same result
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                {
+                    marks: {
+                        link: { active: true, url: "https://inkandswitch.com" },
+                    },
+                    text: "The ",
+                },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
+                    },
+                    text: "Peritext editor",
+                },
+            ])
+        })
     })
 
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -461,17 +630,7 @@ describe.only("Micromerge", () => {
         })
 
         it("increments cursor position when insert happens before cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -493,17 +652,7 @@ describe.only("Micromerge", () => {
         })
 
         it("does not move cursor position when insert happens after cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -525,17 +674,7 @@ describe.only("Micromerge", () => {
         })
 
         it("moves cursor left if deletion happens before cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -557,17 +696,7 @@ describe.only("Micromerge", () => {
         })
 
         it("doesn't move cursor if deletion happens after cursor", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -589,17 +718,7 @@ describe.only("Micromerge", () => {
         })
 
         it("returns index 0 if everything before the cursor is deleted", () => {
-            const doc1 = new Micromerge("1234")
-            const textChars = "The Peritext editor".split("")
-            doc1.change([
-                { path: [], action: "makeList", key: "text" },
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: textChars,
-                },
-            ])
+            const [doc1] = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)

@@ -2,32 +2,80 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge from "./micromerge"
+import Micromerge, { OperationPath } from "./micromerge"
 import { EditorState, Transaction, TextSelection } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
-import { baseKeymap, toggleMark } from "prosemirror-commands"
+import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
-import { isMarkType, MarkType, schemaSpec } from "./schema"
+import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
 import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
 import type {
+    ActorId,
+    Char,
     FormatSpanWithText,
+    Change,
     Cursor,
     Operation as InternalOperation,
-    Change,
     InputOperation,
 } from "./micromerge"
+import type { Comment, CommentId } from "./comment"
+import { MarkValue } from "./format"
+import { v4 as uuid } from "uuid"
 
 const schema = new Schema(schemaSpec)
 const HEAD = "_head"
 
-const richTextKeymap = {
+export type RootDoc = {
+    text: Array<Char>
+    comments: Record<CommentId, Comment>
+}
+
+// This is a factory which returns a Prosemirror command.
+// The Prosemirror command adds a mark to the document.
+// The mark takes on the position of the current selection,
+// and has the given type and attributes.
+// (The structure/usage of this is similar to the toggleMark command factory
+// built in to prosemirror)
+function addMark<M extends MarkType>(args: {
+    markType: M
+    makeAttrs: () => Omit<MarkValue[M], "opId" | "active">
+}) {
+    const { markType, makeAttrs } = args
+    const command: Command<DocSchema> = (
+        state: EditorState,
+        dispatch: ((t: Transaction<DocSchema>) => void) | undefined,
+    ) => {
+        const tr = state.tr
+        const { $from, $to } = state.selection.ranges[0]
+        const from = $from.pos,
+            to = $to.pos
+        tr.addMark(from, to, schema.marks[markType].create(makeAttrs()))
+        if (dispatch !== undefined) {
+            dispatch(tr)
+        }
+        return true
+    }
+    return command
+}
+
+const richTextKeymap: Keymap<DocSchema> = {
     ...baseKeymap,
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-i": toggleMark(schema.marks.em),
+    "Mod-e": addMark({
+        markType: "comment",
+        makeAttrs: () => ({ id: uuid() }),
+    }),
+    "Mod-k": addMark({
+        markType: "link",
+        makeAttrs: () => ({
+            url: `https://www.google.com/search?q=${uuid()}`,
+        }),
+    }),
 }
 
 // Represents a selection position: either after a character, or at the beginning
@@ -40,9 +88,9 @@ type Selection =
     | undefined
 
 export type Editor = {
-    doc: Micromerge<MarkType>
+    doc: Micromerge
     view: EditorView
-    queue: ChangeQueue<MarkType>
+    queue: ChangeQueue
 
     // Todo: eventually we don't want to manage selection as cursors;
     // incrementally updating the prosemirror doc should mean that
@@ -77,7 +125,7 @@ function createNewProsemirrorState(
 function prosemirrorPosFromSelectionPos(
     selectionPos: SelectionPos,
     state: EditorState,
-    doc: Micromerge<MarkType>,
+    doc: Micromerge,
 ): ResolvedPos {
     let position: number
     if (selectionPos === HEAD) {
@@ -100,7 +148,7 @@ function prosemirrorPosFromSelectionPos(
 function updateProsemirrorSelection(
     state: EditorState,
     selection: Selection,
-    doc: Micromerge<MarkType>,
+    doc: Micromerge,
 ): EditorState {
     if (selection === undefined) {
         return state
@@ -117,7 +165,7 @@ function updateProsemirrorSelection(
 
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
-function describeOp(op: InternalOperation<MarkType>): string {
+function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
         return `insert <strong>${op.value}</strong> after <strong>${String(
             op.elemId,
@@ -133,25 +181,18 @@ function describeOp(op: InternalOperation<MarkType>): string {
     }
 }
 
-export function createEditor(args: {
-    actorId: string
-    editorNode: Element
-    changesNode: Element
-    initialValue: string
-    publisher: Publisher<Array<Change<MarkType>>>
-}): Editor {
-    const { actorId, editorNode, changesNode, initialValue, publisher } = args
-    const queue = new ChangeQueue({
-        handleFlush: (changes: Array<Change<MarkType>>) => {
-            publisher.publish(actorId, changes)
-        },
-    })
-    queue.start()
+/**
+ * Creates a new Micromerge instance wrapping a RootDoc structure.
+ */
+function createRootDoc(args: { actorId: ActorId; initialValue: string }): {
+    doc: Micromerge
+    initialChange: Change
+} {
+    const { actorId, initialValue } = args
     const doc = new Micromerge(actorId)
-    let selection: Selection = undefined
-
     const initialChange = doc.change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
+        { path: [], action: "makeMap", key: "comments" },
         {
             path: [Micromerge.contentKey],
             action: "insert",
@@ -159,12 +200,54 @@ export function createEditor(args: {
             values: initialValue.split(""),
         },
     ])
+    return {
+        doc,
+        initialChange,
+    }
+}
+
+export function createEditor(args: {
+    actorId: ActorId
+    editorNode: Element
+    changesNode: Element
+    initialValue: string
+    publisher: Publisher<Array<Change>>
+    handleClickOn?: (
+        this: unknown,
+        view: EditorView<Schema>,
+        pos: number,
+        node: Node<Schema>,
+        nodePos: number,
+        event: MouseEvent,
+        direct: boolean,
+    ) => boolean
+}): Editor {
+    const {
+        actorId,
+        editorNode,
+        changesNode,
+        initialValue,
+        publisher,
+        handleClickOn,
+    } = args
+    const queue = new ChangeQueue({
+        handleFlush: (changes: Array<Change>) => {
+            publisher.publish(actorId, changes)
+        },
+    })
+    queue.start()
+    let selection: Selection = undefined
+
+    const { initialChange, doc } = createRootDoc({
+        actorId,
+        initialValue,
+    })
     queue.enqueue(initialChange)
 
-    const outputDebugForChange = (change: Change<MarkType>) => {
+    const outputDebugForChange = (change: Change) => {
         const opsHtml = change.ops
             .map(
-                (op: InternalOperation<MarkType>) =>
+                (op: InternalOperation) =>
                     `<div class="change-description">${describeOp(op)}</div>`,
             )
             .join("")
@@ -210,6 +293,7 @@ export function createEditor(args: {
         // Each document has a unique valid representation.
         // Order of marks specified by schema.
         state,
+        handleClickOn,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             console.groupCollapsed("dispatch", txn.steps[0])
@@ -302,15 +386,22 @@ export function prosemirrorDocFromCRDT(args: {
             undefined,
             spans.map(span => {
                 const marks = []
-                for (const [markType, active] of Object.entries(span.marks)) {
-                    if (active) {
-                        marks.push(markType)
+                for (const markType of ALL_MARKS) {
+                    const markValue = span.marks[markType]
+                    if (markValue === undefined) {
+                        continue
+                    }
+                    if (Array.isArray(markValue)) {
+                        for (const value of markValue) {
+                            marks.push(schema.mark(markType, value))
+                        }
+                    } else {
+                        if (markValue.active) {
+                            marks.push(schema.mark(markType, markValue))
+                        }
                     }
                 }
-                return schema.text(
-                    span.text,
-                    marks.map(m => schema.mark(m)),
-                )
+                return schema.text(span.text, marks)
             }),
         ),
     ])
@@ -322,11 +413,11 @@ export function prosemirrorDocFromCRDT(args: {
 // Note: need to derive a PM doc from the new CRDT doc later!
 // TODO: why don't we need to update the selection when we do insertions?
 export function applyTransaction(args: {
-    doc: Micromerge<MarkType>
+    doc: Micromerge
     txn: Transaction<DocSchema>
-}): Change<MarkType> | null {
+}): Change | null {
     const { doc, txn } = args
-    const operations: Array<InputOperation<MarkType>> = []
+    const operations: Array<InputOperation> = []
 
     for (const step of txn.steps) {
         console.log("step", step)
@@ -368,30 +459,93 @@ export function applyTransaction(args: {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            operations.push({
-                path: [Micromerge.contentKey],
+            const start = contentPosFromProsemirrorPos(step.from)
+            // The end of a prosemirror addMark step refers to the index _after_ the end,
+            // but in the CRDT we use the index of the last character in the range.
+            // TODO: define a helper that converts a whole Prosemirror range into a
+            // CRDT range, not just a single position at a time.
+            const end = contentPosFromProsemirrorPos(step.to - 1)
+
+            const partialOp: {
+                action: "addMark"
+                path: OperationPath
+                start: number
+                end: number
+            } = {
                 action: "addMark",
-                start: contentPosFromProsemirrorPos(step.from),
-                // The end of a prosemirror addMark step refers to the index _after_ the end,
-                // but in the CRDT we use the index of the last character in the range.
-                // TODO: define a helper that converts a whole Prosemirror range into a
-                // CRDT range, not just a single position at a time.
-                end: contentPosFromProsemirrorPos(step.to - 1),
-                markType: step.mark.type.name,
-            })
+                path: [Micromerge.contentKey],
+                start,
+                end,
+            }
+
+            if (step.mark.type.name === "comment") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.id !== "string"
+                ) {
+                    throw new Error("Expected comment mark to have id attrs")
+                }
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                    attrs: step.mark.attrs as { id: string },
+                })
+            } else if (step.mark.type.name === "link") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.url !== "string"
+                ) {
+                    throw new Error("Expected link mark to have url attrs")
+                }
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                    attrs: step.mark.attrs as { url: string },
+                })
+            } else {
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                })
+            }
         } else if (step instanceof RemoveMarkStep) {
             if (!isMarkType(step.mark.type.name)) {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            operations.push({
-                path: [Micromerge.contentKey],
+            const start = contentPosFromProsemirrorPos(step.from)
+            const end = contentPosFromProsemirrorPos(step.to - 1)
+
+            const partialOp: {
+                action: "removeMark"
+                path: OperationPath
+                start: number
+                end: number
+            } = {
                 action: "removeMark",
-                start: contentPosFromProsemirrorPos(step.from),
-                // Same as above, translate Prosemirror's end range into a Micromerge position
-                end: contentPosFromProsemirrorPos(step.to - 1),
-                markType: step.mark.type.name,
-            })
+                path: [Micromerge.contentKey],
+                start,
+                end,
+            }
+
+            if (step.mark.type.name === "comment") {
+                if (
+                    !step.mark.attrs ||
+                    typeof step.mark.attrs.id !== "string"
+                ) {
+                    throw new Error("Expected comment mark to have id attrs")
+                }
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                    attrs: step.mark.attrs as { id: string },
+                })
+            } else {
+                operations.push({
+                    ...partialOp,
+                    markType: step.mark.type.name,
+                })
+            }
         }
     }
 

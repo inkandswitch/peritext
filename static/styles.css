@@ -1,3 +1,7 @@
+body {
+    font-family: sans-serif;
+}
+
 .editors-container {
     width: 100%;
     display: flex;
@@ -13,12 +17,27 @@
     margin-right: 10px;
 }
 
+.editor span[data-mark="comment"] {
+    background-color: rgba(255, 241, 50, 0.25);
+}
+
+/* If two comments overlap, render an extra-intense yellow */
+.editor span[data-mark="comment"] span[data-mark="comment"] {
+    background-color: rgba(255, 241, 50, 0.6);
+}
+
 #toggle-connect {
     margin-bottom: 20px;
 }
 
+.marks {
+    height: 40px;
+    padding: 5px;
+    font-size: 12px;
+}
+
 .changes {
-    height: 300px;
+    height: 150px;
     overflow-y: scroll;
     scroll-snap-type: y proximity;
 }
@@ -27,7 +46,6 @@
     margin: 5px;
     padding: 5px;
     font-size: 12px;
-    font-family: sans-serif;
 }
 
 .change.from-alice {
@@ -36,4 +54,10 @@
 
 .change.from-bob {
     background-color: rgba(0, 200, 200, 0.1);
+}
+
+h3 {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 5px;
 }

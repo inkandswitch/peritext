@@ -1,24 +1,80 @@
-import { compact } from "lodash"
+import { compact, isEqual } from "lodash"
 import { ALL_MARKS } from "./schema"
 import { compareOpIds } from "./micromerge"
 
 import type {
     OperationId,
+    InputOperation,
     AddMarkOperationInput,
     RemoveMarkOperationInput,
 } from "./micromerge"
-import type { MarkType } from "./schema"
+import type { Marks, MarkType } from "./schema"
+import sortBy from "lodash/sortBy"
 
+/**
+ * Using this intermediate operation representation for formatting.
+ * Remove the path to the CRDT object, and use the operation ID for
+ * operation comparisons.
+ *
+ * NOTE: The `id` here is the newly-generated CRDT ID, *NOT* the
+ * resolved path.
+ */
 export type ResolvedOp =
-    | (Omit<AddMarkOperationInput<MarkType>, "path"> & { id: OperationId })
-    | (Omit<RemoveMarkOperationInput<MarkType>, "path"> & { id: OperationId })
+    | ResolveOp<AddMarkOperationInput>
+    | ResolveOp<RemoveMarkOperationInput>
 
-type MarkValue = {
-    active: boolean
+type ResolveOp<O extends InputOperation> = DistributiveOmit<
+    O & {
+        id: OperationId
+    },
+    "path"
+>
+
+type BooleanMarkValue =
+    | {
+          active: true
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+      }
+    | {
+          active: false
+          opId: OperationId
+      }
+
+type IdMarkValue = {
+    id: string
+    /** A MarkValue should always have the ID of the operation that last modified it. */
     opId: OperationId
 }
 
-export type MarkMap = { [T in MarkType]?: MarkValue }
+type LinkMarkValue =
+    | {
+          url: string
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+          active: true
+      }
+    | {
+          url?: undefined
+          opId: OperationId
+          active: false
+      }
+
+export type MarkValue = Assert<
+    {
+        strong: BooleanMarkValue
+        em: BooleanMarkValue
+        comment: IdMarkValue
+        link: LinkMarkValue
+    },
+    { [K in MarkType]: Record<string, unknown> }
+>
+
+export type MarkMap = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+        ? Array<MarkValue[K]>
+        : MarkValue[K]
+}
 
 export type FormatSpan = {
     marks: MarkMap
@@ -102,7 +158,6 @@ export function applyOp(spans: FormatSpan[], op: ResolvedOp): FormatSpan[] {
         ...spans.slice(end.index + 1),
     ])
 
-    // Normalize output before returning to keep span list short as we apply each op
     return newSpans
 }
 
@@ -164,26 +219,98 @@ function applyFormatting(
     op: ResolvedOp,
 ): FormatSpan {
     const newMarks = { ...marks }
-    const mark = marks[op.markType]
 
     switch (op.action) {
         case "addMark": {
-            // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
-                newMarks[op.markType] = {
-                    active: true,
+            if (op.markType === "strong" || op.markType === "em") {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    // Only apply the op if its ID is greater than the last op that touched this mark
+                    newMarks[op.markType] = {
+                        active: true,
+                        opId: op.id,
+                    }
+                }
+            } else if (op.markType === "comment") {
+                const newMark = {
+                    id: op.attrs.id,
                     opId: op.id,
                 }
+
+                const existing = marks[op.markType]
+                if (existing === undefined) {
+                    newMarks[op.markType] = [newMark]
+                } else {
+                    // Check existing list of annotations.
+                    // Find the comment with the same comment ID.
+                    const match = existing.find(m => m.id === op.attrs.id)
+                    // If it doesn't exist, add it.
+                    if (match === undefined) {
+                        // We keep this list sorted by ID because order doesn't matter
+                        // (it's basically an unordered set), and it's useful for testing
+                        // to have a consistent ordering
+                        newMarks[op.markType] = sortBy(
+                            [...existing, newMark],
+                            v => v.id,
+                        )
+                    } else if (
+                        // Otherwise, compare operation IDs and update operation ID if greater.
+                        // Only apply the op if its ID is greater than the last op that touched this mark
+                        compareOpIds(op.id, match.id) === 1
+                    ) {
+                        newMarks[op.markType] = existing.map(m =>
+                            m.id === op.id ? { ...m, opId: op.id } : m,
+                        )
+                    }
+                }
+            } else if (op.markType === "link") {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    // Only apply the op if its ID is greater than the last op that touched this mark
+                    newMarks[op.markType] = {
+                        active: true,
+                        url: op.attrs.url,
+                        opId: op.id,
+                    }
+                }
+            } else {
+                unreachable(op)
             }
             break
         }
         case "removeMark": {
             // Only apply the op if its ID is greater than the last op that touched this mark
-            if (mark === undefined || compareOpIds(op.id, mark.opId) === 1) {
-                newMarks[op.markType] = {
-                    active: false,
-                    opId: op.id,
+            if (
+                op.markType === "strong" ||
+                op.markType === "em" ||
+                op.markType === "link"
+            ) {
+                const mark = marks[op.markType]
+                if (
+                    mark === undefined ||
+                    compareOpIds(op.id, mark.opId) === 1
+                ) {
+                    newMarks[op.markType] = {
+                        active: false,
+                        opId: op.id,
+                    }
                 }
+            } else if (op.markType === "comment") {
+                // Remove the mark with the same ID if it exists.
+                const existing = marks[op.markType]
+                if (existing !== undefined) {
+                    newMarks[op.markType] = existing.filter(
+                        m => m.id !== op.attrs.id,
+                    )
+                }
+            } else {
+                unreachable(op)
             }
             break
         }
@@ -227,20 +354,44 @@ export function normalize(
 // TODO: Should this function compare metadata?
 function marksEqual(s1: MarkMap, s2: MarkMap): boolean {
     return ALL_MARKS.every(mark => {
-        const mark1 = s1[mark]
-        const mark2 = s2[mark]
+        if (mark === "strong" || mark === "em") {
+            const mark1 = s1[mark]
+            const mark2 = s2[mark]
 
-        if (isInactive(mark1) && isInactive(mark2)) {
-            return true
-        } else if (!isInactive(mark1) && !isInactive(mark2)) {
-            return true
+            if (isInactive(mark1) && isInactive(mark2)) {
+                return true
+            } else if (!isInactive(mark1) && !isInactive(mark2)) {
+                return true
+            } else {
+                // One is active and one isn't.
+                return false
+            }
+        } else if (mark === "link") {
+            const mark1 = s1[mark]
+            const mark2 = s2[mark]
+
+            if (isInactive(mark1) && isInactive(mark2)) {
+                return true
+            } else if (!isInactive(mark1) && !isInactive(mark2)) {
+                return (
+                    (mark1 !== undefined && mark1.url) ===
+                    (mark2 !== undefined && mark2.url)
+                )
+            } else {
+                // One is active and one isn't.
+                return false
+            }
+        } else if (mark === "comment") {
+            const marks1 = new Set((s1[mark] || []).map(m => m.id))
+            const marks2 = new Set((s2[mark] || []).map(m => m.id))
+
+            return isEqual(marks1, marks2)
         } else {
-            // One is active and one isn't.
-            return false
+            unreachable(mark)
         }
     })
 }
 
-function isInactive(mark: MarkValue | undefined): boolean {
+function isInactive(mark: BooleanMarkValue | undefined): boolean {
     return mark === undefined || mark.active === false
 }

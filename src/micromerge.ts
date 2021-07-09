@@ -2,8 +2,8 @@ import { applyOp as applyFormatOp, normalize } from "./format"
 import { ALL_MARKS } from "./schema"
 import uuid from "uuid"
 
-import type { MarkType } from "./schema"
-import type { FormatSpan, ResolvedOp } from "./format"
+import type { Marks, MarkType } from "./schema"
+import type { FormatSpan, ResolvedOp, MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -11,12 +11,20 @@ const HEAD = Symbol("_head")
 
 type CONTENT_KEY = "text"
 
-export interface FormatSpanWithText {
-    text: string
-    marks: { [T in MarkType]?: true }
+type MarkMapWithoutOpIds = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+        ? Array<WithoutOpId<MarkValue[K]>>
+        : WithoutOpId<MarkValue[K]>
 }
 
-type ActorId = string
+type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
+
+export interface FormatSpanWithText {
+    text: string
+    marks: MarkMapWithoutOpIds
+}
+
+export type ActorId = string
 export type OperationId = string
 export type Cursor = { objectId: ObjectId; elemId: ElemId }
 
@@ -31,10 +39,7 @@ type JsonPrimitive = string | number | boolean | null
 type JsonComposite = { [key: string]: Json } | Array<Json>
 type Json = JsonPrimitive | JsonComposite
 
-export type RootDoc = { text: Array<Char> }
-export type GenericMarkType = string
-
-type OperationPath = [] | [CONTENT_KEY]
+export type OperationPath = [] | [CONTENT_KEY]
 
 /**
  * A vector clock data structure.
@@ -45,7 +50,7 @@ type Clock = Record<ActorId, number>
 /**
  * A batch of operations from a single actor, applied transactionally.
  */
-export interface Change<M extends GenericMarkType> {
+export interface Change {
     /** ID of the actor responsible for the change. */
     actor: ActorId
     /** Actor's current change version. */
@@ -55,7 +60,7 @@ export interface Change<M extends GenericMarkType> {
     /** Number of the first operation in the change. */
     startOp: OpNumber
     /** Operations contained in the change, ordered temporally. */
-    ops: Operation<M>[]
+    ops: Operation[]
 }
 
 interface InsertOperationInput {
@@ -118,7 +123,7 @@ interface DelOperationInput {
     key: string
 }
 
-export interface AddMarkOperationInput<M extends GenericMarkType> {
+interface AddMarkOperationInputBase<M extends MarkType> {
     action: "addMark"
     /** Path to a list object. */
     path: OperationPath
@@ -130,9 +135,23 @@ export interface AddMarkOperationInput<M extends GenericMarkType> {
     markType: M
 }
 
+// TODO: automatically populate attrs type w/o manual enumeration
+export type AddMarkOperationInput = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+            : AddMarkOperationInputBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
+
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
-export interface RemoveMarkOperationInput<M extends GenericMarkType> {
+interface RemoveMarkOperationInputBase<M extends MarkType> {
     action: "removeMark"
     /** Path to a list object. */
     path: OperationPath
@@ -144,15 +163,31 @@ export interface RemoveMarkOperationInput<M extends GenericMarkType> {
     markType: M
 }
 
-export type InputOperation<M extends GenericMarkType> =
+export type RemoveMarkOperationInput =
+    | (RemoveMarkOperationInputBase<"strong"> & {
+          attrs?: undefined
+      })
+    | (RemoveMarkOperationInputBase<"em"> & {
+          attrs?: undefined
+      })
+    | (RemoveMarkOperationInputBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: Omit<MarkValue["comment"], "opId">
+      })
+    | (RemoveMarkOperationInputBase<"link"> & {
+          /** Data attributes for the mark. */
+          attrs?: undefined
+      })
+
+export type InputOperation =
     | MakeListOperationInput
     | MakeMapOperationInput
     | SetOperationInput
     | DelOperationInput
     | InsertOperationInput
     | DeleteOperationInput
-    | AddMarkOperationInput<M>
-    | RemoveMarkOperationInput<M>
+    | AddMarkOperationInput
+    | RemoveMarkOperationInput
 
 interface BaseOperation {
     /** ID of the object at the given path. */
@@ -215,7 +250,7 @@ interface DelOperation extends BaseOperation {
     elemId?: undefined
 }
 
-interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
+interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "addMark"
     /** List element to apply the mark start. */
     start: OperationId
@@ -225,7 +260,20 @@ interface AddMarkOperation<M extends GenericMarkType> extends BaseOperation {
     markType: M
 }
 
-interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
+export type AddMarkOperation = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationBase<M> & { attrs?: undefined }
+            : AddMarkOperationBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
+
+interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
     /** List element to apply the mark start. */
     start: OperationId
@@ -235,15 +283,24 @@ interface RemoveMarkOperation<M extends GenericMarkType> extends BaseOperation {
     markType: M
 }
 
-export type Operation<M extends GenericMarkType> =
+type RemoveMarkOperation =
+    | RemoveMarkOperationBase<"strong">
+    | RemoveMarkOperationBase<"em">
+    | (RemoveMarkOperationBase<"comment"> & {
+          /** Data attributes for the mark. */
+          attrs: DistributiveOmit<MarkValue["comment"], "opId">
+      })
+    | RemoveMarkOperationBase<"link">
+
+export type Operation =
     | MakeListOperation
     | MakeMapOperation
     | SetOperation
     | DelOperation
     | InsertOperation
     | DeleteOperation
-    | AddMarkOperation<M>
-    | RemoveMarkOperation<M>
+    | AddMarkOperation
+    | RemoveMarkOperation
 
 /**
  * Tracks the operation ID that set each field.
@@ -288,7 +345,7 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 /**
  * Miniature implementation of a subset of Automerge.
  */
-export default class Micromerge<M extends MarkType> {
+export default class Micromerge {
     /** Key in the root object containing the text content. */
     public static contentKey: CONTENT_KEY = "text"
 
@@ -340,7 +397,7 @@ export default class Micromerge<M extends MarkType> {
      * Generates a new change containing operations described in the array `ops`. Returns the change
      * object, which can be JSON-encoded to send to another node.
      */
-    public change(ops: Array<InputOperation<M>>): Change<M> {
+    public change(ops: Array<InputOperation>): Change {
         // Record the dependencies of this change:
         // anything in our clock before we generate the change.
         const deps = Object.assign({}, this.clock)
@@ -350,7 +407,7 @@ export default class Micromerge<M extends MarkType> {
         this.seq += 1
         this.clock[this.actorId] = this.seq
 
-        const change: Change<M> = {
+        const change: Change = {
             actor: this.actorId,
             seq: this.seq,
             deps,
@@ -416,17 +473,53 @@ export default class Micromerge<M extends MarkType> {
                             elemId,
                         })
                     }
-                } else if (
-                    inputOp.action === "addMark" ||
-                    inputOp.action === "removeMark"
-                ) {
-                    this.makeNewOp(change, {
+                } else if (inputOp.action === "addMark") {
+                    const partialOp = {
                         action: inputOp.action,
                         obj: objId,
                         start: this.getListElementId(objId, inputOp.start),
                         end: this.getListElementId(objId, inputOp.end),
-                        markType: inputOp.markType,
-                    })
+                    } as const
+
+                    if (inputOp.markType === "comment") {
+                        const { markType, attrs } = inputOp
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType,
+                            attrs,
+                        })
+                    } else if (inputOp.markType === "link") {
+                        const { markType, attrs } = inputOp
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType,
+                            attrs,
+                        })
+                    } else {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                        })
+                    }
+                } else if (inputOp.action === "removeMark") {
+                    const partialOp = {
+                        action: inputOp.action,
+                        obj: objId,
+                        start: this.getListElementId(objId, inputOp.start),
+                        end: this.getListElementId(objId, inputOp.end),
+                    } as const
+                    if (inputOp.markType === "comment") {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                            attrs: inputOp.attrs,
+                        })
+                    } else {
+                        this.makeNewOp(change, {
+                            ...partialOp,
+                            markType: inputOp.markType,
+                        })
+                    }
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
                 } else if (
@@ -483,7 +576,7 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Returns the ID of the object at a particular path in the document tree.
      */
-    getObjectIdForPath(path: InputOperation<M>["path"]): ObjectId {
+    getObjectIdForPath(path: InputOperation["path"]): ObjectId {
         let objectId: ObjectId = ROOT
         for (const pathElem of path) {
             const meta: Metadata = this.metadata[objectId]
@@ -535,11 +628,28 @@ export default class Micromerge<M extends MarkType> {
                     ? formatSpans[index + 1].start
                     : text.length
 
-            const marks: { [T in MarkType]?: true } = {}
+            const marks: MarkMapWithoutOpIds = {}
+
             for (const markType of ALL_MARKS) {
-                const spanMark = span.marks[markType]
-                if (spanMark && spanMark.active) {
-                    marks[markType] = true
+                if (markType === "strong" || markType === "em") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined && spanMark.active) {
+                        marks[markType] = { active: true }
+                    }
+                } else if (markType === "comment") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined) {
+                        marks[markType] = spanMark.map(comment => ({
+                            id: comment.id,
+                        }))
+                    }
+                } else if (markType === "link") {
+                    const spanMark = span.marks[markType]
+                    if (spanMark !== undefined && spanMark.active) {
+                        marks[markType] = { active: true, url: spanMark.url }
+                    }
+                } else {
+                    unreachable(markType)
                 }
             }
             return { marks, text: text.slice(start, end).join("") }
@@ -564,8 +674,8 @@ export default class Micromerge<M extends MarkType> {
      * Returns the new operation's opId.
      */
     private makeNewOp(
-        change: Change<M>,
-        op: DistributiveOmit<Operation<M>, "opId">,
+        change: Change,
+        op: DistributiveOmit<Operation, "opId">,
     ): OperationId {
         this.maxOp += 1
         const opId = `${this.maxOp}@${this.actorId}`
@@ -579,7 +689,7 @@ export default class Micromerge<M extends MarkType> {
      * Updates the document state by applying the change object `change`, in the format documented here:
      * https://github.com/automerge/automerge/blob/performance/BINARY_FORMAT.md#json-representation-of-changes
      */
-    applyChange(change: Change<M>): void {
+    applyChange(change: Change): void {
         // Check that the change's dependencies are met
         const lastSeq = this.clock[change.actor] || 0
         if (change.seq !== lastSeq + 1) {
@@ -606,7 +716,7 @@ export default class Micromerge<M extends MarkType> {
     /**
      * Updates the document state with one of the operations from a change.
      */
-    private applyOp = (op: Operation<M>): void => {
+    private applyOp = (op: Operation): void => {
         const metadata = this.metadata[op.obj]
 
         if (!metadata) {
@@ -638,16 +748,58 @@ export default class Micromerge<M extends MarkType> {
                     )
                 }
                 this.applyListUpdate(op)
-            } else if (op.action === "addMark" || op.action === "removeMark") {
+            } else if (op.action === "addMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
-                const formatOp: ResolvedOp = {
+                const partialOp = {
+                    id: op.opId,
                     action: op.action,
-                    markType: op.markType,
                     start: this.findListElement(op.obj, op.start).index,
                     end: this.findListElement(op.obj, op.end).index,
-                    id: op.opId,
                 }
+                const formatOp: ResolvedOp =
+                    op.markType === "comment"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : op.markType === "link"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : {
+                              ...partialOp,
+                              markType: op.markType,
+                          }
+
+                // Incrementally apply this formatting operation to
+                // the list of flattened spans that we are storing
+                this.formatSpans[op.obj] = applyFormatOp(
+                    this.formatSpans[op.obj],
+                    formatOp,
+                )
+            } else if (op.action === "removeMark") {
+                const partialOp = {
+                    id: op.opId,
+                    action: op.action,
+                    start: this.findListElement(op.obj, op.start).index,
+                    end: this.findListElement(op.obj, op.end).index,
+                }
+                const formatOp: ResolvedOp =
+                    op.markType === "comment"
+                        ? {
+                              ...partialOp,
+                              markType: op.markType,
+                              attrs: op.attrs,
+                          }
+                        : {
+                              ...partialOp,
+                              markType: op.markType,
+                          }
+
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
                 this.formatSpans[op.obj] = applyFormatOp(

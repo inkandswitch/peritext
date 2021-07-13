@@ -9,6 +9,15 @@ const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
 const HEAD = Symbol("_head")
 
+/** A patch represents a change to make to a JSON document.
+ *  These are a way for Micromerge to notify a listener of incremental changes
+ *  to update a document.
+ */
+export type Patch =
+    | InsertOperationInput
+    | DeleteOperationInput
+    | MakeListOperationInput
+
 type CONTENT_KEY = "text"
 
 type MarkMapWithoutOpIds = {
@@ -63,7 +72,7 @@ export interface Change {
     ops: Operation[]
 }
 
-interface InsertOperationInput {
+export interface InsertOperationInput {
     action: "insert"
     /** Path to the array to modify. */
     path: OperationPath
@@ -73,7 +82,7 @@ interface InsertOperationInput {
     values: Char[]
 }
 
-interface DeleteOperationInput {
+export interface DeleteOperationInput {
     action: "delete"
     /** Path to the array to modify. */
     path: OperationPath
@@ -689,7 +698,7 @@ export default class Micromerge {
      * Updates the document state by applying the change object `change`, in the format documented here:
      * https://github.com/automerge/automerge/blob/performance/BINARY_FORMAT.md#json-representation-of-changes
      */
-    applyChange(change: Change): void {
+    applyChange(change: Change): Patch[] {
         // Check that the change's dependencies are met
         const lastSeq = this.clock[change.actor] || 0
         if (change.seq !== lastSeq + 1) {
@@ -710,13 +719,13 @@ export default class Micromerge {
             change.startOp + change.ops.length - 1,
         )
 
-        change.ops.forEach(this.applyOp)
+        return change.ops.flatMap(this.applyOp)
     }
 
     /**
      * Updates the document state with one of the operations from a change.
      */
-    private applyOp = (op: Operation): void => {
+    private applyOp = (op: Operation): Patch[] => {
         const metadata = this.metadata[op.obj]
 
         if (!metadata) {
@@ -740,14 +749,14 @@ export default class Micromerge {
                         "Must specify elemId when calling set on an array",
                     )
                 }
-                this.applyListInsert(op)
+                return this.applyListInsert(op)
             } else if (op.action === "del") {
                 if (op.elemId === undefined) {
                     throw new Error(
                         "Must specify elemId when calling del on an array",
                     )
                 }
-                this.applyListUpdate(op)
+                return this.applyListUpdate(op)
             } else if (op.action === "addMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
@@ -842,6 +851,10 @@ export default class Micromerge {
                 ) {
                     obj[op.key] = this.objects[op.opId]
                     metadata[CHILDREN][op.key] = op.opId
+
+                    // TODO: path is hardcoded here;
+                    // in reality we want to derive it from objId.
+                    return [{ action: "makeList", path: [], key: op.key }]
                 } else if (op.action === "set") {
                     obj[op.key] = op.value
                 } else {
@@ -849,13 +862,17 @@ export default class Micromerge {
                 }
             }
         }
+
+        // If we've reached this point, that means we haven't yet implemented
+        // the logic to return a correct patch for applying this particular op.
+        return []
     }
 
     /**
      * Applies a list insertion operation.
      */
     // TODO: Extend this to take MakeMapOperation and MakeListOperation.
-    private applyListInsert(op: InsertOperation): void {
+    private applyListInsert(op: InsertOperation): Patch[] {
         const meta = this.metadata[op.obj]
         if (!Array.isArray(meta)) {
             throw new Error(`Not a list: ${String(op.obj)}`)
@@ -905,13 +922,28 @@ export default class Micromerge {
             // op.action === "makeList" || op.action === "makeMap"
             //     ? this.objects[op.opId] :
             op.value
+
+        if (typeof value !== "string") {
+            throw new Error(`Expected value inserted into text to be a string`)
+        }
         obj.splice(visible, 0, value)
+
+        return [
+            {
+                // TODO: We don't have convenient access to the path here so we just hardcode.
+                // In a real implementation, would need to resolve object ID into path.
+                path: [Micromerge.contentKey],
+                action: "insert",
+                index: visible,
+                values: [value],
+            },
+        ]
     }
 
     /**
      * Applies a list element update (setting the value of a list element, or deleting a list element).
      */
-    private applyListUpdate(op: DeleteOperation): void {
+    private applyListUpdate(op: DeleteOperation): Patch[] {
         const { index, visible } = this.findListElement(op.obj, op.elemId)
         const listMeta = this.metadata[op.obj]
         if (listMeta === undefined) {
@@ -928,11 +960,19 @@ export default class Micromerge {
                 if (!Array.isArray(obj)) {
                     throw new Error(`Not a list: ${String(op.obj)}`)
                 }
-                obj.splice(visible, 1)
                 meta.deleted = true
                 for (const span of this.formatSpans[op.obj]) {
                     if (span.start > visible) span.start -= 1
                 }
+                obj.splice(visible, 1)
+                return [
+                    {
+                        path: [Micromerge.contentKey], // todo: populate actual path
+                        action: "delete",
+                        index: visible,
+                        count: 1,
+                    },
+                ]
             }
         } else if (compareOpIds(meta.valueId, op.opId) < 0) {
             throw new Error("Not implemented yet")
@@ -951,6 +991,8 @@ export default class Micromerge {
             // }
             // meta.valueId = op.opId
         }
+
+        return []
     }
 
     /**

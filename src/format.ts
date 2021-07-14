@@ -23,7 +23,7 @@ export type ResolvedOp =
     | ResolveOp<AddMarkOperationInput>
     | ResolveOp<RemoveMarkOperationInput>
 
-type ResolveOp<O extends InputOperation> = DistributiveOmit<
+export type ResolveOp<O extends InputOperation> = DistributiveOmit<
     O & {
         id: OperationId
     },

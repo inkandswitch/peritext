@@ -162,6 +162,24 @@ const applyPatchToTransaction = (
                 return transaction
             }
         }
+        case "addMark": {
+            return transaction.addMark(
+                patch.start + 1,
+                patch.end +
+                    1 /* Adjust for ProseMirror paragraph offset */ +
+                    1 /* Our end is inclusive, their end is exclusive */,
+                schema.mark(patch.markType, patch.attrs),
+            )
+        }
+        case "removeMark": {
+            return transaction.removeMark(
+                patch.start + 1,
+                patch.end +
+                    1 /* Adjust for ProseMirror paragraph offset */ +
+                    1 /* Our end is inclusive, their end is exclusive */,
+                schema.mark(patch.markType, patch.attrs),
+            )
+        }
     }
     unreachable(patch)
 }

@@ -3,7 +3,7 @@ import { ALL_MARKS } from "./schema"
 import uuid from "uuid"
 
 import type { Marks, MarkType } from "./schema"
-import type { FormatSpan, ResolvedOp, MarkValue } from "./format"
+import type { FormatSpan, ResolveOp, MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -17,6 +17,8 @@ export type Patch =
     | InsertOperationInput
     | DeleteOperationInput
     | MakeListOperationInput
+    | AddMarkOperationInput
+    | RemoveMarkOperationInput
 
 type CONTENT_KEY = "text"
 
@@ -760,13 +762,15 @@ export default class Micromerge {
             } else if (op.action === "addMark") {
                 // convert our micromerge op into an op in our formatting system
                 // todo: align these two types so we don't need a translation here
+                const start = this.findListElement(op.obj, op.start).index
+                const end = this.findListElement(op.obj, op.end).index
                 const partialOp = {
                     id: op.opId,
-                    action: op.action,
-                    start: this.findListElement(op.obj, op.start).index,
-                    end: this.findListElement(op.obj, op.end).index,
+                    action: "addMark" as const,
+                    start,
+                    end,
                 }
-                const formatOp: ResolvedOp =
+                const formatOp: ResolveOp<AddMarkOperationInput> =
                     op.markType === "comment"
                         ? {
                               ...partialOp,
@@ -790,6 +794,13 @@ export default class Micromerge {
                     this.formatSpans[op.obj],
                     formatOp,
                 )
+                // Return an array of patches corresponding to the changes.
+                return [
+                    {
+                        path: [Micromerge.contentKey],
+                        ...formatOp,
+                    },
+                ]
             } else if (op.action === "removeMark") {
                 const partialOp = {
                     id: op.opId,
@@ -797,7 +808,7 @@ export default class Micromerge {
                     start: this.findListElement(op.obj, op.start).index,
                     end: this.findListElement(op.obj, op.end).index,
                 }
-                const formatOp: ResolvedOp =
+                const formatOp: ResolveOp<RemoveMarkOperationInput> =
                     op.markType === "comment"
                         ? {
                               ...partialOp,
@@ -815,6 +826,12 @@ export default class Micromerge {
                     this.formatSpans[op.obj],
                     formatOp,
                 )
+                return [
+                    {
+                        ...formatOp,
+                        path: [Micromerge.contentKey],
+                    },
+                ]
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {

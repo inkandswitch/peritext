@@ -300,12 +300,16 @@ export function createEditor(args: {
         for (const change of incomingChanges) {
             doc.applyChange(change)
 
-            let { state, txn } = createNewProsemirrorState(
+            const { state, txn } = createNewProsemirrorState(
                 view.state,
                 doc.getTextWithFormatting([Micromerge.contentKey]),
             )
-            state = updateProsemirrorSelection(state, selection, doc)
-            view.updateState(state)
+            const stateWithSelection = updateProsemirrorSelection(
+                state,
+                selection,
+                doc,
+            )
+            view.updateState(stateWithSelection)
 
             outputDebugForChange(change, txn)
         }

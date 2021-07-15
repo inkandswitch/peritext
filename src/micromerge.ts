@@ -749,7 +749,7 @@ export default class Micromerge {
         if (Array.isArray(metadata)) {
             if (!Array.isArray(obj)) {
                 throw new Error(
-                    `Non-array object with array metadata: ${op.obj}`,
+                    `Non-array object with array metadata: ${String(op.obj)}`,
                 )
             }
             // Updating an array object (including text or rich text)
@@ -798,18 +798,14 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
-                this.formatSpans[op.obj] = applyFormatOp({
+                const { spans, patches } = applyFormatOp({
                     spans: this.formatSpans[op.obj],
                     op: formatOp,
                     docLength: obj.length,
                 })
                 // Return an array of patches corresponding to the changes.
-                return [
-                    {
-                        path: [Micromerge.contentKey],
-                        ...formatOp,
-                    },
-                ]
+                this.formatSpans[op.obj] = spans
+                return patches
             } else if (op.action === "removeMark") {
                 const partialOp = {
                     id: op.opId,
@@ -831,17 +827,13 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
-                this.formatSpans[op.obj] = applyFormatOp({
+                const { spans, patches } = applyFormatOp({
                     spans: this.formatSpans[op.obj],
                     op: formatOp,
                     docLength: obj.length,
                 })
-                return [
-                    {
-                        ...formatOp,
-                        path: [Micromerge.contentKey],
-                    },
-                ]
+                this.formatSpans[op.obj] = spans
+                return patches
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {

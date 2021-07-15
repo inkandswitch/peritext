@@ -1,6 +1,6 @@
 import { compact, isEqual } from "lodash"
 import { ALL_MARKS } from "./schema"
-import { compareOpIds } from "./micromerge"
+import Micromerge, { compareOpIds } from "./micromerge"
 
 import type {
     OperationId,
@@ -82,6 +82,11 @@ export type FormatSpan = {
     start: number
 }
 
+interface FormatSpanWithEnd extends FormatSpan {
+    /** Inclusive end index of the span. */
+    end: number
+}
+
 interface FormatSpanWithPatch {
     span: FormatSpan
     patch?: Patch
@@ -91,12 +96,25 @@ interface FormatSpanWithPatch {
  *  Because applyOp is order-agnostic, the incoming op list can be in any order.
  */
 export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
-    const initialSpans: FormatSpan[] = [{ marks: {}, start: 0 }]
-    const newSpans = ops.reduce(
-        (spans, op) => applyOp({ spans, op, docLength }),
-        initialSpans,
-    )
-    return normalize(newSpans, docLength)
+    const init: {
+        spans: FormatSpan[]
+        patches: Patch[]
+    } = {
+        spans: [{ marks: {}, start: 0 }],
+        patches: [],
+    }
+    const result = ops.reduce(({ spans, patches }, op) => {
+        const { spans: updatedSpans, patches: updatedPatches } = applyOp({
+            spans,
+            op,
+            docLength,
+        })
+        return {
+            spans: updatedSpans,
+            patches: [...patches, ...updatedPatches],
+        }
+    }, init)
+    return normalize(result.spans, docLength)
 }
 
 /**
@@ -114,7 +132,8 @@ export function applyOp(args: {
     op: ResolvedOp
     docLength: number
 }): { spans: FormatSpan[]; patches: Patch[] } {
-    const { spans, op, docLength } = args
+    const { op, docLength } = args
+    const spans = getSpansWithEnd(args.spans, docLength)
     const start = getSpanAtPosition(spans, op.start)
     const end = getSpanAtPosition(spans, op.end)
 
@@ -140,46 +159,52 @@ export function applyOp(args: {
     //
     //    ...|b--|bu|...|u|---|...
     //       s   i      t j
-    const newSpans: FormatSpanWithPatch[] = [
+
+    const spansBeforeOp = spans.slice(
+        0,
+        // Normally we include the covering start span in the list as-is;
+        // but if the op starts at the same position as the covering start span,
+        // then we exclude the covering start span to avoid two spans starting
+        // in the same position.
+        op.start === start.span.start ? start.index : start.index + 1,
+    )
+
+    const spansOverlappingOp = spans.slice(start.index + 1, end.index + 1)
+    const spanOverlappingEnd =
+        op.end + 1 !== spans[end.index + 1]?.start
+            ? { ...end.span, start: op.end + 1 }
+            : undefined
+    const spansAfterOp = spans.slice(end.index + 1)
+
+    const newSpans: Array<FormatSpanWithPatch> = compact([
         // ...|b--
         //    s
-        ...spans
-            .slice(
-                0,
-                // Normally we include the covering start span in the list as-is;
-                // but if the op starts at the same position as the covering start span,
-                // then we exclude the covering start span to avoid two spans starting
-                // in the same position.
-                op.start === start.span.start ? start.index : start.index + 1,
-            )
-            .map(span => ({ span, patch: undefined })),
+        ...spansBeforeOp.map(span => ({ span, patch: undefined })),
         //        |bu
         //        i
         applyFormatting({
             span: { ...start.span, start: op.start },
             op,
-            docLength,
         }),
         //           |...|u----|...
         //               t
-        ...spans
-            .slice(start.index + 1, end.index + 1)
-            .map(span => applyFormatting({ span, op, docLength })),
+        ...spansOverlappingOp.map(span => applyFormatting({ span, op })),
         //                 |---
         //                 j+1
         //
         // Normally we add a span here from end of op to the end of the end-covering span.
         // In the special case where the op ends at the same place as the end-covering span,
         // though, we avoid adding this extra span.
-        ...(op.end + 1 !== (spans[end.index + 1] && spans[end.index + 1].start)
-            ? [{ span: { ...end.span, start: op.end + 1 }, patch: undefined }]
-            : []),
+        spanOverlappingEnd && {
+            span: spanOverlappingEnd,
+            patch: undefined,
+        },
         //                     |...
-        ...spans.slice(end.index + 1).map(span => ({ span, patch: undefined })),
-    ]
+        ...spansAfterOp.map(span => ({ span, patch: undefined })),
+    ])
 
     return {
-        spans: compact(newSpans.map(({ span }) => span)),
+        spans: newSpans.map(({ span }) => span),
         patches: compact(newSpans.map(({ patch }) => patch)),
     }
 }
@@ -187,11 +212,7 @@ export function applyOp(args: {
 function getSpansWithEnd(
     spans: FormatSpan[],
     docLength: number,
-): Array<
-    FormatSpan & {
-        end: number /** Inclusive. */
-    }
-> {
+): Array<FormatSpanWithEnd> {
     // WHERE IS MY WINDOWS FUNCTION?
     return spans.map((span: FormatSpan, index: number) => {
         return {
@@ -209,10 +230,10 @@ function getSpansWithEnd(
     the given position.
  *  Currently a naive linear scan; could be made faster.
  */
-export function getSpanAtPosition(
-    spans: FormatSpan[],
+export function getSpanAtPosition<T extends FormatSpan>(
+    spans: T[],
     position: number,
-): { index: number; span: FormatSpan } | undefined {
+): { index: number; span: T } | undefined {
     if (spans.length === 0) {
         return
     }
@@ -257,18 +278,16 @@ export function getSpanAtPosition(
  *  adding or removing the formatting specified by the op.
  *  (does not mutate the set that was passed in)
  */
-function applyFormatting({
-    span: { marks, ...span },
-    op,
-    docLength,
-}: {
-    span: FormatSpan
+function applyFormatting(args: {
+    span: FormatSpanWithEnd
     op: ResolvedOp
-    docLength: number
 }): FormatSpanWithPatch {
+    const { op } = args
+    const { marks, ...span } = args.span
     const newMarks = { ...marks }
 
-    let patch: Patch /** Patch describing the change to the span. */
+    /** Patch describing the change to the span. */
+    let patch: Patch | null
 
     switch (op.action) {
         case "addMark": {
@@ -283,23 +302,36 @@ function applyFormatting({
                         active: true,
                         opId: op.id,
                     }
-                    // TODO: Emit patch.
+                    // Emit patch describing what happened.
                     patch = {
-                        ...op,
+                        action: "addMark",
+                        path: [Micromerge.contentKey],
+                        markType: op.markType,
                         start: span.start,
-                        end, // ???
+                        end: span.end,
                     }
+                } else {
+                    // Discarding this operation should not produce a patch.
+                    patch = null
                 }
             } else if (op.markType === "comment") {
                 const newMark = {
                     id: op.attrs.id,
                     opId: op.id,
                 }
+                const commentPatch: Patch = {
+                    action: "addMark",
+                    path: [Micromerge.contentKey],
+                    markType: op.markType,
+                    attrs: op.attrs,
+                    start: span.start,
+                    end: span.end,
+                }
 
                 const existing = marks[op.markType]
                 if (existing === undefined) {
                     newMarks[op.markType] = [newMark]
-                    // TODO: Emit patch.
+                    patch = commentPatch
                 } else {
                     // Check existing list of annotations.
                     // Find the comment with the same comment ID.
@@ -313,7 +345,7 @@ function applyFormatting({
                             [...existing, newMark],
                             v => v.id,
                         )
-                        // TODO: Emit patch.
+                        patch = commentPatch
                     } else if (
                         // Otherwise, compare operation IDs and update operation ID if greater.
                         // Only apply the op if its ID is greater than the last op that touched this mark
@@ -322,7 +354,9 @@ function applyFormatting({
                         newMarks[op.markType] = existing.map(m =>
                             m.id === op.id ? { ...m, opId: op.id } : m,
                         )
-                        // TODO: Emit patch.
+                        patch = commentPatch
+                    } else {
+                        patch = null
                     }
                 }
             } else if (op.markType === "link") {
@@ -337,7 +371,16 @@ function applyFormatting({
                         url: op.attrs.url,
                         opId: op.id,
                     }
-                    // TODO: Emit patch.
+                    patch = {
+                        action: "addMark",
+                        path: [Micromerge.contentKey],
+                        markType: op.markType,
+                        attrs: op.attrs,
+                        start: span.start,
+                        end: span.end,
+                    }
+                } else {
+                    patch = null
                 }
             } else {
                 unreachable(op)
@@ -360,7 +403,15 @@ function applyFormatting({
                         active: false,
                         opId: op.id,
                     }
-                    // TODO: Emit patch.
+                    patch = {
+                        action: "removeMark",
+                        path: [Micromerge.contentKey],
+                        markType: op.markType,
+                        start: span.start,
+                        end: span.end,
+                    }
+                } else {
+                    patch = null
                 }
             } else if (op.markType === "comment") {
                 // Remove the mark with the same ID if it exists.
@@ -369,12 +420,25 @@ function applyFormatting({
                     newMarks[op.markType] = existing.filter(
                         m => m.id !== op.attrs.id,
                     )
-                    // TODO: Emit patch.
+                    patch = {
+                        action: "removeMark",
+                        path: [Micromerge.contentKey],
+                        markType: op.markType,
+                        attrs: op.attrs,
+                        start: span.start,
+                        end: span.end,
+                    }
+                } else {
+                    patch = null
                 }
             } else {
                 unreachable(op)
+                patch = null
             }
             break
+        }
+        default: {
+            unreachable(op)
         }
     }
 
@@ -383,7 +447,7 @@ function applyFormatting({
             ...span,
             marks: newMarks,
         },
-        patch,
+        patch: patch === null ? undefined : patch,
     }
 }
 

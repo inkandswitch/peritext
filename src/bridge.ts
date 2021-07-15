@@ -167,7 +167,7 @@ function updateProsemirrorSelection(
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert <strong>${op.value}</strong> after <strong>${String(
+        return `insert "${op.value}" after char ID <strong>${String(
             op.elemId,
         )}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
@@ -248,7 +248,7 @@ export function createEditor(args: {
         const opsHtml = change.ops
             .map(
                 (op: InternalOperation) =>
-                    `<div class="change-description">MM: ${describeOp(
+                    `<div class="change-description"><span class="de-emphasize">Micromerge:</span> ${describeOp(
                         op,
                     )}</div>`,
             )
@@ -265,20 +265,26 @@ export function createEditor(args: {
                     if (step.slice.size === 0) {
                         if (step.to - 1 === step.from) {
                             // single character deletion
-                            stepText = `delete ${step.from}`
+                            stepText = `delete at index <strong>${step.from}</strong>`
                         } else {
-                            stepText = `delete ${step.from} to ${step.to - 1}`
+                            stepText = `delete from index <strong>${
+                                step.from
+                            }</strong> to <strong>${step.to - 1}</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert <strong>${stepContent}</strong> at ${step.from}`
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong>`
                     } else {
-                        stepText = `replace ${step.from} to ${step.to} with: <strong>${stepContent}</strong>`
+                        stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
+                } else if (step instanceof AddMarkStep) {
+                    stepText = `add mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
+                } else if (step instanceof RemoveMarkStep) {
+                    stepText = `remove mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
                 } else {
-                    stepText = "unknown step"
+                    stepText = `unknown step type: ${step.toJSON().type}`
                 }
 
-                return `<div class="prosemirror-step">PM: ${stepText}</div>`
+                return `<div class="prosemirror-step"><span class="de-emphasize">Prosemirror:</span> ${stepText}</div>`
             })
             .join("")
 

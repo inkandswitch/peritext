@@ -150,17 +150,22 @@ export function applyOp(args: {
     // Visually, if i = op.start, j = op.end, and s and t are the spans overlapping
     // i and j respectively, then we have this diagram (b and u are "add mark" formats):
     //
-    //          s         t
-    //    ...|b-----|...|------|...
-    //           |u-------|
+    //       s          t
+    //    ...|b-----|...|------|... <- existing content
+    //           [u-------]         <- new operation
     //           i        j
     //
     // Our goal is to split s at position i, and t at position j:
     //
-    //    ...|b--|bu|...|u|---|...
+    //    ...|b--[bu|...|u]---|...
     //       s   i      t j
 
-    const spansBeforeOp = spans.slice(
+    // First, get the spans that come before the operation.
+    // Their formatting remains unchanged.
+    //       s   i      t j
+    //    ...|b--[bu|...|u]---|...
+    //    ^^^
+    const spansBefore = spans.slice(
         0,
         // Normally we include the covering start span in the list as-is;
         // but if the op starts at the same position as the covering start span,
@@ -168,39 +173,71 @@ export function applyOp(args: {
         // in the same position.
         op.start === start.span.start ? start.index : start.index + 1,
     )
-
-    const spansOverlappingOp = spans.slice(start.index + 1, end.index + 1)
-    const spanOverlappingEnd =
+    // Next, get the spans completely enclosed within the operation.
+    //       s   i      t j
+    //    ...|b--[bu|...|u]---|...
+    //               ^^^^^
+    const spansWithin = spans.slice(start.index + 1, end.index + 1)
+    // Get the "tail" of the span intersecting the operation end.
+    //                  t
+    // existing      ...|------|...
+    // new op    [u-------]^^^^
+    //           i        j
+    // We'll split the end span at this position, preserving the original
+    // formatting on the tail.
+    //       s   i      t j
+    //    ...|b--|bu|...|u|---|...
+    //                     ^^^
+    const spanAtEnd =
         op.end + 1 !== spans[end.index + 1]?.start
             ? { ...end.span, start: op.end + 1 }
             : undefined
-    const spansAfterOp = spans.slice(end.index + 1)
+    // Finally, get the spans after the end of the operation.
+    // These also remain unchanged.
+    //       s   i      t j
+    //    ...|b--|bu|...|u|---|...
+    //                         ^^^
+    const spansAfter = spans.slice(end.index + 1)
 
+    // We need to get the end of the span we're inserting at the beginning
+    // of the operation.
+    // To do this, we look ahead to the next span (which may or may not exist).
+    //       s   i      t j
+    //    ...|b--[bu|...|u]---|...
+    //              ^
+    const nextOp =
+        // First, try to get the first span after the newly-inserted op start.
+        spansWithin[0]?.start ||
+        // Next, try to get the span overlapping the end of the op.
+        spanAtEnd?.start ||
+        // Next, try to get the first span after the op.
+        spansAfter[0]?.start ||
+        // If there are no spans after the new op, it extends to the
+        // end of the document, so we can just use `docLength`.
+        docLength
+
+    // Now we can construct the span we're inserting at the operation's start.
+    //       s   i      t j
+    //    ...|b--[bu|...|u]---|...
+    //           ^^^
+    const spanAtStart = applyFormatting({
+        span: { ...start.span, start: op.start, end: nextOp - 1 },
+        op,
+    })
+
+    // Put everything together to build the new document.
     const newSpans: Array<FormatSpanWithPatch> = compact([
-        // ...|b--
-        //    s
-        ...spansBeforeOp.map(span => ({ span, patch: undefined })),
-        //        |bu
-        //        i
-        applyFormatting({
-            span: { ...start.span, start: op.start },
-            op,
-        }),
-        //           |...|u----|...
-        //               t
-        ...spansOverlappingOp.map(span => applyFormatting({ span, op })),
-        //                 |---
-        //                 j+1
-        //
+        ...spansBefore.map(span => ({ span, patch: undefined })),
+        spanAtStart,
+        ...spansWithin.map(span => applyFormatting({ span, op })),
         // Normally we add a span here from end of op to the end of the end-covering span.
         // In the special case where the op ends at the same place as the end-covering span,
         // though, we avoid adding this extra span.
-        spanOverlappingEnd && {
-            span: spanOverlappingEnd,
+        spanAtEnd && {
+            span: spanAtEnd,
             patch: undefined,
         },
-        //                     |...
-        ...spansAfterOp.map(span => ({ span, patch: undefined })),
+        ...spansAfter.map(span => ({ span, patch: undefined })),
     ])
 
     return {

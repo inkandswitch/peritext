@@ -9,12 +9,7 @@ import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
-import {
-    Step,
-    ReplaceStep,
-    AddMarkStep,
-    RemoveMarkStep,
-} from "prosemirror-transform"
+import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
@@ -110,8 +105,7 @@ export type Editor = {
 function createNewProsemirrorState(
     state: EditorState,
     spans: FormatSpanWithText[],
-    outputDebugForStep: (step: Step<Schema>) => void,
-) {
+): { state: EditorState; txn: Transaction<Schema> } {
     // Derive a new PM doc from the new CRDT doc
     const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
 
@@ -121,14 +115,10 @@ function createNewProsemirrorState(
         new Slice(newProsemirrorDoc.content, 0, 0),
     )
 
-    for (const step of replaceTxn.steps) {
-        outputDebugForStep(step)
-    }
-
     // Apply a transaction that swaps out the new doc in the editor state
     state = state.apply(replaceTxn)
 
-    return state
+    return { state, txn: replaceTxn }
 }
 
 // Resolve a SelectionPosition using cursors into a Prosemirror position
@@ -220,7 +210,6 @@ export function createEditor(args: {
     actorId: ActorId
     editorNode: Element
     changesNode: Element
-    stepsNode: Element
     initialValue: string
     publisher: Publisher<Array<Change>>
     handleClickOn?: (
@@ -237,7 +226,6 @@ export function createEditor(args: {
         actorId,
         editorNode,
         changesNode,
-        stepsNode,
         initialValue,
         publisher,
         handleClickOn,
@@ -256,7 +244,7 @@ export function createEditor(args: {
     })
     queue.enqueue(initialChange)
 
-    const outputDebugForChange = (change: Change) => {
+    const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
         const opsHtml = change.ops
             .map(
                 (op: InternalOperation) =>
@@ -264,26 +252,36 @@ export function createEditor(args: {
             )
             .join("")
 
+        const stepsHtml = txn.steps
+            .map(step => {
+                let stepText = ""
+                if (step instanceof ReplaceStep) {
+                    const stepContent = step.slice.content.textBetween(
+                        0,
+                        step.slice.content.size,
+                    )
+                    if (step.slice.size === 0) {
+                        stepText = `Delete ${step.from} to ${step.to}`
+                    } else if (step.from === step.to) {
+                        stepText = `Insert at ${step.from}: ${stepContent}`
+                    }
+                    stepText = `Replace ${step.from} to ${step.to}: ${stepContent}`
+                } else {
+                    stepText = "unknown step"
+                }
+
+                return `<div class="prosemirror-step">${stepText}</div>`
+            })
+            .join("")
+
         changesNode.insertAdjacentHTML(
             "beforeend",
             `<div class="change from-${change.actor}">
                 <div class="ops">${opsHtml}</div>
+                <div class="prosemirror-steps">${stepsHtml}</div>
             </div>`,
         )
         changesNode.scrollTop = changesNode.scrollHeight
-    }
-
-    const outputDebugForStep = (step: Step<Schema>) => {
-        let stepHTML = `unknown`
-        if (step instanceof ReplaceStep) {
-            stepHTML = `<div class="prosemirror-step">Replace from ${
-                step.from
-            } to ${step.to}: ${step.slice.content.textBetween(
-                0,
-                step.slice.content.size,
-            )}</div>`
-        }
-        stepsNode.insertAdjacentHTML("beforeend", stepHTML)
     }
 
     publisher.subscribe(actorId, incomingChanges => {
@@ -292,16 +290,17 @@ export function createEditor(args: {
         }
 
         for (const change of incomingChanges) {
-            outputDebugForChange(change)
             doc.applyChange(change)
+
+            let { state, txn } = createNewProsemirrorState(
+                view.state,
+                doc.getTextWithFormatting([Micromerge.contentKey]),
+            )
+            state = updateProsemirrorSelection(state, selection, doc)
+            view.updateState(state)
+
+            outputDebugForChange(change, txn)
         }
-        let state = createNewProsemirrorState(
-            view.state,
-            doc.getTextWithFormatting([Micromerge.contentKey]),
-            outputDebugForStep,
-        )
-        state = updateProsemirrorSelection(state, selection, doc)
-        view.updateState(state)
     })
 
     // Generate an empty document conforming to the schema,
@@ -332,7 +331,7 @@ export function createEditor(args: {
             const change = applyTransaction({ doc, txn })
             if (change) {
                 queue.enqueue(change)
-                outputDebugForChange(change)
+                outputDebugForChange(change, txn)
             }
 
             let state = view.state
@@ -341,11 +340,11 @@ export function createEditor(args: {
             // (If it doesn't have steps, that's probably just a selection update,
             // because by definition it cannot be updating the document in any way)
             if (txn.steps.length > 0) {
-                state = createNewProsemirrorState(
+                const result = createNewProsemirrorState(
                     state,
                     doc.getTextWithFormatting([Micromerge.contentKey]),
-                    outputDebugForStep,
                 )
+                state = result.state
             }
 
             console.log("new state", state)

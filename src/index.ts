@@ -24,14 +24,12 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
 const aliceNode = document.querySelector("#alice")
 const aliceEditor = aliceNode?.querySelector(".editor")
 const aliceChanges = aliceNode?.querySelector(".changes")
-const aliceSteps = aliceNode?.querySelector(".prosemirror-steps")
 const aliceMarks = aliceNode?.querySelector(".marks")
-if (aliceNode && aliceEditor && aliceChanges && aliceMarks && aliceSteps) {
+if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
     editors["alice"] = createEditor({
         actorId: "alice",
         editorNode: aliceEditor,
         changesNode: aliceChanges,
-        stepsNode: aliceSteps,
         initialValue: "This is the Peritext editor",
         publisher,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
@@ -51,13 +49,11 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks && aliceSteps) {
 const bobNode = document.querySelector("#bob")
 const bobEditor = bobNode?.querySelector(".editor")
 const bobChanges = bobNode?.querySelector(".changes")
-const bobSteps = bobNode?.querySelector(".prosemirror-steps")
-if (bobNode && bobEditor && bobChanges && bobSteps) {
+if (bobNode && bobEditor && bobChanges) {
     editors["bob"] = createEditor({
         actorId: "bob",
         editorNode: bobEditor,
         changesNode: bobChanges,
-        stepsNode: bobSteps,
         initialValue: "This is the Peritext editor",
         publisher,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {

@@ -37,7 +37,7 @@ body {
 }
 
 .changes {
-    height: 150px;
+    height: 300px;
     overflow-y: scroll;
     scroll-snap-type: y proximity;
 }

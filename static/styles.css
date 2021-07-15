@@ -56,6 +56,11 @@ body {
     background-color: rgba(0, 200, 200, 0.1);
 }
 
+.prosemirror-step {
+    padding: 5px;
+    font-size: 12px;
+}
+
 h3 {
     font-size: 12px;
     color: #999;

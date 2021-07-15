@@ -274,7 +274,16 @@ export function createEditor(args: {
     }
 
     const outputDebugForStep = (step: Step<Schema>) => {
-        console.log("step", step)
+        let stepHTML = `unknown`
+        if (step instanceof ReplaceStep) {
+            stepHTML = `<div class="prosemirror-step">Replace from ${
+                step.from
+            } to ${step.to}: ${step.slice.content.textBetween(
+                0,
+                step.slice.content.size,
+            )}</div>`
+        }
+        stepsNode.insertAdjacentHTML("beforeend", stepHTML)
     }
 
     publisher.subscribe(actorId, incomingChanges => {
@@ -335,6 +344,7 @@ export function createEditor(args: {
                 state = createNewProsemirrorState(
                     state,
                     doc.getTextWithFormatting([Micromerge.contentKey]),
+                    outputDebugForStep,
                 )
             }
 

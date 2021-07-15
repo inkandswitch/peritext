@@ -263,11 +263,17 @@ export function createEditor(args: {
                         step.slice.content.size,
                     )
                     if (step.slice.size === 0) {
-                        stepText = `Delete ${step.from} to ${step.to}`
+                        if (step.to - 1 === step.from) {
+                            // single character deletion
+                            stepText = `delete ${step.from}`
+                        } else {
+                            stepText = `delete ${step.from} to ${step.to - 1}`
+                        }
                     } else if (step.from === step.to) {
-                        stepText = `Insert at ${step.from}: ${stepContent}`
+                        stepText = `insert <strong>${stepContent}</strong> at ${step.from}`
+                    } else {
+                        stepText = `replace ${step.from} to ${step.to} with: <strong>${stepContent}</strong>`
                     }
-                    stepText = `Replace ${step.from} to ${step.to}: ${stepContent}`
                 } else {
                     stepText = "unknown step"
                 }

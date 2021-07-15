@@ -105,20 +105,20 @@ export type Editor = {
 function createNewProsemirrorState(
     state: EditorState,
     spans: FormatSpanWithText[],
-) {
+): { state: EditorState; txn: Transaction<Schema> } {
     // Derive a new PM doc from the new CRDT doc
     const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
 
-    // Apply a transaction that swaps out the new doc in the editor state
-    state = state.apply(
-        state.tr.replace(
-            0,
-            state.doc.content.size,
-            new Slice(newProsemirrorDoc.content, 0, 0),
-        ),
+    const replaceTxn = state.tr.replace(
+        0,
+        state.doc.content.size,
+        new Slice(newProsemirrorDoc.content, 0, 0),
     )
 
-    return state
+    // Apply a transaction that swaps out the new doc in the editor state
+    state = state.apply(replaceTxn)
+
+    return { state, txn: replaceTxn }
 }
 
 // Resolve a SelectionPosition using cursors into a Prosemirror position
@@ -167,7 +167,7 @@ function updateProsemirrorSelection(
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert <strong>${op.value}</strong> after <strong>${String(
+        return `insert "${op.value}" after char ID <strong>${String(
             op.elemId,
         )}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
@@ -244,34 +244,81 @@ export function createEditor(args: {
     })
     queue.enqueue(initialChange)
 
-    const outputDebugForChange = (change: Change) => {
+    const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
         const opsHtml = change.ops
             .map(
                 (op: InternalOperation) =>
-                    `<div class="change-description">${describeOp(op)}</div>`,
+                    `<div class="change-description"><span class="de-emphasize">Micromerge:</span> ${describeOp(
+                        op,
+                    )}</div>`,
             )
+            .join("")
+
+        const stepsHtml = txn.steps
+            .map(step => {
+                let stepText = ""
+                if (step instanceof ReplaceStep) {
+                    const stepContent = step.slice.content.textBetween(
+                        0,
+                        step.slice.content.size,
+                    )
+                    if (step.slice.size === 0) {
+                        if (step.to - 1 === step.from) {
+                            // single character deletion
+                            stepText = `delete at index <strong>${step.from}</strong>`
+                        } else {
+                            stepText = `delete from index <strong>${
+                                step.from
+                            }</strong> to <strong>${step.to - 1}</strong>`
+                        }
+                    } else if (step.from === step.to) {
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong>`
+                    } else {
+                        stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
+                    }
+                } else if (step instanceof AddMarkStep) {
+                    stepText = `add mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
+                } else if (step instanceof RemoveMarkStep) {
+                    stepText = `remove mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
+                } else {
+                    stepText = `unknown step type: ${step.toJSON().type}`
+                }
+
+                return `<div class="prosemirror-step"><span class="de-emphasize">Prosemirror:</span> ${stepText}</div>`
+            })
             .join("")
 
         changesNode.insertAdjacentHTML(
             "beforeend",
             `<div class="change from-${change.actor}">
                 <div class="ops">${opsHtml}</div>
+                <div class="prosemirror-steps">${stepsHtml}</div>
             </div>`,
         )
         changesNode.scrollTop = changesNode.scrollHeight
     }
 
     publisher.subscribe(actorId, incomingChanges => {
-        for (const change of incomingChanges) {
-            outputDebugForChange(change)
-            doc.applyChange(change)
+        if (incomingChanges.length === 0) {
+            return
         }
-        let state = createNewProsemirrorState(
-            view.state,
-            doc.getTextWithFormatting([Micromerge.contentKey]),
-        )
-        state = updateProsemirrorSelection(state, selection, doc)
-        view.updateState(state)
+
+        for (const change of incomingChanges) {
+            doc.applyChange(change)
+
+            const { state, txn } = createNewProsemirrorState(
+                view.state,
+                doc.getTextWithFormatting([Micromerge.contentKey]),
+            )
+            const stateWithSelection = updateProsemirrorSelection(
+                state,
+                selection,
+                doc,
+            )
+            view.updateState(stateWithSelection)
+
+            outputDebugForChange(change, txn)
+        }
     })
 
     // Generate an empty document conforming to the schema,
@@ -302,7 +349,7 @@ export function createEditor(args: {
             const change = applyTransaction({ doc, txn })
             if (change) {
                 queue.enqueue(change)
-                outputDebugForChange(change)
+                outputDebugForChange(change, txn)
             }
 
             let state = view.state
@@ -311,10 +358,11 @@ export function createEditor(args: {
             // (If it doesn't have steps, that's probably just a selection update,
             // because by definition it cannot be updating the document in any way)
             if (txn.steps.length > 0) {
-                state = createNewProsemirrorState(
+                const result = createNewProsemirrorState(
                     state,
                     doc.getTextWithFormatting([Micromerge.contentKey]),
                 )
+                state = result.state
             }
 
             console.log("new state", state)

@@ -9,7 +9,12 @@ import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
-import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
+import {
+    Step,
+    ReplaceStep,
+    AddMarkStep,
+    RemoveMarkStep,
+} from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
@@ -105,18 +110,23 @@ export type Editor = {
 function createNewProsemirrorState(
     state: EditorState,
     spans: FormatSpanWithText[],
+    outputDebugForStep: (step: Step<Schema>) => void,
 ) {
     // Derive a new PM doc from the new CRDT doc
     const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
 
-    // Apply a transaction that swaps out the new doc in the editor state
-    state = state.apply(
-        state.tr.replace(
-            0,
-            state.doc.content.size,
-            new Slice(newProsemirrorDoc.content, 0, 0),
-        ),
+    const replaceTxn = state.tr.replace(
+        0,
+        state.doc.content.size,
+        new Slice(newProsemirrorDoc.content, 0, 0),
     )
+
+    for (const step of replaceTxn.steps) {
+        outputDebugForStep(step)
+    }
+
+    // Apply a transaction that swaps out the new doc in the editor state
+    state = state.apply(replaceTxn)
 
     return state
 }
@@ -210,6 +220,7 @@ export function createEditor(args: {
     actorId: ActorId
     editorNode: Element
     changesNode: Element
+    stepsNode: Element
     initialValue: string
     publisher: Publisher<Array<Change>>
     handleClickOn?: (
@@ -226,6 +237,7 @@ export function createEditor(args: {
         actorId,
         editorNode,
         changesNode,
+        stepsNode,
         initialValue,
         publisher,
         handleClickOn,
@@ -261,7 +273,15 @@ export function createEditor(args: {
         changesNode.scrollTop = changesNode.scrollHeight
     }
 
+    const outputDebugForStep = (step: Step<Schema>) => {
+        console.log("step", step)
+    }
+
     publisher.subscribe(actorId, incomingChanges => {
+        if (incomingChanges.length === 0) {
+            return
+        }
+
         for (const change of incomingChanges) {
             outputDebugForChange(change)
             doc.applyChange(change)
@@ -269,6 +289,7 @@ export function createEditor(args: {
         let state = createNewProsemirrorState(
             view.state,
             doc.getTextWithFormatting([Micromerge.contentKey]),
+            outputDebugForStep,
         )
         state = updateProsemirrorSelection(state, selection, doc)
         view.updateState(state)

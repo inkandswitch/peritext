@@ -248,7 +248,9 @@ export function createEditor(args: {
         const opsHtml = change.ops
             .map(
                 (op: InternalOperation) =>
-                    `<div class="change-description">${describeOp(op)}</div>`,
+                    `<div class="change-description">MM: ${describeOp(
+                        op,
+                    )}</div>`,
             )
             .join("")
 
@@ -270,7 +272,7 @@ export function createEditor(args: {
                     stepText = "unknown step"
                 }
 
-                return `<div class="prosemirror-step">${stepText}</div>`
+                return `<div class="prosemirror-step">PM: ${stepText}</div>`
             })
             .join("")
 

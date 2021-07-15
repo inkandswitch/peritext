@@ -634,6 +634,8 @@ export default class Micromerge {
 
         return formatSpans.map((span, index) => {
             const start = span.start
+            // Computing an exclusive end index because we use this variable
+            // in String.prototype.slice.
             const end =
                 index < formatSpans.length - 1
                     ? formatSpans[index + 1].start
@@ -729,8 +731,9 @@ export default class Micromerge {
      */
     private applyOp = (op: Operation): Patch[] => {
         const metadata = this.metadata[op.obj]
+        const obj = this.objects[op.obj]
 
-        if (!metadata) {
+        if (!metadata || obj === undefined) {
             throw new RangeError(`Object does not exist: ${String(op.obj)}`)
         }
         if (op.action === "makeMap") {
@@ -744,6 +747,11 @@ export default class Micromerge {
         }
 
         if (Array.isArray(metadata)) {
+            if (!Array.isArray(obj)) {
+                throw new Error(
+                    `Non-array object with array metadata: ${op.obj}`,
+                )
+            }
             // Updating an array object (including text or rich text)
             if (op.action === "set") {
                 if (op.elemId === undefined) {
@@ -790,10 +798,11 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
-                this.formatSpans[op.obj] = applyFormatOp(
-                    this.formatSpans[op.obj],
-                    formatOp,
-                )
+                this.formatSpans[op.obj] = applyFormatOp({
+                    spans: this.formatSpans[op.obj],
+                    op: formatOp,
+                    docLength: obj.length,
+                })
                 // Return an array of patches corresponding to the changes.
                 return [
                     {
@@ -822,10 +831,11 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
-                this.formatSpans[op.obj] = applyFormatOp(
-                    this.formatSpans[op.obj],
-                    formatOp,
-                )
+                this.formatSpans[op.obj] = applyFormatOp({
+                    spans: this.formatSpans[op.obj],
+                    op: formatOp,
+                    docLength: obj.length,
+                })
                 return [
                     {
                         ...formatOp,

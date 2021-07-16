@@ -86,7 +86,7 @@ export type Editor = {
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert <strong>${op.value}</strong> after <strong>${String(
+        return `insert "${op.value}" after char ID <strong>${String(
             op.elemId,
         )}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
@@ -209,18 +209,55 @@ export function createEditor(args: {
     })
     queue.start()
 
-    const outputDebugForChange = (change: Change) => {
+    const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
         const opsHtml = change.ops
             .map(
                 (op: InternalOperation) =>
-                    `<div class="change-description">${describeOp(op)}</div>`,
+                    `<div class="change-description"><span class="de-emphasize">Micromerge:</span> ${describeOp(
+                        op,
+                    )}</div>`,
             )
+            .join("")
+
+        const stepsHtml = txn.steps
+            .map(step => {
+                let stepText = ""
+                if (step instanceof ReplaceStep) {
+                    const stepContent = step.slice.content.textBetween(
+                        0,
+                        step.slice.content.size,
+                    )
+                    if (step.slice.size === 0) {
+                        if (step.to - 1 === step.from) {
+                            // single character deletion
+                            stepText = `delete at index <strong>${step.from}</strong>`
+                        } else {
+                            stepText = `delete from index <strong>${
+                                step.from
+                            }</strong> to <strong>${step.to - 1}</strong>`
+                        }
+                    } else if (step.from === step.to) {
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong>`
+                    } else {
+                        stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
+                    }
+                } else if (step instanceof AddMarkStep) {
+                    stepText = `add mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
+                } else if (step instanceof RemoveMarkStep) {
+                    stepText = `remove mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
+                } else {
+                    stepText = `unknown step type: ${step.toJSON().type}`
+                }
+
+                return `<div class="prosemirror-step"><span class="de-emphasize">Prosemirror:</span> ${stepText}</div>`
+            })
             .join("")
 
         changesNode.insertAdjacentHTML(
             "beforeend",
             `<div class="change from-${change.actor}">
                 <div class="ops">${opsHtml}</div>
+                <div class="prosemirror-steps">${stepsHtml}</div>
             </div>`,
         )
         changesNode.scrollTop = changesNode.scrollHeight
@@ -239,7 +276,6 @@ export function createEditor(args: {
         // - apply that Prosemirror Transaction to the document
         for (const change of incomingChanges) {
             let transaction = state.tr
-            outputDebugForChange(change)
             const patches = doc.applyChange(change)
             for (const patch of patches) {
                 transaction = applyPatchToTransaction(transaction, patch)
@@ -248,6 +284,7 @@ export function createEditor(args: {
                 steps: transaction.steps,
             })
             state = state.apply(transaction)
+            outputDebugForChange(change, transaction)
         }
 
         view.updateState(state)
@@ -285,10 +322,9 @@ export function createEditor(args: {
             const change = applyTransaction({ doc, txn })
             if (change) {
                 queue.enqueue(change)
-                outputDebugForChange(change)
+                outputDebugForChange(change, txn)
             }
 
-            console.log({ doc })
             console.log("new state", state)
             console.log(txn.selection)
 

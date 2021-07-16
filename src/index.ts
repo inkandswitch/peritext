@@ -50,7 +50,7 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
         },
     })
 } else {
-    throw new Error(`Didn't find expected editor node in the DOM: #alice`)
+    throw new Error(`Didn't find expected node in the DOM`)
 }
 
 const bobNode = document.querySelector("#bob")
@@ -74,7 +74,7 @@ if (bobNode && bobEditor && bobChanges) {
         },
     })
 } else {
-    throw new Error(`Didn't find expected editor node in the DOM: #alice`)
+    throw new Error(`Didn't find expected node in the DOM`)
 }
 
 // Add a button for connecting/disconnecting the two editors

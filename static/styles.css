@@ -37,7 +37,7 @@ body {
 }
 
 .changes {
-    height: 150px;
+    height: 300px;
     overflow-y: scroll;
     scroll-snap-type: y proximity;
 }
@@ -54,6 +54,10 @@ body {
 
 .change.from-bob {
     background-color: rgba(0, 200, 200, 0.1);
+}
+
+span.de-emphasize {
+    color: #aaa;
 }
 
 h3 {

@@ -408,7 +408,10 @@ export default class Micromerge {
      * Generates a new change containing operations described in the array `ops`. Returns the change
      * object, which can be JSON-encoded to send to another node.
      */
-    public change(ops: Array<InputOperation>): Change {
+    public change(ops: Array<InputOperation>): {
+        change: Change
+        patches: Patch[]
+    } {
         // Record the dependencies of this change:
         // anything in our clock before we generate the change.
         const deps = Object.assign({}, this.clock)
@@ -426,6 +429,8 @@ export default class Micromerge {
             ops: [],
         }
 
+        const patchesForChange: Patch[] = []
+
         for (const inputOp of ops) {
             const objId = this.getObjectIdForPath(inputOp.path)
             const obj = this.objects[objId]
@@ -442,14 +447,18 @@ export default class Micromerge {
                             ? HEAD
                             : this.getListElementId(objId, inputOp.index - 1)
                     for (const value of inputOp.values) {
-                        const result = this.makeNewOp(change, {
-                            action: "set",
-                            obj: objId,
-                            elemId,
-                            insert: true,
-                            value,
-                        })
+                        const { opId: result, patches } = this.makeNewOp(
+                            change,
+                            {
+                                action: "set",
+                                obj: objId,
+                                elemId,
+                                insert: true,
+                                value,
+                            },
+                        )
                         elemId = result
+                        patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "delete") {
                     // It might seem like we should increment the index we delete at
@@ -478,11 +487,12 @@ export default class Micromerge {
                             objId,
                             inputOp.index,
                         )
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             action: "del",
                             obj: objId,
                             elemId,
                         })
+                        patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "addMark") {
                     const partialOp = {
@@ -494,23 +504,26 @@ export default class Micromerge {
 
                     if (inputOp.markType === "comment") {
                         const { markType, attrs } = inputOp
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             ...partialOp,
                             markType,
                             attrs,
                         })
+                        patchesForChange.push(...patches)
                     } else if (inputOp.markType === "link") {
                         const { markType, attrs } = inputOp
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             ...partialOp,
                             markType,
                             attrs,
                         })
+                        patchesForChange.push(...patches)
                     } else {
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             ...partialOp,
                             markType: inputOp.markType,
                         })
+                        patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "removeMark") {
                     const partialOp = {
@@ -520,16 +533,18 @@ export default class Micromerge {
                         end: this.getListElementId(objId, inputOp.end),
                     } as const
                     if (inputOp.markType === "comment") {
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             ...partialOp,
                             markType: inputOp.markType,
                             attrs: inputOp.attrs,
                         })
+                        patchesForChange.push(...patches)
                     } else {
-                        this.makeNewOp(change, {
+                        const { patches } = this.makeNewOp(change, {
                             ...partialOp,
                             markType: inputOp.markType,
                         })
+                        patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
@@ -550,24 +565,27 @@ export default class Micromerge {
                     // TODO: Why can't I handle the "del" case here????
                     // inputOp.action === "del"
                 ) {
-                    this.makeNewOp(change, {
+                    const { patches } = this.makeNewOp(change, {
                         action: inputOp.action,
                         obj: objId,
                         key: inputOp.key,
                     })
+                    patchesForChange.push(...patches)
                 } else if (inputOp.action === "del") {
-                    this.makeNewOp(change, {
+                    const { patches } = this.makeNewOp(change, {
                         action: inputOp.action,
                         obj: objId,
                         key: inputOp.key,
                     })
+                    patchesForChange.push(...patches)
                 } else if (inputOp.action === "set") {
-                    this.makeNewOp(change, {
+                    const { patches } = this.makeNewOp(change, {
                         action: inputOp.action,
                         obj: objId,
                         key: inputOp.key,
                         value: inputOp.value,
                     })
+                    patchesForChange.push(...patches)
                 } else if (
                     inputOp.action === "addMark" ||
                     inputOp.action === "removeMark" ||
@@ -581,7 +599,7 @@ export default class Micromerge {
             }
         }
 
-        return change
+        return { change, patches: patchesForChange }
     }
 
     /**
@@ -689,13 +707,13 @@ export default class Micromerge {
     private makeNewOp(
         change: Change,
         op: DistributiveOmit<Operation, "opId">,
-    ): OperationId {
+    ): { opId: OperationId; patches: Patch[] } {
         this.maxOp += 1
         const opId = `${this.maxOp}@${this.actorId}`
         const opWithId = { opId, ...op }
-        this.applyOp(opWithId)
+        const patches = this.applyOp(opWithId)
         change.ops.push(opWithId)
-        return opId
+        return { opId, patches }
     }
 
     /**

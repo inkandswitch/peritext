@@ -3,7 +3,7 @@
  */
 
 import Micromerge, { OperationPath, Patch } from "./micromerge"
-import { EditorState, Transaction } from "prosemirror-state"
+import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, Fragment } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
@@ -107,13 +107,20 @@ function describeOp(op: InternalOperation): string {
  */
 export const initializeDocs = (docs: Micromerge[]): void => {
     const initialValue = "This is the Peritext editor"
-    const initialChange = docs[0].change([
+    const { change: initialChange } = docs[0].change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
         {
             path: [Micromerge.contentKey],
             action: "insert",
             index: 0,
             values: initialValue.split(""),
+        },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "strong",
+            start: 12,
+            end: 20,
         },
     ])
     for (const doc of docs.slice(1)) {
@@ -314,28 +321,49 @@ export function createEditor(args: {
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
             console.groupCollapsed("dispatch", txn.steps[0])
+            console.log("input txn", txn)
 
-            // Locally apply the Prosemirror transaction directly to this document
-            state = state.apply(txn)
-
-            // Apply a corresponding change to the Micromerge document
-            const change = applyTransaction({ doc, txn })
+            // Apply a corresponding change to the Micromerge document.
+            // We observe a Micromerge Patch from applying the change, and
+            // apply its effects to our local Prosemirror doc.
+            const { change, patches } = applyTransaction({ doc, txn })
             if (change) {
+                let transaction = state.tr
+                for (const patch of patches) {
+                    transaction = applyPatchToTransaction(transaction, patch)
+                }
+                console.log(
+                    "applying incremental transaction for local update",
+                    {
+                        steps: transaction.steps,
+                    },
+                )
+                state = state.apply(transaction)
+                outputDebugForChange(change, transaction)
+
+                // Broadcast the change to remote peers
                 queue.enqueue(change)
-                outputDebugForChange(change, txn)
+            }
+
+            // If this transaction updated the local selection, we need to
+            // make sure that's reflected in the editor state.
+            // (Roundtripping through Micromerge won't do that for us, since
+            // selection state is not part of the document state.)
+            if (txn.selectionSet) {
+                console.log("txn.selectionSet")
+                state = state.apply(
+                    state.tr.setSelection(
+                        new TextSelection(
+                            state.doc.resolve(txn.selection.anchor),
+                            state.doc.resolve(txn.selection.head),
+                        ),
+                    ),
+                )
             }
 
             console.log("new state", state)
-            console.log(txn.selection)
 
             view.updateState(state)
-
-            console.log(
-                "steps",
-                txn.steps.map(s => s.toJSON()),
-                "newState",
-                state,
-            )
             console.groupEnd()
         },
     })
@@ -403,7 +431,7 @@ export function prosemirrorDocFromCRDT(args: {
 export function applyTransaction(args: {
     doc: Micromerge
     txn: Transaction<DocSchema>
-}): Change | null {
+}): { change: Change | null; patches: Patch[] } {
     const { doc, txn } = args
     const operations: Array<InputOperation> = []
 
@@ -540,6 +568,6 @@ export function applyTransaction(args: {
     if (operations.length > 0) {
         return doc.change(operations)
     } else {
-        return null
+        return { change: null, patches: [] }
     }
 }

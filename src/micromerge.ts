@@ -1,4 +1,9 @@
-import { applyOp as applyFormatOp, normalize } from "./format"
+import {
+    applyOp as applyFormatOp,
+    getSpanAtPosition,
+    MarkMap,
+    normalize,
+} from "./format"
 import { ALL_MARKS } from "./schema"
 import uuid from "uuid"
 
@@ -14,7 +19,7 @@ const HEAD = Symbol("_head")
  *  to update a document.
  */
 export type Patch =
-    | InsertOperationInput
+    | (InsertOperationInput & { marks: MarkMap })
     | DeleteOperationInput
     | MakeListOperationInput
     | AddMarkOperationInput
@@ -22,7 +27,7 @@ export type Patch =
 
 type CONTENT_KEY = "text"
 
-type MarkMapWithoutOpIds = {
+export type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
         ? Array<WithoutOpId<MarkValue[K]>>
         : WithoutOpId<MarkValue[K]>
@@ -973,6 +978,9 @@ export default class Micromerge {
                 action: "insert",
                 index: visible,
                 values: [value],
+                marks:
+                    getSpanAtPosition(this.formatSpans[op.obj], visible)?.span
+                        .marks ?? {},
             },
         ]
     }

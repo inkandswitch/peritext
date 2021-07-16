@@ -2,10 +2,14 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge, { OperationPath, Patch } from "./micromerge"
+import Micromerge, {
+    MarkMapWithoutOpIds,
+    OperationPath,
+    Patch,
+} from "./micromerge"
 import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node, Fragment } from "prosemirror-model"
+import { Schema, Slice, Node, Fragment, Mark } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
@@ -145,7 +149,16 @@ const applyPatchToTransaction = (
             return transaction.replace(
                 index,
                 index,
-                new Slice(Fragment.from(schema.text(patch.values[0])), 0, 0),
+                new Slice(
+                    Fragment.from(
+                        schema.text(
+                            patch.values[0],
+                            getProsemirrorMarksForMarkMap(patch.marks),
+                        ),
+                    ),
+                    0,
+                    0,
+                ),
             )
         }
 
@@ -244,7 +257,11 @@ export function createEditor(args: {
                             }</strong> to <strong>${step.to - 1}</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong>`
+                        stepText = `insert "${stepContent}" at index <strong>${
+                            step.from
+                        }</strong> with marks ${step.slice.content.firstChild?.marks
+                            .map(m => m.type.name)
+                            .join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
@@ -383,6 +400,28 @@ function contentPosFromProsemirrorPos(position: number) {
     return position - 1
 }
 
+function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(
+    markMap: T,
+): Mark[] {
+    const marks = []
+    for (const markType of ALL_MARKS) {
+        const markValue = markMap[markType]
+        if (markValue === undefined) {
+            continue
+        }
+        if (Array.isArray(markValue)) {
+            for (const value of markValue) {
+                marks.push(schema.mark(markType, value))
+            }
+        } else {
+            if (markValue.active) {
+                marks.push(schema.mark(markType, markValue))
+            }
+        }
+    }
+    return marks
+}
+
 // Given a micromerge doc representation, produce a prosemirror doc.
 export function prosemirrorDocFromCRDT(args: {
     schema: DocSchema
@@ -401,23 +440,10 @@ export function prosemirrorDocFromCRDT(args: {
             "paragraph",
             undefined,
             spans.map(span => {
-                const marks = []
-                for (const markType of ALL_MARKS) {
-                    const markValue = span.marks[markType]
-                    if (markValue === undefined) {
-                        continue
-                    }
-                    if (Array.isArray(markValue)) {
-                        for (const value of markValue) {
-                            marks.push(schema.mark(markType, value))
-                        }
-                    } else {
-                        if (markValue.active) {
-                            marks.push(schema.mark(markType, markValue))
-                        }
-                    }
-                }
-                return schema.text(span.text, marks)
+                return schema.text(
+                    span.text,
+                    getProsemirrorMarksForMarkMap(span.marks),
+                )
             }),
         ),
     ])

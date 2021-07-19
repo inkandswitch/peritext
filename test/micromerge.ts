@@ -14,7 +14,7 @@ const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
     const textChars = text.split("")
 
     // Generate a change on doc1
-    const change1 = doc1.change([
+    const { change: change1 } = doc1.change([
         { path: [], action: "makeList", key: "text" },
         {
             path: ["text"],
@@ -52,7 +52,7 @@ describe.only("Micromerge", () => {
 
     it("records local changes in the deps clock", () => {
         const [doc1, doc2] = generateDocs("a")
-        const change2 = doc2.change([
+        const { change: change2 } = doc2.change([
             { path: ["text"], action: "insert", index: 1, values: ["b"] },
         ])
 
@@ -71,13 +71,13 @@ describe.only("Micromerge", () => {
         const [doc1, doc2] = generateDocs("abrxabra")
 
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             { path: ["text"], action: "delete", index: 3, count: 1 },
             { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
         ])
 
         // doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
         ])
 
@@ -122,7 +122,7 @@ describe.only("Micromerge", () => {
         const doc2 = new Micromerge("abcd")
         const textChars = "The Peritext editor".split("")
 
-        const change1 = doc1.change([
+        const { change: change1 } = doc1.change([
             { path: [], action: "makeList", key: "text" },
             {
                 path: ["text"],
@@ -136,7 +136,7 @@ describe.only("Micromerge", () => {
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -145,7 +145,7 @@ describe.only("Micromerge", () => {
                 markType: "strong",
             },
         ])
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -188,7 +188,7 @@ describe.only("Micromerge", () => {
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -197,7 +197,7 @@ describe.only("Micromerge", () => {
                 markType: "strong",
             },
         ])
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             {
                 path: ["text"],
                 action: "removeMark",
@@ -444,7 +444,7 @@ describe.only("Micromerge", () => {
         it("correctly overlaps two comments from different users", () => {
             const [doc1, doc2] = generateDocs()
 
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 // Comment on the word "The Peritext"
                 {
                     path: ["text"],
@@ -456,7 +456,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 // Comment on "Peritext Editor"
                 {
                     path: ["text"],
@@ -521,7 +521,7 @@ describe.only("Micromerge", () => {
 
         it("arbitrarily chooses one link as the winner when fully overlapping", () => {
             const [doc1, doc2] = generateDocs()
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -532,7 +532,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -567,7 +567,7 @@ describe.only("Micromerge", () => {
 
         it("arbitrarily chooses one link as the winner when partially overlapping", () => {
             const [doc1, doc2] = generateDocs()
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -578,7 +578,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -753,9 +753,12 @@ describe.only("Micromerge", () => {
                     values: ["a"],
                 },
             ]
-            const insertChange = doc1.change(inputOps)
+            const { change: insertChange } = doc1.change(inputOps)
             const patch = doc2.applyChange(insertChange)
-            assert.deepStrictEqual(patch, inputOps)
+            assert.deepStrictEqual(
+                patch,
+                inputOps.map(op => ({ ...op, marks: {} })),
+            )
         })
 
         // Sometimes the patch that gets returned isn't identical to the original input op.
@@ -777,7 +780,7 @@ describe.only("Micromerge", () => {
             ])
 
             // Insert "b" at index 2 on doc 2
-            const change2 = doc2.change([
+            const { change: change2 } = doc2.change([
                 {
                     path: ["text"],
                     action: "insert",
@@ -796,6 +799,7 @@ describe.only("Micromerge", () => {
                     action: "insert",
                     index: 5,
                     values: ["b"],
+                    marks: {},
                 },
             ])
         })
@@ -813,7 +817,7 @@ describe.only("Micromerge", () => {
                     count: 1,
                 },
             ]
-            const insertChange = doc1.change(inputOps)
+            const { change: insertChange } = doc1.change(inputOps)
             const patch = doc2.applyChange(insertChange)
             assert.deepStrictEqual(patch, inputOps)
         })
@@ -832,7 +836,7 @@ describe.only("Micromerge", () => {
                     count: 2,
                 },
             ]
-            const insertChange = doc1.change(inputOps)
+            const { change: insertChange } = doc1.change(inputOps)
             const patch = doc2.applyChange(insertChange)
             assert.deepStrictEqual(patch, [
                 {
@@ -848,21 +852,6 @@ describe.only("Micromerge", () => {
                     count: 1,
                 },
             ])
-        })
-
-        it("produces the correct patch for applying a makeList on content key", () => {
-            const [doc1, doc2] = generateDocs()
-
-            const inputOps: InputOperation[] = [
-                {
-                    action: "makeList",
-                    path: [],
-                    key: "text",
-                },
-            ]
-            const change = doc1.change(inputOps)
-            const patch = doc2.applyChange(change)
-            assert.deepStrictEqual(patch, inputOps)
         })
     })
 })

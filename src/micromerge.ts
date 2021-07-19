@@ -21,7 +21,6 @@ const HEAD = Symbol("_head")
 export type Patch =
     | (InsertOperationInput & { marks: MarkMap })
     | DeleteOperationInput
-    | MakeListOperationInput
     | AddMarkOperationInput
     | RemoveMarkOperationInput
 
@@ -893,10 +892,6 @@ export default class Micromerge {
                 ) {
                     obj[op.key] = this.objects[op.opId]
                     metadata[CHILDREN][op.key] = op.opId
-
-                    // TODO: path is hardcoded here;
-                    // in reality we want to derive it from objId.
-                    return [{ action: "makeList", path: [], key: op.key }]
                 } else if (op.action === "set") {
                     obj[op.key] = op.value
                 } else {

@@ -143,6 +143,7 @@ const applyPatchToTransaction = (
     transaction: Transaction,
     patch: Patch,
 ): Transaction => {
+    console.log("applying patch", patch)
     switch (patch.action) {
         case "insert": {
             const index = patch.index + 1 // path is in plaintext string; account for paragraph node
@@ -167,21 +168,6 @@ const applyPatchToTransaction = (
             return transaction.replace(index, index + patch.count, Slice.empty)
         }
 
-        case "makeList": {
-            // This detects the case where the patch is re-initializing the entire content
-            if (
-                patch.path.length === 0 &&
-                patch.key === Micromerge.contentKey
-            ) {
-                return transaction.replace(
-                    0,
-                    transaction.doc.content.size,
-                    Slice.empty,
-                )
-            } else {
-                return transaction
-            }
-        }
         case "addMark": {
             return transaction.addMark(
                 patch.start + 1,
@@ -259,7 +245,12 @@ export function createEditor(args: {
                     } else if (step.from === step.to) {
                         stepText = `insert "${stepContent}" at index <strong>${
                             step.from
-                        }</strong> with marks ${step.slice.content.firstChild?.marks
+                        }</strong> ${
+                            step.slice.content.firstChild?.marks?.length &&
+                            step.slice.content.firstChild?.marks?.length > 0
+                                ? `with marks `
+                                : ``
+                        } ${step.slice.content.firstChild?.marks
                             .map(m => m.type.name)
                             .join(", ")}`
                     } else {
@@ -337,7 +328,7 @@ export function createEditor(args: {
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
-            console.groupCollapsed("dispatch", txn.steps[0])
+            console.group("dispatch", txn.steps[0])
             console.log("input txn", txn)
 
             // Apply a corresponding change to the Micromerge document.

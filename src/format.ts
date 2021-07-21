@@ -173,11 +173,43 @@ export function applyOp(args: {
         // in the same position.
         op.start === start.span.start ? start.index : start.index + 1,
     )
-    // Next, get the spans completely enclosed within the operation.
+
+    // Next, get the spans enclosed within the operation.
     //       s   i      t j
     //    ...|b--[bu|...|u]---|...
     //               ^^^^^
-    const spansWithin = spans.slice(start.index + 1, end.index + 1)
+    // Note: Usually the last span overlapping the op--the "end span"--will end
+    // after the end of the op. We handle this differently when thinking about
+    // returning a fresh format spans structure vs. returning incremental patches.
+    //
+    // - When returning a *new data structure* we handle this by applying
+    // the new formatting to the whole end span, and then creating a new
+    // span (spanAtEnd) which starts at op.end and has the original formatting
+    // of the end span.
+    //
+    // - When returning *patches* we take a different approach. We don't want to
+    // create two patches, one which applies formatting past the end of the op
+    // and then another patch which reverts back to the original formatting.
+    // Rather, we just want to generate one patch which ends at op.end.
+    //
+    // OK, so how does this all play out concretely?
+    //
+    // Well, when we construct spansWithin below, we make sure that the end of the
+    // last overlapping span is marked as the end of the op. What this does is
+    // ensure that the last patch to apply formatting doesn't go past the end of the op.
+    //
+    // Separately, we construct spanAtEnd, which is a fresh span that only has the
+    // original formatting of the end span, and starts at op.end.
+    // This is only for purposes of returning a fresh data structure;
+    // it won't actually generate a patch.
+    //
+    const spansWithin = compact([
+        ...spans.slice(start.index + 1, end.index),
+        end.index > start.index && {
+            ...spans[end.index],
+            end: op.end,
+        },
+    ])
     // Get the "tail" of the span intersecting the operation end.
     //                  t
     // existing      ...|------|...

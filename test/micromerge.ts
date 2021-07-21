@@ -118,9 +118,7 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly merges concurrent overlapping bold and italic", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-        const textChars = "The Peritext editor".split("")
+        const [doc1, doc2] = generateDocs()
 
         const { change: change1 } = doc1.change([
             { path: [], action: "makeList", key: "text" },
@@ -156,8 +154,8 @@ describe.only("Micromerge", () => {
         ])
 
         // and swap changes across the remote peers...
-        doc2.applyChange(change2)
-        doc1.applyChange(change3)
+        const patchesOnDoc2 = doc2.applyChange(change2)
+        const patchesOnDoc1 = doc1.applyChange(change3)
 
         // Both sides should end up with the usual text:
         assert.deepStrictEqual(doc1.root.text, textChars)
@@ -181,6 +179,46 @@ describe.only("Micromerge", () => {
             doc2.getTextWithFormatting(["text"]),
             expectedTextWithFormatting,
         )
+
+        // Check the patches that got generated on both sides.
+
+        // On doc2, we're applying strong from 0 to 11, but there's already em
+        // from 4 to 18, so we need to apply the strong in two separate spans:
+        assert.deepStrictEqual(patchesOnDoc2, [
+            {
+                action: "addMark",
+                start: 0,
+                end: 3,
+                markType: "strong",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+                path: ["text"],
+            },
+        ])
+
+        // on doc1, we're applying em from 4 to 18, but there's already strong
+        // from 0 to 11, so we need to apply the em in two separate spans:
+        assert.deepStrictEqual(patchesOnDoc1, [
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "em",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 12,
+                end: 18,
+                markType: "em",
+                path: ["text"],
+            },
+        ])
     })
 
     it("correctly merges concurrent bold and unbold", () => {

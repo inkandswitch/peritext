@@ -9,7 +9,7 @@ declare global {
         ? Omit<O, K>
         : never
 
-    function unreachable(x: never): void
+    function unreachable(x: never): never
 
     interface Window {
         view: EditorView

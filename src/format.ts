@@ -458,7 +458,7 @@ function applyFormatting(args: {
                     patch = null
                 }
             } else {
-                unreachable(op)
+                return unreachable(op)
             }
             break
         }
@@ -507,13 +507,12 @@ function applyFormatting(args: {
                     patch = null
                 }
             } else {
-                unreachable(op)
-                patch = null
+                return unreachable(op)
             }
             break
         }
         default: {
-            unreachable(op)
+            return unreachable(op)
         }
     }
 

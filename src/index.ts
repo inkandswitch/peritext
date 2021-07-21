@@ -46,7 +46,7 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
 
             const marksAtPosition = view.state.doc.resolve(pos).marks()
             renderMarks(aliceMarks, marksAtPosition)
-            return true
+            return false
         },
     })
 } else {
@@ -70,7 +70,7 @@ if (bobNode && bobEditor && bobChanges) {
 
             const marksAtPosition = view.state.doc.resolve(pos).marks()
             renderMarks(aliceMarks, marksAtPosition)
-            return true
+            return false
         },
     })
 } else {

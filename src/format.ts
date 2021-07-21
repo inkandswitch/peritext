@@ -202,14 +202,20 @@ export function applyOp(args: {
     // original formatting of the end span, and starts at op.end.
     // This is only for purposes of returning a fresh data structure;
     // it won't actually generate a patch.
-    //
-    const spansWithin = compact([
-        ...spans.slice(start.index + 1, end.index),
-        end.index > start.index && {
-            ...spans[end.index],
-            end: op.end,
-        },
-    ])
+    const spansWithin = spans
+        .slice(start.index + 1, end.index + 1)
+        .map((span, i, arr) =>
+            i === arr.length - 1
+                ? {
+                      ...span,
+                      // The last overlapping span might extend past the end of the
+                      // operation. If so, we need to truncate the final spanWithin
+                      // so that our patch doesn't apply the operation to the entire
+                      // final span.
+                      end: op.end,
+                  }
+                : span,
+        )
     // Get the "tail" of the span intersecting the operation end.
     //                  t
     // existing      ...|------|...

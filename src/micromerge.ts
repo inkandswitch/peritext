@@ -652,6 +652,7 @@ export default class Micromerge {
         if (!Array.isArray(text)) {
             throw new Error(`Not a list: ${String(objectId)}`)
         }
+
         const formatSpans = normalize(this.formatSpans[objectId], text.length)
 
         return formatSpans.map((span, index) => {
@@ -974,8 +975,10 @@ export default class Micromerge {
                 index: visible,
                 values: [value],
                 marks:
-                    getSpanAtPosition(this.formatSpans[op.obj], visible)?.span
-                        .marks ?? {},
+                    getSpanAtPosition(
+                        normalize(this.formatSpans[op.obj], obj.length),
+                        visible,
+                    )?.span.marks ?? {},
             },
         ]
     }

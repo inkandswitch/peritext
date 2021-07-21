@@ -537,24 +537,34 @@ export function normalize(
     spans: FormatSpan[],
     docLength: number,
 ): FormatSpan[] {
-    return spans.filter((span, index) => {
-        // Remove zero-width spans.
-        // If we have two spans starting at the same position,
-        // we choose the last one as authoritative.
-        // This makes sense because the first span to the left
-        // has effectively been collapsed to zero width;
-        // whereas the second span on the right may be more than zero width.
-        if (index < spans.length - 1 && span.start === spans[index + 1].start) {
-            return false
-        }
+    // TODO: we currently do two passes over all spans;
+    // one to remove zero-width spans and another to remove spans which have the
+    // same content as their leftwards neighbor.
+    // We could improve this to only do a single pass, but really a better solution
+    // is just to normalize incrementally and never do these entire-document passes.
 
+    // Remove zero-width spans.
+    // If we have two spans starting at the same position,
+    // we choose the last one as authoritative.
+    // This makes sense because the first span to the left
+    // has effectively been collapsed to zero width;
+    // whereas the second span on the right may be more than zero width.
+    const nonZeroWidthSpans = spans.filter(
+        (span, index) =>
+            index === spans.length - 1 || span.start !== spans[index + 1].start,
+    )
+
+    return nonZeroWidthSpans.filter((span, index) => {
         // Remove spans past the end of the document
         if (span.start > docLength - 1) {
             return false
         }
 
         // Remove spans that have the same content as their neighbor to the left
-        return index === 0 || !marksEqual(spans[index - 1].marks, span.marks)
+        return (
+            index === 0 ||
+            !marksEqual(nonZeroWidthSpans[index - 1].marks, span.marks)
+        )
     })
 }
 

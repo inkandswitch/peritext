@@ -29,7 +29,7 @@ const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
     return [doc1, doc2]
 }
 
-describe.only("Micromerge", () => {
+describe("Micromerge", () => {
     it("can insert and delete text", () => {
         const [doc1] = generateDocs("abcde")
 
@@ -395,7 +395,7 @@ describe.only("Micromerge", () => {
             { marks: {}, text: " editor" },
         ])
 
-        // When we delete some text before the bold span,
+        // When we delete some text after the bold span,
         // the formatting should stay attached to the same characters
         doc1.change([
             {
@@ -409,6 +409,57 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
             { marks: { strong: { active: true } }, text: "Peritext" },
+        ])
+    })
+
+    it("correctly handles spans that have been collapsed to zero width", () => {
+        const [doc1] = generateDocs()
+
+        doc1.change([
+            // add strong mark to the word "Peritext" in "The Peritext editor"
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+
+            // delete all characters inside "Peritext"
+            {
+                path: ["text"],
+                action: "delete",
+                index: 4,
+                count: 8,
+            },
+        ])
+
+        const { patches: insertPatches } = doc1.change([
+            // insert a new character where the word used to be
+            {
+                path: ["text"],
+                action: "insert",
+                index: 4,
+                values: ["x"],
+            },
+        ])
+
+        // Confirm the new document has the correct content
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The x editor" },
+        ])
+
+        // Confirm that the generated patch has the correct content.
+        // In particular, the character shouldn't have any formatting
+        // because we deleted all of the bolded text.
+        assert.deepStrictEqual(insertPatches, [
+            {
+                action: "insert",
+                path: [Micromerge.contentKey],
+                index: 4,
+                values: ["x"],
+                marks: {},
+            },
         ])
     })
 

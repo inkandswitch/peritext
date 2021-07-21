@@ -1,8 +1,9 @@
-import { createEditor } from "./bridge"
+import { createEditor, initializeDocs } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
+import Micromerge from "./micromerge"
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -21,16 +22,22 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
         .join("<br/>")
 }
 
+const aliceDoc = new Micromerge("alice")
+const bobDoc = new Micromerge("bob")
+
+initializeDocs([aliceDoc, bobDoc])
+
 const aliceNode = document.querySelector("#alice")
 const aliceEditor = aliceNode?.querySelector(".editor")
 const aliceChanges = aliceNode?.querySelector(".changes")
 const aliceMarks = aliceNode?.querySelector(".marks")
+
 if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
     editors["alice"] = createEditor({
         actorId: "alice",
         editorNode: aliceEditor,
         changesNode: aliceChanges,
-        initialValue: "This is the Peritext editor",
+        doc: aliceDoc,
         publisher,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
@@ -39,7 +46,7 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
 
             const marksAtPosition = view.state.doc.resolve(pos).marks()
             renderMarks(aliceMarks, marksAtPosition)
-            return true
+            return false
         },
     })
 } else {
@@ -54,7 +61,7 @@ if (bobNode && bobEditor && bobChanges) {
         actorId: "bob",
         editorNode: bobEditor,
         changesNode: bobChanges,
-        initialValue: "This is the Peritext editor",
+        doc: bobDoc,
         publisher,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
@@ -63,7 +70,7 @@ if (bobNode && bobEditor && bobChanges) {
 
             const marksAtPosition = view.state.doc.resolve(pos).marks()
             renderMarks(aliceMarks, marksAtPosition)
-            return true
+            return false
         },
     })
 } else {
@@ -91,5 +98,3 @@ document.querySelector("#toggle-connect")?.addEventListener("click", e => {
         connected = true
     }
 })
-
-//

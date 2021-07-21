@@ -2,10 +2,14 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge, { OperationPath } from "./micromerge"
-import { EditorState, Transaction, TextSelection } from "prosemirror-state"
+import Micromerge, {
+    MarkMapWithoutOpIds,
+    OperationPath,
+    Patch,
+} from "./micromerge"
+import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
-import { Schema, Slice, Node, ResolvedPos } from "prosemirror-model"
+import { Schema, Slice, Node, Fragment, Mark } from "prosemirror-model"
 import { baseKeymap, Command, Keymap, toggleMark } from "prosemirror-commands"
 import { keymap } from "prosemirror-keymap"
 import { ALL_MARKS, isMarkType, MarkType, schemaSpec } from "./schema"
@@ -18,7 +22,6 @@ import type {
     Char,
     FormatSpanWithText,
     Change,
-    Cursor,
     Operation as InternalOperation,
     InputOperation,
 } from "./micromerge"
@@ -27,7 +30,6 @@ import { MarkValue } from "./format"
 import { v4 as uuid } from "uuid"
 
 const schema = new Schema(schemaSpec)
-const HEAD = "_head"
 
 export type RootDoc = {
     text: Array<Char>
@@ -78,89 +80,10 @@ const richTextKeymap: Keymap<DocSchema> = {
     }),
 }
 
-// Represents a selection position: either after a character, or at the beginning
-type SelectionPos = Cursor | typeof HEAD
-type Selection =
-    | {
-          anchor: SelectionPos
-          head: SelectionPos
-      }
-    | undefined
-
 export type Editor = {
     doc: Micromerge
     view: EditorView
     queue: ChangeQueue
-
-    // Todo: eventually we don't want to manage selection as cursors;
-    // incrementally updating the prosemirror doc should mean that
-    // prosemirror can handle selection updates itself.
-    // In the meantime, we store selections here as cursors pointing to characters;
-    // the rule is that the selection is _after_ the given character.
-    // If the selection is at the very beginning of the doc, we represent that with a
-    // special value of "_head", inspired by Automerge's similar approach for list insertion.
-    selection: Selection
-}
-
-function createNewProsemirrorState(
-    state: EditorState,
-    spans: FormatSpanWithText[],
-): { state: EditorState; txn: Transaction<Schema> } {
-    // Derive a new PM doc from the new CRDT doc
-    const newProsemirrorDoc = prosemirrorDocFromCRDT({ schema, spans })
-
-    const replaceTxn = state.tr.replace(
-        0,
-        state.doc.content.size,
-        new Slice(newProsemirrorDoc.content, 0, 0),
-    )
-
-    // Apply a transaction that swaps out the new doc in the editor state
-    state = state.apply(replaceTxn)
-
-    return { state, txn: replaceTxn }
-}
-
-// Resolve a SelectionPosition using cursors into a Prosemirror position
-function prosemirrorPosFromSelectionPos(
-    selectionPos: SelectionPos,
-    state: EditorState,
-    doc: Micromerge,
-): ResolvedPos {
-    let position: number
-    if (selectionPos === HEAD) {
-        position = 0
-    } else {
-        // Need to add 1 to represent position after the character pointed to by cursor
-        position = doc.resolveCursor(selectionPos) + 1
-    }
-
-    // We add 1 here because we have a position in our content string,
-    // but prosemirror wants us to give it a position in the overall doc;
-    // adding 1 accounts for our paragraph node.
-    // When we have more nodes we may need to revisit this.
-    return state.doc.resolve(position + 1)
-}
-
-// Returns an updated Prosemirror editor state where
-// the selection has been updated to match the given Selection
-// that we manage using Micromerge Cursors.
-function updateProsemirrorSelection(
-    state: EditorState,
-    selection: Selection,
-    doc: Micromerge,
-): EditorState {
-    if (selection === undefined) {
-        return state
-    }
-
-    const newSelection = new TextSelection(
-        prosemirrorPosFromSelectionPos(selection.anchor, state, doc),
-        prosemirrorPosFromSelectionPos(selection.head, state, doc),
-    )
-
-    // Apply a transaction that sets the new selection
-    return state.apply(state.tr.setSelection(newSelection))
 }
 
 // Returns a natural language description of an op in our CRDT.
@@ -181,36 +104,97 @@ function describeOp(op: InternalOperation): string {
     }
 }
 
-/**
- * Creates a new Micromerge instance wrapping a RootDoc structure.
+/** Initialize multiple Micromerge docs to all have same base editor state.
+ *  The key is that all docs get initialized with a single change that originates
+ *  on one of the docs; this avoids weird issues where each doc independently
+ *  tries to initialize the basic structure of the document.
  */
-function createRootDoc(args: { actorId: ActorId; initialValue: string }): {
-    doc: Micromerge
-    initialChange: Change
-} {
-    const { actorId, initialValue } = args
-    const doc = new Micromerge(actorId)
-    const initialChange = doc.change([
+export const initializeDocs = (docs: Micromerge[]): void => {
+    const initialValue = "This is the Peritext editor"
+    const { change: initialChange } = docs[0].change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
-        { path: [], action: "makeMap", key: "comments" },
         {
             path: [Micromerge.contentKey],
             action: "insert",
             index: 0,
             values: initialValue.split(""),
         },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "strong",
+            start: 12,
+            end: 20,
+        },
     ])
-    return {
-        doc,
-        initialChange,
+    for (const doc of docs.slice(1)) {
+        doc.applyChange(initialChange)
     }
+}
+
+/** Extends a Prosemirror Transaction with new steps incorporating
+ *  the effects of a Micromerge Patch.
+ *
+ *  @param transaction - the original transaction to extend
+ *  @param patch - the Micromerge Patch to incorporate
+ *  @returns a Transaction that includes additional steps representing the patch
+ *    */
+const applyPatchToTransaction = (
+    transaction: Transaction,
+    patch: Patch,
+): Transaction => {
+    console.log("applying patch", patch)
+    switch (patch.action) {
+        case "insert": {
+            const index = patch.index + 1 // path is in plaintext string; account for paragraph node
+            return transaction.replace(
+                index,
+                index,
+                new Slice(
+                    Fragment.from(
+                        schema.text(
+                            patch.values[0],
+                            getProsemirrorMarksForMarkMap(patch.marks),
+                        ),
+                    ),
+                    0,
+                    0,
+                ),
+            )
+        }
+
+        case "delete": {
+            const index = patch.index + 1 // path is in plaintext string; account for paragraph node
+            return transaction.replace(index, index + patch.count, Slice.empty)
+        }
+
+        case "addMark": {
+            return transaction.addMark(
+                patch.start + 1,
+                patch.end +
+                    1 /* Adjust for ProseMirror paragraph offset */ +
+                    1 /* Our end is inclusive, their end is exclusive */,
+                schema.mark(patch.markType, patch.attrs),
+            )
+        }
+        case "removeMark": {
+            return transaction.removeMark(
+                patch.start + 1,
+                patch.end +
+                    1 /* Adjust for ProseMirror paragraph offset */ +
+                    1 /* Our end is inclusive, their end is exclusive */,
+                schema.mark(patch.markType, patch.attrs),
+            )
+        }
+    }
+    unreachable(patch)
 }
 
 export function createEditor(args: {
     actorId: ActorId
     editorNode: Element
     changesNode: Element
-    initialValue: string
+    doc: Micromerge
     publisher: Publisher<Array<Change>>
     handleClickOn?: (
         this: unknown,
@@ -222,27 +206,14 @@ export function createEditor(args: {
         direct: boolean,
     ) => boolean
 }): Editor {
-    const {
-        actorId,
-        editorNode,
-        changesNode,
-        initialValue,
-        publisher,
-        handleClickOn,
-    } = args
+    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } =
+        args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
         },
     })
     queue.start()
-    let selection: Selection = undefined
-
-    const { initialChange, doc } = createRootDoc({
-        actorId,
-        initialValue,
-    })
-    queue.enqueue(initialChange)
 
     const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
         const opsHtml = change.ops
@@ -272,7 +243,16 @@ export function createEditor(args: {
                             }</strong> to <strong>${step.to - 1}</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong>`
+                        stepText = `insert "${stepContent}" at index <strong>${
+                            step.from
+                        }</strong> ${
+                            step.slice.content.firstChild?.marks?.length &&
+                            step.slice.content.firstChild?.marks?.length > 0
+                                ? `with marks `
+                                : ``
+                        } ${step.slice.content.firstChild?.marks
+                            .map(m => m.type.name)
+                            .join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
@@ -303,22 +283,26 @@ export function createEditor(args: {
             return
         }
 
+        let state = view.state
+
+        // For each incoming change, we:
+        // - retrieve Patches from Micromerge describing the effect of applying the change
+        // - construct a Prosemirror Transaction representing those effecst
+        // - apply that Prosemirror Transaction to the document
         for (const change of incomingChanges) {
-            doc.applyChange(change)
-
-            const { state, txn } = createNewProsemirrorState(
-                view.state,
-                doc.getTextWithFormatting([Micromerge.contentKey]),
-            )
-            const stateWithSelection = updateProsemirrorSelection(
-                state,
-                selection,
-                doc,
-            )
-            view.updateState(stateWithSelection)
-
-            outputDebugForChange(change, txn)
+            let transaction = state.tr
+            const patches = doc.applyChange(change)
+            for (const patch of patches) {
+                transaction = applyPatchToTransaction(transaction, patch)
+            }
+            console.log("applying incremental transaction for remote update", {
+                steps: transaction.steps,
+            })
+            state = state.apply(transaction)
+            outputDebugForChange(change, transaction)
         }
+
+        view.updateState(state)
     })
 
     // Generate an empty document conforming to the schema,
@@ -343,64 +327,56 @@ export function createEditor(args: {
         handleClickOn,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
-            console.groupCollapsed("dispatch", txn.steps[0])
+            let state = view.state
+            console.group("dispatch", txn.steps[0])
+            console.log("input txn", txn)
 
-            // Compute a new automerge doc and selection point
-            const change = applyTransaction({ doc, txn })
+            // Apply a corresponding change to the Micromerge document.
+            // We observe a Micromerge Patch from applying the change, and
+            // apply its effects to our local Prosemirror doc.
+            const { change, patches } = applyTransaction({ doc, txn })
             if (change) {
+                let transaction = state.tr
+                for (const patch of patches) {
+                    transaction = applyPatchToTransaction(transaction, patch)
+                }
+                console.log(
+                    "applying incremental transaction for local update",
+                    {
+                        steps: transaction.steps,
+                    },
+                )
+                state = state.apply(transaction)
+                outputDebugForChange(change, transaction)
+
+                // Broadcast the change to remote peers
                 queue.enqueue(change)
-                outputDebugForChange(change, txn)
             }
 
-            let state = view.state
-
-            // If the transaction has steps, then go through our CRDT and get a new state.
-            // (If it doesn't have steps, that's probably just a selection update,
-            // because by definition it cannot be updating the document in any way)
-            if (txn.steps.length > 0) {
-                const result = createNewProsemirrorState(
-                    state,
-                    doc.getTextWithFormatting([Micromerge.contentKey]),
+            // If this transaction updated the local selection, we need to
+            // make sure that's reflected in the editor state.
+            // (Roundtripping through Micromerge won't do that for us, since
+            // selection state is not part of the document state.)
+            if (txn.selectionSet) {
+                console.log("txn.selectionSet")
+                state = state.apply(
+                    state.tr.setSelection(
+                        new TextSelection(
+                            state.doc.resolve(txn.selection.anchor),
+                            state.doc.resolve(txn.selection.head),
+                        ),
+                    ),
                 )
-                state = result.state
             }
 
             console.log("new state", state)
-            console.log(txn.selection)
-
-            // Convert the new selection into cursors
-            const anchorPos = txn.selection.$anchor.parentOffset
-            const headPos = txn.selection.$head.parentOffset
-
-            // Update the editor we manage to store the selection in terms of cursors
-            selection = {
-                anchor:
-                    anchorPos === 0
-                        ? HEAD
-                        : // We subtract 1 here because a PM position is before a character,
-                          // but our SelectionPos are after a character
-                          doc.getCursor([Micromerge.contentKey], anchorPos - 1),
-                head:
-                    headPos === 0
-                        ? HEAD
-                        : doc.getCursor([Micromerge.contentKey], headPos - 1),
-            }
-
-            state = updateProsemirrorSelection(state, selection, doc)
 
             view.updateState(state)
-
-            console.log(
-                "steps",
-                txn.steps.map(s => s.toJSON()),
-                "newState",
-                state,
-            )
             console.groupEnd()
         },
     })
 
-    return { doc, view, queue, selection }
+    return { doc, view, queue }
 }
 
 /**
@@ -413,6 +389,28 @@ export function createEditor(args: {
  */
 function contentPosFromProsemirrorPos(position: number) {
     return position - 1
+}
+
+function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(
+    markMap: T,
+): Mark[] {
+    const marks = []
+    for (const markType of ALL_MARKS) {
+        const markValue = markMap[markType]
+        if (markValue === undefined) {
+            continue
+        }
+        if (Array.isArray(markValue)) {
+            for (const value of markValue) {
+                marks.push(schema.mark(markType, value))
+            }
+        } else {
+            if (markValue.active) {
+                marks.push(schema.mark(markType, markValue))
+            }
+        }
+    }
+    return marks
 }
 
 // Given a micromerge doc representation, produce a prosemirror doc.
@@ -433,23 +431,10 @@ export function prosemirrorDocFromCRDT(args: {
             "paragraph",
             undefined,
             spans.map(span => {
-                const marks = []
-                for (const markType of ALL_MARKS) {
-                    const markValue = span.marks[markType]
-                    if (markValue === undefined) {
-                        continue
-                    }
-                    if (Array.isArray(markValue)) {
-                        for (const value of markValue) {
-                            marks.push(schema.mark(markType, value))
-                        }
-                    } else {
-                        if (markValue.active) {
-                            marks.push(schema.mark(markType, markValue))
-                        }
-                    }
-                }
-                return schema.text(span.text, marks)
+                return schema.text(
+                    span.text,
+                    getProsemirrorMarksForMarkMap(span.marks),
+                )
             }),
         ),
     ])
@@ -463,7 +448,7 @@ export function prosemirrorDocFromCRDT(args: {
 export function applyTransaction(args: {
     doc: Micromerge
     txn: Transaction<DocSchema>
-}): Change | null {
+}): { change: Change | null; patches: Patch[] } {
     const { doc, txn } = args
     const operations: Array<InputOperation> = []
 
@@ -600,6 +585,6 @@ export function applyTransaction(args: {
     if (operations.length > 0) {
         return doc.change(operations)
     } else {
-        return null
+        return { change: null, patches: [] }
     }
 }

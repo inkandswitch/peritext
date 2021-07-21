@@ -1,5 +1,5 @@
 import assert from "assert"
-import Micromerge from "../src/micromerge"
+import Micromerge, { InputOperation } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 
 const defaultText = "The Peritext editor"
@@ -14,7 +14,7 @@ const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
     const textChars = text.split("")
 
     // Generate a change on doc1
-    const change1 = doc1.change([
+    const { change: change1 } = doc1.change([
         { path: [], action: "makeList", key: "text" },
         {
             path: ["text"],
@@ -29,7 +29,7 @@ const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
     return [doc1, doc2]
 }
 
-describe.only("Micromerge", () => {
+describe("Micromerge", () => {
     it("can insert and delete text", () => {
         const [doc1] = generateDocs("abcde")
 
@@ -52,7 +52,7 @@ describe.only("Micromerge", () => {
 
     it("records local changes in the deps clock", () => {
         const [doc1, doc2] = generateDocs("a")
-        const change2 = doc2.change([
+        const { change: change2 } = doc2.change([
             { path: ["text"], action: "insert", index: 1, values: ["b"] },
         ])
 
@@ -71,13 +71,13 @@ describe.only("Micromerge", () => {
         const [doc1, doc2] = generateDocs("abrxabra")
 
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             { path: ["text"], action: "delete", index: 3, count: 1 },
             { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
         ])
 
         // doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
         ])
 
@@ -118,11 +118,9 @@ describe.only("Micromerge", () => {
     })
 
     it("correctly merges concurrent overlapping bold and italic", () => {
-        const doc1 = new Micromerge("1234")
-        const doc2 = new Micromerge("abcd")
-        const textChars = "The Peritext editor".split("")
+        const [doc1, doc2] = generateDocs()
 
-        const change1 = doc1.change([
+        const { change: change1 } = doc1.change([
             { path: [], action: "makeList", key: "text" },
             {
                 path: ["text"],
@@ -136,7 +134,7 @@ describe.only("Micromerge", () => {
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -145,7 +143,7 @@ describe.only("Micromerge", () => {
                 markType: "strong",
             },
         ])
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -156,8 +154,8 @@ describe.only("Micromerge", () => {
         ])
 
         // and swap changes across the remote peers...
-        doc2.applyChange(change2)
-        doc1.applyChange(change3)
+        const patchesOnDoc2 = doc2.applyChange(change2)
+        const patchesOnDoc1 = doc1.applyChange(change3)
 
         // Both sides should end up with the usual text:
         assert.deepStrictEqual(doc1.root.text, textChars)
@@ -181,6 +179,46 @@ describe.only("Micromerge", () => {
             doc2.getTextWithFormatting(["text"]),
             expectedTextWithFormatting,
         )
+
+        // Check the patches that got generated on both sides.
+
+        // On doc2, we're applying strong from 0 to 11, but there's already em
+        // from 4 to 18, so we need to apply the strong in two separate spans:
+        assert.deepStrictEqual(patchesOnDoc2, [
+            {
+                action: "addMark",
+                start: 0,
+                end: 3,
+                markType: "strong",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+                path: ["text"],
+            },
+        ])
+
+        // on doc1, we're applying em from 4 to 18, but there's already strong
+        // from 0 to 11, so we need to apply the em in two separate spans:
+        assert.deepStrictEqual(patchesOnDoc1, [
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "em",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 12,
+                end: 18,
+                markType: "em",
+                path: ["text"],
+            },
+        ])
     })
 
     it("correctly merges concurrent bold and unbold", () => {
@@ -188,7 +226,7 @@ describe.only("Micromerge", () => {
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
-        const change2 = doc1.change([
+        const { change: change2 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -197,7 +235,7 @@ describe.only("Micromerge", () => {
                 markType: "strong",
             },
         ])
-        const change3 = doc2.change([
+        const { change: change3 } = doc2.change([
             {
                 path: ["text"],
                 action: "removeMark",
@@ -357,7 +395,7 @@ describe.only("Micromerge", () => {
             { marks: {}, text: " editor" },
         ])
 
-        // When we delete some text before the bold span,
+        // When we delete some text after the bold span,
         // the formatting should stay attached to the same characters
         doc1.change([
             {
@@ -371,6 +409,57 @@ describe.only("Micromerge", () => {
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
             { marks: {}, text: "The " },
             { marks: { strong: { active: true } }, text: "Peritext" },
+        ])
+    })
+
+    it("correctly handles spans that have been collapsed to zero width", () => {
+        const [doc1] = generateDocs()
+
+        doc1.change([
+            // add strong mark to the word "Peritext" in "The Peritext editor"
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+
+            // delete all characters inside "Peritext"
+            {
+                path: ["text"],
+                action: "delete",
+                index: 4,
+                count: 8,
+            },
+        ])
+
+        const { patches: insertPatches } = doc1.change([
+            // insert a new character where the word used to be
+            {
+                path: ["text"],
+                action: "insert",
+                index: 4,
+                values: ["x"],
+            },
+        ])
+
+        // Confirm the new document has the correct content
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The x editor" },
+        ])
+
+        // Confirm that the generated patch has the correct content.
+        // In particular, the character shouldn't have any formatting
+        // because we deleted all of the bolded text.
+        assert.deepStrictEqual(insertPatches, [
+            {
+                action: "insert",
+                path: [Micromerge.contentKey],
+                index: 4,
+                values: ["x"],
+                marks: {},
+            },
         ])
     })
 
@@ -444,7 +533,7 @@ describe.only("Micromerge", () => {
         it("correctly overlaps two comments from different users", () => {
             const [doc1, doc2] = generateDocs()
 
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 // Comment on the word "The Peritext"
                 {
                     path: ["text"],
@@ -456,7 +545,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 // Comment on "Peritext Editor"
                 {
                     path: ["text"],
@@ -521,7 +610,7 @@ describe.only("Micromerge", () => {
 
         it("arbitrarily chooses one link as the winner when fully overlapping", () => {
             const [doc1, doc2] = generateDocs()
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -532,7 +621,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -567,7 +656,7 @@ describe.only("Micromerge", () => {
 
         it("arbitrarily chooses one link as the winner when partially overlapping", () => {
             const [doc1, doc2] = generateDocs()
-            const change2 = doc1.change([
+            const { change: change2 } = doc1.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -578,7 +667,7 @@ describe.only("Micromerge", () => {
                 },
             ])
 
-            const change3 = doc2.change([
+            const { change: change3 } = doc2.change([
                 {
                     path: ["text"],
                     action: "addMark",
@@ -736,6 +825,122 @@ describe.only("Micromerge", () => {
             const currentIndex = doc1.resolveCursor(cursor)
 
             assert.deepStrictEqual(currentIndex, 0)
+        })
+    })
+
+    describe("patches", () => {
+        // In the simplest case, when a change is applied immediately to another peer,
+        // it simply generates the original input operations as the patch
+        it("produces the correct patch for applying a simple insertion", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 7,
+                    values: ["a"],
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(
+                patch,
+                inputOps.map(op => ({ ...op, marks: {} })),
+            )
+        })
+
+        // Sometimes the patch that gets returned isn't identical to the original input op.
+        // A simple example is when two peers concurrently insert text.
+        // We need to adjust one of the insertion indexes.
+        it("produces a patch with adjusted insertion index on concurrent inserts", () => {
+            const [doc1, doc2] = generateDocs()
+
+            // Doc 1 and Doc 2 start out synchronized.
+
+            // Insert "a" at index 1 on doc 1
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 1,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            // Insert "b" at index 2 on doc 2
+            const { change: change2 } = doc2.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 2,
+                    values: ["b"],
+                },
+            ])
+
+            // Apply change from doc 2 to doc 1.
+            // Was originally inserted at index 2 on doc 2,
+            // but that's now index 5 on doc 1, because 3 characters were inserted before it.
+            const patch = doc1.applyChange(change2)
+            assert.deepStrictEqual(patch, [
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 5,
+                    values: ["b"],
+                    marks: {},
+                },
+            ])
+        })
+
+        // In the simplest case, when a change is applied immediately to another peer,
+        // it simply generates the original input operations as the patch
+        it("produces the correct patch for applying a simple deletion", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(patch, inputOps)
+        })
+
+        // Sometimes, because of how the CRDT logic works, there's not an exact 1:1
+        // between input ops and patches. For example, a multi-char deletion
+        // turns into a patch that contains two single-char deletion operations.
+        it("turns a multi-char deletion into multiple single char deletions", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 2,
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(patch, [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+            ])
         })
     })
 })

@@ -28,6 +28,7 @@ import type {
 import type { Comment, CommentId } from "./comment"
 import { MarkValue } from "./format"
 import { v4 as uuid } from "uuid"
+import { range } from "lodash"
 
 const schema = new Schema(schemaSpec)
 
@@ -109,8 +110,14 @@ function describeOp(op: InternalOperation): string {
  *  on one of the docs; this avoids weird issues where each doc independently
  *  tries to initialize the basic structure of the document.
  */
+
+export const WORD_COUNT = 2000
+export const REPEAT_COUNT = WORD_COUNT / 4
+
 export const initializeDocs = (docs: Micromerge[]): void => {
-    const initialValue = "This is the Peritext editor"
+    const initialValue = range(REPEAT_COUNT)
+        .map(_ => "This is some text")
+        .join(" ")
     const { change: initialChange } = docs[0].change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
         {
@@ -119,13 +126,27 @@ export const initializeDocs = (docs: Micromerge[]): void => {
             index: 0,
             values: initialValue.split(""),
         },
-        {
+        ...range(REPEAT_COUNT).map(i => ({
             path: [Micromerge.contentKey],
             action: "addMark",
             markType: "strong",
-            start: 12,
-            end: 20,
-        },
+            start: i * 18 + 5,
+            end: i * 18 + 7,
+        })),
+        ...range(REPEAT_COUNT).map(i => ({
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "em",
+            start: i * 18 + 8,
+            end: i * 18 + 12,
+        })),
+        ...range(REPEAT_COUNT).map(i => ({
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "strong",
+            start: i * 18 + 13,
+            end: i * 18 + 16,
+        })),
     ])
     for (const doc of docs.slice(1)) {
         doc.applyChange(initialChange)

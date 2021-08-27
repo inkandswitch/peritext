@@ -463,6 +463,67 @@ describe("Micromerge", () => {
         ])
     })
 
+    it("correctly merges concurrent bold and insertion at the mark boundary", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // In doc1, we format the word "Peritext" as bold
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 4,
+                values: ["*"],
+            },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 13,
+                values: ["*"],
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        // Both sides should end up with the text with asterisks
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The *Peritext* editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The *Peritext* editor".split(""),
+        )
+
+        // The asterisks should not be bold
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The *" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: "* editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
             const [doc1] = generateDocs()

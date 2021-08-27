@@ -524,6 +524,69 @@ describe("Micromerge", () => {
         )
     })
 
+    it("correctly handles insertion where one mark ends and another begins", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // In doc1, we format the word "Peritext" as bold, and " editor" as italic
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 12,
+                end: 18,
+                markType: "em",
+            },
+        ])
+
+        // Concurrently, in doc2, we add a footnote after "Peritext"
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 12,
+                values: "[1]".split(""),
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        // Both sides should end up with the text with footnote
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The Peritext[1] editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The Peritext[1] editor".split(""),
+        )
+
+        // The footnote marker should be neither bold nor italic
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: "[1]" },
+            { marks: { em: { active: true } }, text: " editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
             const [doc1] = generateDocs()

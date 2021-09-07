@@ -266,14 +266,20 @@ describe("getSpanAtPosition", () => {
 
     it("handles single item lists", () => {
         assert.deepStrictEqual(
-            getSpanAtPosition([{ marks: {}, start: 0 }], 5),
+            getSpanAtPosition(
+                [{ marks: {}, start: 0, growLeft: true, growRight: true }],
+                5,
+            ),
             {
-                span: { marks: {}, start: 0 },
+                span: { marks: {}, start: 0, growLeft: true, growRight: true },
                 index: 0,
             },
         )
         assert.deepStrictEqual(
-            getSpanAtPosition([{ marks: {}, start: 6 }], 1),
+            getSpanAtPosition(
+                [{ marks: {}, start: 6, growLeft: true, growRight: true }],
+                1,
+            ),
             undefined,
         )
     })
@@ -288,7 +294,7 @@ describe("getSpanAtPosition", () => {
             { marks: {}, start: 15 },
             { marks: {}, start: 16 },
             { marks: {}, start: 21 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
         assert.deepStrictEqual(getSpanAtPosition(spans, 2), undefined)
     })
 
@@ -303,21 +309,21 @@ describe("getSpanAtPosition", () => {
             { marks: {}, start: 15 },
             { marks: {}, start: 16 },
             { marks: {}, start: 21 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
         assert.deepStrictEqual(getSpanAtPosition(spans, 5), {
-            span: { marks: {}, start: 4 },
+            span: { marks: {}, start: 4, growLeft: true, growRight: true },
             index: 2,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 20), {
-            span: { marks: {}, start: 16 },
+            span: { marks: {}, start: 16, growLeft: true, growRight: true },
             index: 7,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 10), {
-            span: { marks: {}, start: 9 },
+            span: { marks: {}, start: 9, growLeft: true, growRight: true },
             index: 4,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 10000), {
-            span: { marks: {}, start: 21 },
+            span: { marks: {}, start: 21, growLeft: true, growRight: true },
             index: 8,
         })
     })
@@ -333,17 +339,17 @@ describe("getSpanAtPosition", () => {
             { marks: {}, start: 15 },
             { marks: {}, start: 16 },
             { marks: {}, start: 21 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
         assert.deepStrictEqual(getSpanAtPosition(spans, 15), {
-            span: { marks: {}, start: 15 },
+            span: { marks: {}, start: 15, growLeft: true, growRight: true },
             index: 6,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 4), {
-            span: { marks: {}, start: 4 },
+            span: { marks: {}, start: 4, growLeft: true, growRight: true },
             index: 2,
         })
         assert.deepStrictEqual(getSpanAtPosition(spans, 9), {
-            span: { marks: {}, start: 9 },
+            span: { marks: {}, start: 9, growLeft: true, growRight: true },
             index: 4,
         })
     })
@@ -355,10 +361,10 @@ describe("normalize", () => {
             { marks: {}, start: 0 },
             { marks: {}, start: 3 },
             { marks: {}, start: 4 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
 
         assert.deepStrictEqual(normalize(spans, 1000), [
-            { marks: {}, start: 0 },
+            { marks: {}, start: 0, growLeft: true, growRight: true },
         ])
     })
 
@@ -378,20 +384,23 @@ describe("normalize", () => {
             },
             { marks: { em: { active: true, opId: "1@A" } }, start: 16 },
             { marks: { em: { active: true, opId: "1@A" } }, start: 18 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
 
-        assert.deepStrictEqual(normalize(spans, 1000), [
-            { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
-            {
-                marks: {
-                    strong: { active: true, opId: "1@A" },
-                    em: { active: true, opId: "1@A" },
+        assert.deepStrictEqual(
+            normalize(spans, 1000),
+            [
+                { marks: {}, start: 0 },
+                { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
+                {
+                    marks: {
+                        strong: { active: true, opId: "1@A" },
+                        em: { active: true, opId: "1@A" },
+                    },
+                    start: 14,
                 },
-                start: 14,
-            },
-            { marks: { em: { active: true, opId: "1@A" } }, start: 16 },
-        ])
+                { marks: { em: { active: true, opId: "1@A" } }, start: 16 },
+            ].map(s => ({ ...s, growLeft: true, growRight: true })),
+        )
     })
 
     it("removes spans past the end of the document", () => {
@@ -401,12 +410,15 @@ describe("normalize", () => {
             { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
             { marks: { strong: { active: true, opId: "1@A" } }, start: 7 },
             { marks: {}, start: 10 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
 
-        assert.deepStrictEqual(normalize(spans, 10), [
-            { marks: {}, start: 0 },
-            { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
-        ])
+        assert.deepStrictEqual(
+            normalize(spans, 10),
+            [
+                { marks: {}, start: 0 },
+                { marks: { strong: { active: true, opId: "1@A" } }, start: 4 },
+            ].map(s => ({ ...s, growLeft: true, growRight: true })),
+        )
     })
 
     it("removes a zero-width span in the middle of the document", () => {
@@ -414,9 +426,11 @@ describe("normalize", () => {
             { marks: {}, start: 0 },
             { marks: { strong: { active: true, opId: "1@A" } }, start: 3 },
             { marks: {}, start: 3 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
 
-        assert.deepStrictEqual(normalize(spans, 10), [{ marks: {}, start: 0 }])
+        assert.deepStrictEqual(normalize(spans, 10), [
+            { marks: {}, start: 0, growLeft: true, growRight: true },
+        ])
     })
 
     it("correctly handles a zero width span at beginning, followed by another span", () => {
@@ -424,11 +438,14 @@ describe("normalize", () => {
             { marks: {}, start: 0 },
             { marks: { strong: { active: true, opId: "1@A" } }, start: 0 },
             { marks: {}, start: 8 },
-        ]
+        ].map(s => ({ ...s, growLeft: true, growRight: true }))
 
-        assert.deepStrictEqual(normalize(spans, 10), [
-            { marks: { strong: { active: true, opId: "1@A" } }, start: 0 },
-            { marks: {}, start: 8 },
-        ])
+        assert.deepStrictEqual(
+            normalize(spans, 10),
+            [
+                { marks: { strong: { active: true, opId: "1@A" } }, start: 0 },
+                { marks: {}, start: 8 },
+            ].map(s => ({ ...s, growLeft: true, growRight: true })),
+        )
     })
 })

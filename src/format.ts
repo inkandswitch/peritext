@@ -80,6 +80,11 @@ export type MarkMap = {
 export type FormatSpan = {
     marks: MarkMap
     start: number
+
+    /** True if this span should include new characters inserted to its left */
+    growLeft: boolean
+    /** True if this span should include new characters inserted to its right */
+    growRight: boolean
 }
 
 interface FormatSpanWithEnd extends FormatSpan {
@@ -88,7 +93,7 @@ interface FormatSpanWithEnd extends FormatSpan {
 }
 
 interface FormatSpanWithPatch {
-    span: FormatSpan
+    span: FormatSpanWithEnd
     patch?: Patch
 }
 
@@ -100,7 +105,7 @@ export function replayOps(ops: ResolvedOp[], docLength: number): FormatSpan[] {
         spans: FormatSpan[]
         patches: Patch[]
     } = {
-        spans: [{ marks: {}, start: 0 }],
+        spans: [{ marks: {}, start: 0, growLeft: true, growRight: true }],
         patches: [],
     }
     const result = ops.reduce(({ spans, patches }, op) => {
@@ -213,6 +218,7 @@ export function applyOp(args: {
                       // so that our patch doesn't apply the operation to the entire
                       // final span.
                       end: op.end,
+                      growRight: false,
                   }
                 : span,
         )
@@ -259,7 +265,13 @@ export function applyOp(args: {
     //    ...|b--[bu|...|u]---|...
     //           ^^^
     const spanAtStart = applyFormatting({
-        span: { ...start.span, start: op.start, end: nextOp - 1 },
+        span: {
+            ...start.span,
+            start: op.start,
+            end: nextOp - 1,
+            growLeft: false,
+            growRight: false,
+        },
         op,
     })
 
@@ -279,7 +291,8 @@ export function applyOp(args: {
     ])
 
     return {
-        spans: newSpans.map(({ span }) => span),
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        spans: newSpans.map(({ span: { end: _, ...span } }) => span),
         patches: compact(newSpans.map(({ patch }) => patch)),
     }
 }

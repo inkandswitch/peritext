@@ -766,7 +766,9 @@ export default class Micromerge {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []
             // By default, a list has one "unformatted" span covering the whole list.
-            this.formatSpans[op.opId] = [{ marks: {}, start: 0 }]
+            this.formatSpans[op.opId] = [
+                { marks: {}, start: 0, growLeft: true, growRight: true },
+            ]
         }
 
         if (Array.isArray(metadata)) {
@@ -946,9 +948,51 @@ export default class Micromerge {
         })
 
         // Update our format span indexes to reflect the new character.
-        // Every span after the character moves to the right by 1.
-        for (const span of this.formatSpans[op.obj]) {
-            if (span.start > visible) span.start += 1
+        // Spans to the right of new insertion must be moved rightward by 1
+
+        const formatSpans = this.formatSpans[op.obj]
+        let newSpanIndex = -1
+        for (const [index, span] of formatSpans.entries()) {
+            // The first span is never adjusted; can't insert to its left.
+            if (span.start === visible) {
+                // In this case, we are inserting on a span boundary.
+                // We have three options available:
+                // - Include the character in span to right of the boundary
+                // - Include the character in span to left of the boundary
+                // - Create a new unformatted span to contain the character
+                const previousSpan = formatSpans[index - 1]
+                if (span.growLeft) {
+                    // We can include the new character in the right-hand span by
+                    // keeping its start index the same, and only adjusting
+                    // spans further to the right.
+                    continue
+                } else if (previousSpan.growRight) {
+                    // We can include the new character in the left-hand span by
+                    // moving the right-hand span rightward by 1
+                    span.start += 1
+                } else {
+                    // We will create a new span containing the new character.
+                    // We don't do it quite yet so we avoid mutating the list as we
+                    // iterate over it, but we remember to do it at the end.
+                    newSpanIndex = index
+
+                    // We also need to move the right-hand span to the right by 1
+                    // to account for the newly created span.
+                    span.start += 1
+                    continue
+                }
+            } else if (span.start > visible) {
+                span.start += 1
+            }
+        }
+
+        if (newSpanIndex !== -1) {
+            formatSpans.splice(newSpanIndex, 0, {
+                start: visible,
+                marks: {},
+                growLeft: false,
+                growRight: false,
+            })
         }
 
         const obj = this.objects[op.obj]
@@ -965,6 +1009,21 @@ export default class Micromerge {
             throw new Error(`Expected value inserted into text to be a string`)
         }
         obj.splice(visible, 0, value)
+
+        // if (formatSpans.length > 1) {
+        //     console.log("inserted into list", {
+        //         actor: this.actorId,
+        //         visible,
+        //         spans: this.formatSpans[op.obj],
+        //         before: before,
+        //         after: this.getTextWithFormatting(["text"]),
+        //     })
+        // }
+
+        this.formatSpans[op.obj] = normalize(
+            this.formatSpans[op.obj],
+            obj.length,
+        )
 
         return [
             {
@@ -1004,10 +1063,40 @@ export default class Micromerge {
                     throw new Error(`Not a list: ${String(op.obj)}`)
                 }
                 meta.deleted = true
-                for (const span of this.formatSpans[op.obj]) {
-                    if (span.start > visible) span.start -= 1
+
+                const formatSpans = this.formatSpans[op.obj]
+                for (const [index, span] of formatSpans.entries()) {
+                    if (span.start === visible) {
+                        // If we're deleting the first character in a span,
+                        // it should grow to the left from that point onwards
+                        span.growLeft = true
+
+                        // If this span grows left, the span to the left can't grow right
+                        if (index !== 0) {
+                            formatSpans[index - 1].growRight = false
+                        }
+                    }
+                    if (
+                        index < formatSpans.length - 1 &&
+                        formatSpans[index + 1].start === visible + 1
+                    ) {
+                        // If we're deleting the last character in a span,
+                        // it should grow to the right from that point onwards
+                        span.growRight = true
+
+                        // If this span grows right, the span to the right can't grow left
+                        formatSpans[index + 1].growLeft = false
+                    }
+                    if (span.start > visible) {
+                        span.start -= 1
+                    }
                 }
                 obj.splice(visible, 1)
+                this.formatSpans[op.obj] = normalize(
+                    this.formatSpans[op.obj],
+                    obj.length,
+                )
+
                 return [
                     {
                         path: [Micromerge.contentKey], // todo: populate actual path

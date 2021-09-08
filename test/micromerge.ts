@@ -770,6 +770,89 @@ describe("Micromerge", () => {
         )
     })
 
+    it("handles an insertion into a deleted span with mark", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // Format "Peritext" as bold in both documents
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+        doc2.applyChange(change1)
+
+        // In doc1, delete the word "Peritext"
+        const { change: change2 } = doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 4,
+                count: 8,
+            },
+        ])
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The  editor".split(""),
+        )
+
+        // Concurrently, in doc2, change "Peritext" to "Paratext"
+        const { change: change3 } = doc2.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 5,
+                count: 3,
+            },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 5,
+                values: "ara".split(""),
+            },
+        ])
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The Paratext editor".split(""),
+        )
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change2)
+        doc1.applyChange(change3)
+
+        // Both sides should end up with the same text. The outcome doesn't
+        // really make sense, but it's standard behaviour for CRDTs...
+        // see also: https://github.com/automerge/automerge/issues/401
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The ara editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The ara editor".split(""),
+        )
+
+        // The "ara" should be bold because it was inserted into the middle of a
+        // span that was bold at the time of insertion
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "ara" },
+            { marks: {}, text: " editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
             const [doc1] = generateDocs()

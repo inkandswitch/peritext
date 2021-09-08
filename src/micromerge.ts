@@ -766,6 +766,7 @@ export default class Micromerge {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []
             // By default, a list has one "unformatted" span covering the whole list.
+            // It expands to contain new characters on either side.
             this.formatSpans[op.opId] = [
                 { marks: {}, start: 0, growLeft: true, growRight: true },
             ]
@@ -823,6 +824,9 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
+                // console.log(
+                //     `\n\n${this.actorId} applying ${op.action} (${formatOp.start} - ${formatOp.end})`,
+                // )
                 const { spans, patches } = applyFormatOp({
                     spans: this.formatSpans[op.obj],
                     op: formatOp,
@@ -852,6 +856,9 @@ export default class Micromerge {
 
                 // Incrementally apply this formatting operation to
                 // the list of flattened spans that we are storing
+                // console.log(
+                //     `\n\n${this.actorId} applying ${op.action} (${formatOp.start} - ${formatOp.end})`,
+                // )
                 const { spans, patches } = applyFormatOp({
                     spans: this.formatSpans[op.obj],
                     op: formatOp,
@@ -948,32 +955,39 @@ export default class Micromerge {
         })
 
         // Update our format span indexes to reflect the new character.
-        // Spans to the right of new insertion must be moved rightward by 1
-
         const formatSpans = this.formatSpans[op.obj]
         let newSpanIndex = -1
+        // const before = this.getTextWithFormatting(["text"])
         for (const [index, span] of formatSpans.entries()) {
-            // The first span is never adjusted; can't insert to its left.
-            if (span.start === visible) {
+            if (span.start > visible) {
+                // Spans to the right of the insertion need to move right
+                // to account for the newly inserted character
+                span.start += 1
+            } else if (span.start === visible) {
                 // In this case, we are inserting on a span boundary.
-                // We have three options available:
+                // Depending on the growLeft / growRight behavior of the
+                // adjacent spans, we have multiple options:
                 // - Include the character in span to right of the boundary
                 // - Include the character in span to left of the boundary
                 // - Create a new unformatted span to contain the character
                 const previousSpan = formatSpans[index - 1]
+
+                if (span.growLeft && previousSpan?.growRight) {
+                    throw new Error("Two adjacent spans can't both grow")
+                }
+
                 if (span.growLeft) {
-                    // We can include the new character in the right-hand span by
-                    // keeping its start index the same, and only adjusting
-                    // spans further to the right.
+                    // Include the new character in the right-hand span by
+                    // keeping its start index the same.
                     continue
                 } else if (previousSpan.growRight) {
-                    // We can include the new character in the left-hand span by
+                    // Include the new character in the left-hand span by
                     // moving the right-hand span rightward by 1
                     span.start += 1
                 } else {
                     // We will create a new span containing the new character.
-                    // We don't do it quite yet so we avoid mutating the list as we
-                    // iterate over it, but we remember to do it at the end.
+                    // We don't do the insertion yet to avoid mutating the list as we iterate,
+                    // but we remember to do it after we're done iterating
                     newSpanIndex = index
 
                     // We also need to move the right-hand span to the right by 1
@@ -981,8 +995,6 @@ export default class Micromerge {
                     span.start += 1
                     continue
                 }
-            } else if (span.start > visible) {
-                span.start += 1
             }
         }
 
@@ -1010,20 +1022,23 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
-        // if (formatSpans.length > 1) {
-        //     console.log("inserted into list", {
-        //         actor: this.actorId,
-        //         visible,
-        //         spans: this.formatSpans[op.obj],
-        //         before: before,
-        //         after: this.getTextWithFormatting(["text"]),
-        //     })
-        // }
+        // const rawSpans = this.formatSpans[op.obj]
 
         this.formatSpans[op.obj] = normalize(
             this.formatSpans[op.obj],
             obj.length,
         )
+
+        // if (formatSpans.length > 1) {
+        //     console.log("inserted into list", {
+        //         actor: this.actorId,
+        //         visible,
+        //         spans: rawSpans,
+        //         normalized: this.formatSpans[op.obj],
+        //         before: before,
+        //         after: this.getTextWithFormatting(["text"]),
+        //     })
+        // }
 
         return [
             {

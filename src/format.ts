@@ -179,6 +179,17 @@ export function applyOp(args: {
         op.start === start.span.start ? start.index : start.index + 1,
     )
 
+    // The span to the left of our new span should grow to the right,
+    // because we are cutting it off on the right side.
+    // (The only exception is if it ends before our new span starts,
+    // in which case it should not grow to the right.)
+    if (spansBefore.length > 0) {
+        const lastSpanBefore = spansBefore.slice(-1)[0]
+        if (lastSpanBefore.end > op.start - 1) {
+            lastSpanBefore.growRight = true
+        }
+    }
+
     // Next, get the spans enclosed within the operation.
     //       s   i      t j
     //    ...|b--[bu|...|u]---|...
@@ -232,9 +243,11 @@ export function applyOp(args: {
     //       s   i      t j
     //    ...|b--|bu|...|u|---|...
     //                     ^^^
+    // The new "span at end" should also grow to the left, because
+    // the new span created by this op doesn't grow to the right.
     const spanAtEnd =
         op.end + 1 !== spans[end.index + 1]?.start
-            ? { ...end.span, start: op.end + 1 }
+            ? { ...end.span, start: op.end + 1, growLeft: true }
             : undefined
     // Finally, get the spans after the end of the operation.
     // These also remain unchanged.
@@ -289,6 +302,15 @@ export function applyOp(args: {
         },
         ...spansAfter.map(span => ({ span, patch: undefined })),
     ])
+
+    // console.log(
+    //     "newspans",
+    //     newSpans.map(s => ({
+    //         span: s.span,
+    //         start: s.span.start,
+    //         strong: s.span.marks.strong?.active,
+    //     })),
+    // )
 
     return {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars

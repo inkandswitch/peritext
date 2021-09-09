@@ -347,12 +347,8 @@ type ListItemMetadata = {
     valueId: OperationId
     /** Has the list item been deleted? */
     deleted: boolean
-    /** A list of the mark operations that start on or before this element,
-     *  and end after this element */
-    activeMarkOperations?: Array<AddMarkOperation | RemoveMarkOperation>
-
-    /** A list of the mark operations that end on this element */
-    endingMarkOperations?: Array<AddMarkOperation | RemoveMarkOperation>
+    /** A list of the mark operations that intersect with this item */
+    markOperations?: Array<AddMarkOperation | RemoveMarkOperation>
 }
 
 type ListMetadata = Array<ListItemMetadata>
@@ -662,7 +658,16 @@ export default class Micromerge {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
         const metadata = this.metadata[objectId]
-        console.log(inspect(metadata, false, 4))
+        console.log(
+            inspect(
+                {
+                    actorId: this.actorId,
+                    metadata,
+                },
+                false,
+                4,
+            ),
+        )
         if (text === undefined || !(text instanceof Array)) {
             throw new Error(
                 `Expected a list at object ID ${objectId.toString()}`,
@@ -676,32 +681,35 @@ export default class Micromerge {
 
         const spans = []
         let charactersForSpan = []
-        let marks = {}
+        let marks: MarkMapWithoutOpIds = {}
         let visible = 0
 
         for (const [index, elMeta] of metadata.entries()) {
             // We may need to start a new span because
             // some operation begins at this point
-            const isStart = elMeta.activeMarkOperations !== undefined
+            const isStart = elMeta.markOperations !== undefined
 
             // Detect if some operation ended at the previous character
             // so we need to start a new span here
+            const prevMeta = metadata[index - 1]
             const isAfterEnd =
                 index > 0 &&
-                metadata[index - 1].endingMarkOperations !== undefined
+                prevMeta.markOperations !== undefined &&
+                prevMeta.markOperations?.find(op => op.end === prevMeta.elemId)
 
             if (isStart || isAfterEnd) {
                 // Calculate the new marks that should start at this span
                 let newMarks
-                if (isStart) {
-                    newMarks = opsToMarks(
-                        (elMeta.activeMarkOperations || []).concat(
-                            elMeta.endingMarkOperations || [],
-                        ),
-                    )
+                if (isStart && elMeta.markOperations !== undefined) {
+                    newMarks = opsToMarks(elMeta.markOperations)
                 } else {
+                    // this is impossible
+                    if (prevMeta.markOperations === undefined) throw new Error()
+
                     newMarks = opsToMarks(
-                        metadata[index - 1].activeMarkOperations || [],
+                        prevMeta.markOperations.filter(
+                            op => op.end !== prevMeta.elemId,
+                        ),
                     )
                 }
 
@@ -833,8 +841,12 @@ export default class Micromerge {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
+                let opIntersectsItem = false
                 for (const [index, elMeta] of metadata.entries()) {
                     if (elMeta.elemId === op.start) {
+                        // Add this op to the starting item
+
+                        opIntersectsItem = true
                         // Get the active formatting at this location--
                         // either directly from this element, or closest to the left
                         let existingOps: Array<
@@ -842,38 +854,45 @@ export default class Micromerge {
                         > = []
                         for (let i = index; i >= 0; i--) {
                             const metadataAtLocation =
-                                metadata[i].activeMarkOperations
+                                metadata[i].markOperations
                             if (metadataAtLocation !== undefined) {
                                 existingOps = metadataAtLocation
                                 break
                             }
                         }
 
-                        elMeta.activeMarkOperations = [...existingOps, op]
+                        elMeta.markOperations = [...existingOps, op]
                     } else if (elMeta.elemId === op.end) {
-                        // On the end element, we copy closest metadata to the left
-                        // but move this op from "active" to "ending"
+                        opIntersectsItem = false
+                        // Add this op to the end item
+
                         let existingOps: Array<
                             AddMarkOperation | RemoveMarkOperation
                         > = []
                         for (let i = index; i >= 0; i--) {
                             const metadataAtLocation =
-                                metadata[i].activeMarkOperations
+                                metadata[i].markOperations
                             if (metadataAtLocation !== undefined) {
-                                existingOps = metadataAtLocation
+                                existingOps = metadataAtLocation.filter(
+                                    existingOp =>
+                                        existingOp.end !== metadata[i].elemId,
+                                )
                                 break
                             }
                         }
 
-                        elMeta.activeMarkOperations = existingOps.filter(
-                            existingOp => existingOp !== op,
-                        )
-
-                        if (elMeta.endingMarkOperations === undefined) {
-                            elMeta.endingMarkOperations = [op]
+                        if (existingOps.includes(op)) {
+                            elMeta.markOperations = [...existingOps]
                         } else {
-                            elMeta.endingMarkOperations.push(op)
+                            elMeta.markOperations = [...existingOps, op]
                         }
+                        break
+                    } else if (
+                        opIntersectsItem &&
+                        elMeta.markOperations !== undefined
+                    ) {
+                        // Add this op to any items between start and end
+                        elMeta.markOperations = [...elMeta.markOperations, op]
                     }
                 }
                 return []

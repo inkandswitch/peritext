@@ -10,8 +10,8 @@ const textChars = defaultText.split("")
  *  Useful for creating a baseline upon which to play further changes
  */
 const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
-    const doc1 = new Micromerge("1234")
-    const doc2 = new Micromerge("abcd")
+    const doc1 = new Micromerge("doc1")
+    const doc2 = new Micromerge("doc2")
     const textChars = text.split("")
 
     // Generate a change on doc1
@@ -95,7 +95,7 @@ describe("Micromerge", () => {
         })
     })
 
-    it("flattens local formatting operations into flat spans", () => {
+    it.only("flattens local formatting operations into flat spans", () => {
         const [doc1] = generateDocs()
 
         doc1.change([

@@ -6,6 +6,10 @@ import { inspect } from "util"
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
+const debug = (obj: any) => {
+    console.log(inspect(obj, false, 4))
+}
+
 /** Create and return two Micromerge documents with the same text content.
  *  Useful for creating a baseline upon which to play further changes
  */
@@ -277,7 +281,7 @@ describe("Micromerge", () => {
         ])
     })
 
-    it.skip("correctly merges concurrent bold and unbold", () => {
+    it("correctly merges concurrent bold and unbold", () => {
         const [doc1, doc2] = generateDocs()
 
         // Now both docs have the text in their state.
@@ -314,15 +318,14 @@ describe("Micromerge", () => {
             { marks: {}, text: "Peritext editor" },
         ]
 
+        const text1 = doc1.getTextWithFormatting(["text"])
+        const text2 = doc2.getTextWithFormatting(["text"])
+
+        debug({ text1, text2 })
+
         // And the same correct flattened format spans:
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
+        assert.deepStrictEqual(text1, expectedTextWithFormatting)
+        assert.deepStrictEqual(text2, expectedTextWithFormatting)
     })
 
     it("doesn't update format span indexes when chars are inserted after", () => {

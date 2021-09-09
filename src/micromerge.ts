@@ -355,22 +355,40 @@ type ListMetadata = Array<ListItemMetadata>
 
 type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
-// temp: a flawed, oversimplified that turns a list of ops into a mark map
+// todo: comment
 function opsToMarks(
     ops: (AddMarkOperation | RemoveMarkOperation)[],
 ): MarkMapWithoutOpIds {
     const markMap: MarkMap = {}
+
+    // Construct a mark map which stores op IDs
     for (const op of ops) {
-        switch (op.action) {
-            case "addMark": {
-                if (op.markType === "strong" || op.markType === "em") {
-                    markMap[op.markType] = { active: true }
-                }
+        const existingValue = markMap[op.markType]
+        // To ensure convergence, we don't always apply the operation to the mark map.
+        // It only gets applied if its opID is greater than the previous op that
+        // affected that value
+        if (
+            (op.markType === "strong" || op.markType === "em") &&
+            (existingValue === undefined ||
+                compareOpIds(op.opId, existingValue.opId) === 1)
+        ) {
+            markMap[op.markType] = {
+                active: op.action === "addMark" ? true : false,
+                opId: op.opId,
             }
         }
     }
 
-    return markMap
+    // Remove op IDs and unnecessary keys
+    const cleanedMap: MarkMapWithoutOpIds = {}
+
+    for (const [markType, markValue] of Object.entries(markMap)) {
+        if ((markType === "strong" || markType === "em") && markValue.active) {
+            cleanedMap[markType] = { active: true }
+        }
+    }
+
+    return cleanedMap
 }
 
 /**
@@ -658,16 +676,16 @@ export default class Micromerge {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
         const metadata = this.metadata[objectId]
-        console.log(
-            inspect(
-                {
-                    actorId: this.actorId,
-                    metadata,
-                },
-                false,
-                4,
-            ),
-        )
+        // console.log(
+        //     inspect(
+        //         {
+        //             actorId: this.actorId,
+        //             metadata,
+        //         },
+        //         false,
+        //         4,
+        //     ),
+        // )
         if (text === undefined || !(text instanceof Array)) {
             throw new Error(
                 `Expected a list at object ID ${objectId.toString()}`,
@@ -853,7 +871,7 @@ export default class Micromerge {
                     )
                 }
                 return this.applyListUpdate(op)
-            } else if (op.action === "addMark") {
+            } else if (op.action === "addMark" || op.action === "removeMark") {
                 // find the active marks before; add this mark to that list
                 const metadata = this.metadata[op.obj]
                 if (!(metadata instanceof Array)) {
@@ -914,8 +932,6 @@ export default class Micromerge {
                         elMeta.markOperations = [...elMeta.markOperations, op]
                     }
                 }
-                return []
-            } else if (op.action === "removeMark") {
                 return []
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")

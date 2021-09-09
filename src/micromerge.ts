@@ -1,6 +1,7 @@
 import { MarkMap } from "./format"
 import uuid from "uuid"
 import { isEqual } from "lodash"
+import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
 import type { MarkValue } from "./format"
@@ -661,6 +662,7 @@ export default class Micromerge {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
         const metadata = this.metadata[objectId]
+        console.log(inspect(metadata, false, 4))
         if (text === undefined || !(text instanceof Array)) {
             throw new Error(
                 `Expected a list at object ID ${objectId.toString()}`,
@@ -689,7 +691,6 @@ export default class Micromerge {
                 metadata[index - 1].endingMarkOperations !== undefined
 
             if (isStart || isAfterEnd) {
-                console.log({ isStart, isAfterEnd }, elMeta)
                 // Calculate the new marks that should start at this span
                 let newMarks
                 if (isStart) {
@@ -707,11 +708,10 @@ export default class Micromerge {
                 // If the marks are different than previous span, time to start a new span!
                 if (!isEqual(newMarks, marks) && charactersForSpan.length > 0) {
                     const newSpan = { text: charactersForSpan.join(""), marks }
-                    console.log({ newSpan })
                     spans.push(newSpan)
-                    marks = newMarks
                     charactersForSpan = []
                 }
+                marks = newMarks
             }
 
             if (!elMeta.deleted) {
@@ -833,16 +833,41 @@ export default class Micromerge {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
-                for (const elMeta of metadata) {
+                for (const [index, elMeta] of metadata.entries()) {
                     if (elMeta.elemId === op.start) {
-                        // TODO: actually needs to copy over from older formatting
-                        if (elMeta.activeMarkOperations === undefined) {
-                            elMeta.activeMarkOperations = [op]
-                        } else {
-                            elMeta.activeMarkOperations.push(op)
+                        // Get the active formatting at this location--
+                        // either directly from this element, or closest to the left
+                        let existingOps: Array<
+                            AddMarkOperation | RemoveMarkOperation
+                        > = []
+                        for (let i = index; i >= 0; i--) {
+                            const metadataAtLocation =
+                                metadata[i].activeMarkOperations
+                            if (metadataAtLocation !== undefined) {
+                                existingOps = metadataAtLocation
+                                break
+                            }
                         }
+
+                        elMeta.activeMarkOperations = [...existingOps, op]
                     } else if (elMeta.elemId === op.end) {
-                        // On the end element, we put the op in the ending list
+                        // On the end element, we copy closest metadata to the left
+                        // but move this op from "active" to "ending"
+                        let existingOps: Array<
+                            AddMarkOperation | RemoveMarkOperation
+                        > = []
+                        for (let i = index; i >= 0; i--) {
+                            const metadataAtLocation =
+                                metadata[i].activeMarkOperations
+                            if (metadataAtLocation !== undefined) {
+                                existingOps = metadataAtLocation
+                                break
+                            }
+                        }
+
+                        elMeta.activeMarkOperations = existingOps.filter(
+                            existingOp => existingOp !== op,
+                        )
 
                         if (elMeta.endingMarkOperations === undefined) {
                             elMeta.endingMarkOperations = [op]

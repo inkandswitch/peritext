@@ -1,14 +1,9 @@
-import {
-    applyOp as applyFormatOp,
-    getSpanAtPosition,
-    MarkMap,
-    normalize,
-} from "./format"
-import { ALL_MARKS } from "./schema"
+import { MarkMap } from "./format"
 import uuid from "uuid"
+import { isEqual } from "lodash"
 
 import type { Marks, MarkType } from "./schema"
-import type { FormatSpan, ResolveOp, MarkValue } from "./format"
+import type { MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -351,11 +346,35 @@ type ListItemMetadata = {
     valueId: OperationId
     /** Has the list item been deleted? */
     deleted: boolean
+    /** A list of the mark operations that start on or before this element,
+     *  and end after this element */
+    activeMarkOperations?: Array<AddMarkOperation | RemoveMarkOperation>
+
+    /** A list of the mark operations that end on this element */
+    endingMarkOperations?: Array<AddMarkOperation | RemoveMarkOperation>
 }
 
 type ListMetadata = Array<ListItemMetadata>
 
 type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
+
+// temp: a flawed, oversimplified that turns a list of ops into a mark map
+function opsToMarks(
+    ops: (AddMarkOperation | RemoveMarkOperation)[],
+): MarkMapWithoutOpIds {
+    const markMap: MarkMap = {}
+    for (const op of ops) {
+        switch (op.action) {
+            case "addMark": {
+                if (op.markType === "strong" || op.markType === "em") {
+                    markMap[op.markType] = { active: true }
+                }
+            }
+        }
+    }
+
+    return markMap
+}
 
 /**
  * Miniature implementation of a subset of Automerge.
@@ -380,11 +399,6 @@ export default class Micromerge {
     /** Map from object ID to CRDT metadata for each object field. */
     private metadata: Record<ObjectId, Metadata> = {
         [ROOT]: { [CHILDREN]: {} },
-    }
-    /** Map from object ID to formatting information. */
-    private formatSpans: Record<ObjectId, Array<FormatSpan>> = {
-        // TODO: Why does this require ROOT to be a key?
-        [ROOT]: [],
     }
 
     constructor(actorId: string = uuid.v4()) {
@@ -646,50 +660,74 @@ export default class Micromerge {
     ): Array<FormatSpanWithText> {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
-        if (!text) {
-            throw new Error(`Object not found: ${String(objectId)}`)
+        const metadata = this.metadata[objectId]
+        if (text === undefined || !(text instanceof Array)) {
+            throw new Error(
+                `Expected a list at object ID ${objectId.toString()}`,
+            )
         }
-        if (!Array.isArray(text)) {
-            throw new Error(`Not a list: ${String(objectId)}`)
+        if (metadata === undefined || !(metadata instanceof Array)) {
+            throw new Error(
+                `Expected list metadata for object ID ${objectId.toString()}`,
+            )
         }
 
-        const formatSpans = normalize(this.formatSpans[objectId], text.length)
+        const spans = []
+        let charactersForSpan = []
+        let marks = {}
+        let visible = 0
 
-        return formatSpans.map((span, index) => {
-            const start = span.start
-            // Computing an exclusive end index because we use this variable
-            // in String.prototype.slice.
-            const end =
-                index < formatSpans.length - 1
-                    ? formatSpans[index + 1].start
-                    : text.length
+        for (const [index, elMeta] of metadata.entries()) {
+            // We may need to start a new span because
+            // some operation begins at this point
+            const isStart = elMeta.activeMarkOperations !== undefined
 
-            const marks: MarkMapWithoutOpIds = {}
+            // Detect if some operation ended at the previous character
+            // so we need to start a new span here
+            const isAfterEnd =
+                index > 0 &&
+                metadata[index - 1].endingMarkOperations !== undefined
 
-            for (const markType of ALL_MARKS) {
-                if (markType === "strong" || markType === "em") {
-                    const spanMark = span.marks[markType]
-                    if (spanMark !== undefined && spanMark.active) {
-                        marks[markType] = { active: true }
-                    }
-                } else if (markType === "comment") {
-                    const spanMark = span.marks[markType]
-                    if (spanMark !== undefined) {
-                        marks[markType] = spanMark.map(comment => ({
-                            id: comment.id,
-                        }))
-                    }
-                } else if (markType === "link") {
-                    const spanMark = span.marks[markType]
-                    if (spanMark !== undefined && spanMark.active) {
-                        marks[markType] = { active: true, url: spanMark.url }
-                    }
+            if (isStart || isAfterEnd) {
+                console.log({ isStart, isAfterEnd }, elMeta)
+                // Calculate the new marks that should start at this span
+                let newMarks
+                if (isStart) {
+                    newMarks = opsToMarks(
+                        (elMeta.activeMarkOperations || []).concat(
+                            elMeta.endingMarkOperations || [],
+                        ),
+                    )
                 } else {
-                    unreachable(markType)
+                    newMarks = opsToMarks(
+                        metadata[index - 1].activeMarkOperations || [],
+                    )
+                }
+
+                // If the marks are different than previous span, time to start a new span!
+                if (!isEqual(newMarks, marks) && charactersForSpan.length > 0) {
+                    const newSpan = { text: charactersForSpan.join(""), marks }
+                    console.log({ newSpan })
+                    spans.push(newSpan)
+                    marks = newMarks
+                    charactersForSpan = []
                 }
             }
-            return { marks, text: text.slice(start, end).join("") }
-        })
+
+            if (!elMeta.deleted) {
+                charactersForSpan.push(text[visible])
+                visible += 1
+            }
+        }
+
+        if (charactersForSpan.length > 0) {
+            spans.push({
+                text: charactersForSpan.join(""),
+                marks,
+            })
+        }
+
+        return spans
     }
 
     public getCursor(path: OperationPath, index: number): Cursor {
@@ -765,8 +803,6 @@ export default class Micromerge {
         } else if (op.action === "makeList") {
             this.objects[op.opId] = []
             this.metadata[op.opId] = []
-            // By default, a list has one "unformatted" span covering the whole list.
-            this.formatSpans[op.opId] = [{ marks: {}, start: 0 }]
         }
 
         if (Array.isArray(metadata)) {
@@ -791,72 +827,33 @@ export default class Micromerge {
                 }
                 return this.applyListUpdate(op)
             } else if (op.action === "addMark") {
-                // convert our micromerge op into an op in our formatting system
-                // todo: align these two types so we don't need a translation here
-                const start = this.findListElement(op.obj, op.start).index
-                const end = this.findListElement(op.obj, op.end).index
-                const partialOp = {
-                    id: op.opId,
-                    action: "addMark" as const,
-                    start,
-                    end,
+                // find the active marks before; add this mark to that list
+                const metadata = this.metadata[op.obj]
+                if (!(metadata instanceof Array)) {
+                    throw new Error(`Expected list metadata for a list`)
                 }
-                const formatOp: ResolveOp<AddMarkOperationInput> =
-                    op.markType === "comment"
-                        ? {
-                              ...partialOp,
-                              markType: op.markType,
-                              attrs: op.attrs,
-                          }
-                        : op.markType === "link"
-                        ? {
-                              ...partialOp,
-                              markType: op.markType,
-                              attrs: op.attrs,
-                          }
-                        : {
-                              ...partialOp,
-                              markType: op.markType,
-                          }
 
-                // Incrementally apply this formatting operation to
-                // the list of flattened spans that we are storing
-                const { spans, patches } = applyFormatOp({
-                    spans: this.formatSpans[op.obj],
-                    op: formatOp,
-                    docLength: obj.length,
-                })
-                // Return an array of patches corresponding to the changes.
-                this.formatSpans[op.obj] = spans
-                return patches
+                for (const elMeta of metadata) {
+                    if (elMeta.elemId === op.start) {
+                        // TODO: actually needs to copy over from older formatting
+                        if (elMeta.activeMarkOperations === undefined) {
+                            elMeta.activeMarkOperations = [op]
+                        } else {
+                            elMeta.activeMarkOperations.push(op)
+                        }
+                    } else if (elMeta.elemId === op.end) {
+                        // On the end element, we put the op in the ending list
+
+                        if (elMeta.endingMarkOperations === undefined) {
+                            elMeta.endingMarkOperations = [op]
+                        } else {
+                            elMeta.endingMarkOperations.push(op)
+                        }
+                    }
+                }
+                return []
             } else if (op.action === "removeMark") {
-                const partialOp = {
-                    id: op.opId,
-                    action: op.action,
-                    start: this.findListElement(op.obj, op.start).index,
-                    end: this.findListElement(op.obj, op.end).index,
-                }
-                const formatOp: ResolveOp<RemoveMarkOperationInput> =
-                    op.markType === "comment"
-                        ? {
-                              ...partialOp,
-                              markType: op.markType,
-                              attrs: op.attrs,
-                          }
-                        : {
-                              ...partialOp,
-                              markType: op.markType,
-                          }
-
-                // Incrementally apply this formatting operation to
-                // the list of flattened spans that we are storing
-                const { spans, patches } = applyFormatOp({
-                    spans: this.formatSpans[op.obj],
-                    op: formatOp,
-                    docLength: obj.length,
-                })
-                this.formatSpans[op.obj] = spans
-                return patches
+                return []
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {
@@ -945,12 +942,6 @@ export default class Micromerge {
             deleted: false,
         })
 
-        // Update our format span indexes to reflect the new character.
-        // Every span after the character moves to the right by 1.
-        for (const span of this.formatSpans[op.obj]) {
-            if (span.start > visible) span.start += 1
-        }
-
         const obj = this.objects[op.obj]
         if (!Array.isArray(obj)) {
             throw new Error(`Not a list: ${String(op.obj)}`)
@@ -974,11 +965,7 @@ export default class Micromerge {
                 action: "insert",
                 index: visible,
                 values: [value],
-                marks:
-                    getSpanAtPosition(
-                        normalize(this.formatSpans[op.obj], obj.length),
-                        visible,
-                    )?.span.marks ?? {},
+                marks: {},
             },
         ]
     }
@@ -1004,9 +991,6 @@ export default class Micromerge {
                     throw new Error(`Not a list: ${String(op.obj)}`)
                 }
                 meta.deleted = true
-                for (const span of this.formatSpans[op.obj]) {
-                    if (span.start > visible) span.start -= 1
-                }
                 obj.splice(visible, 1)
                 return [
                     {

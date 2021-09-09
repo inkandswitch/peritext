@@ -1,0 +1,4 @@
+Maybe add to RGA something like:
+
+active: Operation[] // all the ops active at this place
+ends: Operation[] // ops that end here

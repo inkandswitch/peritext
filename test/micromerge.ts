@@ -487,6 +487,205 @@ describe("Micromerge", () => {
         ])
     })
 
+    it("correctly merges concurrent bold and insertion at the mark boundary", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // In doc1, we format the word "Peritext" as bold
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 4,
+                values: ["*"],
+            },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 13,
+                values: ["*"],
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        // Both sides should end up with the text with asterisks
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The *Peritext* editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The *Peritext* editor".split(""),
+        )
+
+        // The asterisks should not be bold
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The *" },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: "* editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
+    it("correctly handles insertion where one mark ends and another begins", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // In doc1, we format the word "Peritext" as bold, and " editor" as italic
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 12,
+                end: 18,
+                markType: "em",
+            },
+        ])
+
+        // Concurrently, in doc2, we add a footnote after "Peritext"
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 12,
+                values: "[1]".split(""),
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        // Both sides should end up with the text with footnote
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The Peritext[1] editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The Peritext[1] editor".split(""),
+        )
+
+        // The footnote marker should be neither bold nor italic
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: "[1]" },
+            { marks: { em: { active: true } }, text: " editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
+    it("correctly handles an addMark boundary that is a tombstone", () => {
+        const [doc1, doc2] = generateDocs("The *Peritext* editor")
+
+        // In doc1, we format "*Peritext*" as bold and then delete the asterisks
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 13,
+                markType: "strong",
+            },
+            {
+                path: ["text"],
+                action: "delete",
+                index: 4,
+                count: 1,
+            },
+            {
+                path: ["text"],
+                action: "delete",
+                index: 12,
+                count: 1,
+            },
+        ])
+
+        // Concurrently, in doc2, we add underscores inside of the asterisks
+        // so that the text reads "The *_Peritext_* editor"
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 5,
+                values: ["_"],
+            },
+            {
+                path: ["text"],
+                action: "insert",
+                index: 14,
+                values: ["_"],
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        // Both sides should end up with the same text
+        assert.deepStrictEqual(
+            doc1.root.text,
+            "The _Peritext_ editor".split(""),
+        )
+        assert.deepStrictEqual(
+            doc2.root.text,
+            "The _Peritext_ editor".split(""),
+        )
+
+        // The underscores should be bold, because the bold span ran from asterisk
+        // to asterisk, and the underscores were inside of the asterisks
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "_Peritext_" },
+            { marks: {}, text: " editor" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
     describe.skip("skipped", () => {
         describe("comments", () => {
             it("returns a single comment in the flattened spans", () => {

@@ -713,10 +713,21 @@ export default class Micromerge {
                     )
                 }
 
-                // If the marks are different than previous span, time to start a new span!
-                if (!isEqual(newMarks, marks) && charactersForSpan.length > 0) {
-                    const newSpan = { text: charactersForSpan.join(""), marks }
-                    spans.push(newSpan)
+                // If we have some characters to emit, need to add to formatted spans
+                if (charactersForSpan.length > 0) {
+                    // If the new marks are same as the previous span, we can just
+                    // add the new charac
+                    if (
+                        spans.length > 0 &&
+                        isEqual(spans.slice(-1)[0].marks, marks)
+                    ) {
+                        spans.slice(-1)[0].text = spans
+                            .slice(-1)[0]
+                            .text.concat(charactersForSpan.join(""))
+                    } else {
+                        spans.push({ text: charactersForSpan.join(""), marks })
+                    }
+
                     charactersForSpan = []
                 }
                 marks = newMarks
@@ -728,11 +739,19 @@ export default class Micromerge {
             }
         }
 
+        // We've reached the end; need to emit some characters onto the spans
+        // TODO: DRY with similar code above
         if (charactersForSpan.length > 0) {
-            spans.push({
-                text: charactersForSpan.join(""),
-                marks,
-            })
+            if (spans.length > 0 && isEqual(spans.slice(-1)[0].marks, marks)) {
+                spans.slice(-1)[0].text = spans
+                    .slice(-1)[0]
+                    .text.concat(charactersForSpan.join(""))
+            } else {
+                spans.push({
+                    text: charactersForSpan.join(""),
+                    marks,
+                })
+            }
         }
 
         return spans

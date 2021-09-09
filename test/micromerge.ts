@@ -95,7 +95,7 @@ describe("Micromerge", () => {
         })
     })
 
-    it.only("flattens local formatting operations into flat spans", () => {
+    it("flattens local formatting operations into flat spans", () => {
         const [doc1] = generateDocs()
 
         doc1.change([
@@ -109,6 +109,16 @@ describe("Micromerge", () => {
             },
         ])
 
+        console.log(
+            inspect(
+                {
+                    doc1: doc1.getTextWithFormatting(["text"]),
+                },
+                false,
+                4,
+            ),
+        )
+
         assert.deepStrictEqual(doc1.root.text, textChars)
 
         assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
@@ -118,7 +128,7 @@ describe("Micromerge", () => {
         ])
     })
 
-    it.only("correctly merges concurrent overlapping bold and italic", () => {
+    it("correctly merges concurrent overlapping bold and italic", () => {
         const [doc1, doc2] = generateDocs()
 
         const { change: change1 } = doc1.change([
@@ -230,249 +240,251 @@ describe("Micromerge", () => {
         // ])
     })
 
+    it("updates format span indexes when chars are inserted before", () => {
+        const [doc1] = generateDocs()
+        doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text at the beginning,
+        // the formatting should stay attached to the same characters
+
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 0,
+                values: "Hello to ".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "Hello to The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it.skip("correctly merges concurrent bold and unbold", () => {
+        const [doc1, doc2] = generateDocs()
+
+        // Now both docs have the text in their state.
+        // Concurrently format overlapping spans...
+        const { change: change2 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+        const { change: change3 } = doc2.change([
+            {
+                path: ["text"],
+                action: "removeMark",
+                start: 4,
+                end: 18,
+                markType: "strong",
+            },
+        ])
+
+        // and swap changes across the remote peers...
+        doc2.applyChange(change2)
+        doc1.applyChange(change3)
+
+        // Both sides should end up with the usual text:
+        assert.deepStrictEqual(doc1.root.text, textChars)
+        assert.deepStrictEqual(doc2.root.text, textChars)
+
+        const expectedTextWithFormatting = [
+            { marks: { strong: { active: true } }, text: "The " },
+            { marks: {}, text: "Peritext editor" },
+        ]
+
+        // And the same correct flattened format spans:
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
+    it("doesn't update format span indexes when chars are inserted after", () => {
+        const [doc1] = generateDocs()
+        doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we insert some text after the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 19,
+                values: " is great".split(""),
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor is great" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted before", () => {
+        const [doc1] = generateDocs()
+        doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text before the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 0,
+                count: 4,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+    })
+
+    it("updates format span indexes when chars are deleted after", () => {
+        const [doc1] = generateDocs()
+        doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+            { marks: {}, text: " editor" },
+        ])
+
+        // When we delete some text after the bold span,
+        // the formatting should stay attached to the same characters
+        doc1.change([
+            {
+                path: ["text"],
+                action: "delete",
+                index: 12,
+                count: 7,
+            },
+        ])
+
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The " },
+            { marks: { strong: { active: true } }, text: "Peritext" },
+        ])
+    })
+
+    it("correctly handles spans that have been collapsed to zero width", () => {
+        const [doc1] = generateDocs()
+
+        doc1.change([
+            // add strong mark to the word "Peritext" in "The Peritext editor"
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+
+            // delete all characters inside "Peritext"
+            {
+                path: ["text"],
+                action: "delete",
+                index: 4,
+                count: 8,
+            },
+        ])
+
+        const { patches: insertPatches } = doc1.change([
+            // insert a new character where the word used to be
+            {
+                path: ["text"],
+                action: "insert",
+                index: 4,
+                values: ["x"],
+            },
+        ])
+
+        console.log(inspect(doc1.getTextWithFormatting(["text"]), false, 4))
+
+        // Confirm the new document has the correct content
+        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+            { marks: {}, text: "The x editor" },
+        ])
+
+        // Confirm that the generated patch has the correct content.
+        // In particular, the character shouldn't have any formatting
+        // because we deleted all of the bolded text.
+        assert.deepStrictEqual(insertPatches, [
+            {
+                action: "insert",
+                path: [Micromerge.contentKey],
+                index: 4,
+                values: ["x"],
+                marks: {},
+            },
+        ])
+    })
+
     describe.skip("skipped", () => {
-        it("correctly merges concurrent bold and unbold", () => {
-            const [doc1, doc2] = generateDocs()
-
-            // Now both docs have the text in their state.
-            // Concurrently format overlapping spans...
-            const { change: change2 } = doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 0,
-                    end: 11,
-                    markType: "strong",
-                },
-            ])
-            const { change: change3 } = doc2.change([
-                {
-                    path: ["text"],
-                    action: "removeMark",
-                    start: 4,
-                    end: 18,
-                    markType: "strong",
-                },
-            ])
-
-            // and swap changes across the remote peers...
-            doc2.applyChange(change2)
-            doc1.applyChange(change3)
-
-            // Both sides should end up with the usual text:
-            assert.deepStrictEqual(doc1.root.text, textChars)
-            assert.deepStrictEqual(doc2.root.text, textChars)
-
-            const expectedTextWithFormatting = [
-                { marks: { strong: { active: true } }, text: "The " },
-                { marks: {}, text: "Peritext editor" },
-            ]
-
-            // And the same correct flattened format spans:
-            assert.deepStrictEqual(
-                doc1.getTextWithFormatting(["text"]),
-                expectedTextWithFormatting,
-            )
-            assert.deepStrictEqual(
-                doc2.getTextWithFormatting(["text"]),
-                expectedTextWithFormatting,
-            )
-        })
-
-        it("updates format span indexes when chars are inserted before", () => {
-            const [doc1] = generateDocs()
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "strong",
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-
-            // When we insert some text at the beginning,
-            // the formatting should stay attached to the same characters
-
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 0,
-                    values: "Hello to ".split(""),
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "Hello to The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-        })
-
-        it("doesn't update format span indexes when chars are inserted after", () => {
-            const [doc1] = generateDocs()
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "strong",
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-
-            // When we insert some text after the bold span,
-            // the formatting should stay attached to the same characters
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 19,
-                    values: " is great".split(""),
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor is great" },
-            ])
-        })
-
-        it("updates format span indexes when chars are deleted before", () => {
-            const [doc1] = generateDocs()
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "strong",
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-
-            // When we delete some text before the bold span,
-            // the formatting should stay attached to the same characters
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "delete",
-                    index: 0,
-                    count: 4,
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-        })
-
-        it("updates format span indexes when chars are deleted after", () => {
-            const [doc1] = generateDocs()
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "strong",
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: " editor" },
-            ])
-
-            // When we delete some text after the bold span,
-            // the formatting should stay attached to the same characters
-            doc1.change([
-                {
-                    path: ["text"],
-                    action: "delete",
-                    index: 12,
-                    count: 7,
-                },
-            ])
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-            ])
-        })
-
-        it("correctly handles spans that have been collapsed to zero width", () => {
-            const [doc1] = generateDocs()
-
-            doc1.change([
-                // add strong mark to the word "Peritext" in "The Peritext editor"
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "strong",
-                },
-
-                // delete all characters inside "Peritext"
-                {
-                    path: ["text"],
-                    action: "delete",
-                    index: 4,
-                    count: 8,
-                },
-            ])
-
-            const { patches: insertPatches } = doc1.change([
-                // insert a new character where the word used to be
-                {
-                    path: ["text"],
-                    action: "insert",
-                    index: 4,
-                    values: ["x"],
-                },
-            ])
-
-            // Confirm the new document has the correct content
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The x editor" },
-            ])
-
-            // Confirm that the generated patch has the correct content.
-            // In particular, the character shouldn't have any formatting
-            // because we deleted all of the bolded text.
-            assert.deepStrictEqual(insertPatches, [
-                {
-                    action: "insert",
-                    path: [Micromerge.contentKey],
-                    index: 4,
-                    values: ["x"],
-                    marks: {},
-                },
-            ])
-        })
-
         describe("comments", () => {
             it("returns a single comment in the flattened spans", () => {
                 const [doc1] = generateDocs()

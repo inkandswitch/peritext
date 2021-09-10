@@ -1,7 +1,6 @@
 import { MarkMap } from "./format"
 import uuid from "uuid"
 import { isEqual } from "lodash"
-import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
 import type { MarkValue } from "./format"
@@ -355,7 +354,11 @@ type ListMetadata = Array<ListItemMetadata>
 
 type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
-// todo: comment
+/** Given a set of mark operations for a span, produce a
+ *  mark map reflecting the effects of those operations.
+ *  (The ops can be in arbitrary order and the result is always
+ *  the same, because we do op ID comparisons.)
+ */
 function opsToMarks(
     ops: (AddMarkOperation | RemoveMarkOperation)[],
 ): MarkMapWithoutOpIds {

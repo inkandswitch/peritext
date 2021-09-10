@@ -1,9 +1,7 @@
-import { MarkMap } from "./format"
 import uuid from "uuid"
 import { isEqual } from "lodash"
 
 import type { Marks, MarkType } from "./schema"
-import type { MarkValue } from "./format"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -353,6 +351,57 @@ type ListItemMetadata = {
 type ListMetadata = Array<ListItemMetadata>
 
 type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
+
+type BooleanMarkValue =
+    | {
+          active: true
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+      }
+    | {
+          active: false
+          opId: OperationId
+      }
+
+type IdMarkValue = {
+    id: string
+    /** A MarkValue should always have the ID of the operation that last modified it. */
+    opId: OperationId
+}
+
+type LinkMarkValue =
+    | {
+          url: string
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+          active: true
+      }
+    | {
+          url?: undefined
+          opId: OperationId
+          active: false
+      }
+
+export type MarkValue = Assert<
+    {
+        strong: BooleanMarkValue
+        em: BooleanMarkValue
+        comment: IdMarkValue
+        link: LinkMarkValue
+    },
+    { [K in MarkType]: Record<string, unknown> }
+>
+
+export type MarkMap = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+        ? Array<MarkValue[K]>
+        : MarkValue[K]
+}
+
+export type FormatSpan = {
+    marks: MarkMap
+    start: number
+}
 
 /** Given a set of mark operations for a span, produce a
  *  mark map reflecting the effects of those operations.

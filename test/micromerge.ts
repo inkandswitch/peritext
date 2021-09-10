@@ -632,6 +632,114 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(text2, expectedTextWithFormatting)
     })
 
+    it("handles an insertion at a boundary between bold and unbolded spans", () => {
+        const [doc1, doc2] = generateDocs("AC")
+
+        // In doc1, we format "AC" as bold, then unbold "C"
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 1,
+                markType: "strong",
+            },
+            {
+                path: ["text"],
+                action: "removeMark",
+                start: 1,
+                end: 1,
+                markType: "strong",
+            },
+        ])
+
+        // Concurrently, in doc2, we insert "B" in between
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 1,
+                values: ["B"],
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        assert.deepStrictEqual(doc1.root.text, "ABC".split(""))
+        assert.deepStrictEqual(doc2.root.text, "ABC".split(""))
+
+        // The B should be bold
+        const expectedTextWithFormatting = [
+            { marks: { strong: { active: true } }, text: "AB" },
+            { marks: {}, text: "C" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
+    it("handles an insertion at boundary between unbolded and bold spans", () => {
+        const [doc1, doc2] = generateDocs("AC")
+
+        // In doc1, we format "AC" as bold, then unbold "A"
+        const { change: change1 } = doc1.change([
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 1,
+                markType: "strong",
+            },
+            {
+                path: ["text"],
+                action: "removeMark",
+                start: 0,
+                end: 0,
+                markType: "strong",
+            },
+        ])
+
+        // Concurrently, in doc2, we insert "B" in between
+        const { change: change2 } = doc2.change([
+            {
+                path: ["text"],
+                action: "insert",
+                index: 1,
+                values: ["B"],
+            },
+        ])
+
+        // Apply the concurrent changes to the respective other document
+        doc2.applyChange(change1)
+        doc1.applyChange(change2)
+
+        assert.deepStrictEqual(doc1.root.text, "ABC".split(""))
+        assert.deepStrictEqual(doc2.root.text, "ABC".split(""))
+
+        // The B should be bold
+        const expectedTextWithFormatting = [
+            { marks: {}, text: "A" },
+            { marks: { strong: { active: true } }, text: "BC" },
+        ]
+
+        assert.deepStrictEqual(
+            doc1.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+        assert.deepStrictEqual(
+            doc2.getTextWithFormatting(["text"]),
+            expectedTextWithFormatting,
+        )
+    })
+
     it("correctly handles an addMark boundary that is a tombstone", () => {
         const [doc1, doc2] = generateDocs("The *Peritext* editor")
 

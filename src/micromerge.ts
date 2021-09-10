@@ -893,7 +893,10 @@ export default class Micromerge {
                             const metadataAtLocation =
                                 metadata[i].markOperations
                             if (metadataAtLocation !== undefined) {
-                                existingOps = metadataAtLocation
+                                existingOps = metadataAtLocation.filter(
+                                    existingOp =>
+                                        existingOp.end !== metadata[i].elemId,
+                                )
                                 break
                             }
                         }

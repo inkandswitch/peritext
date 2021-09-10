@@ -394,6 +394,28 @@ function opsToMarks(
     return cleanedMap
 }
 
+/** Add some characters with given marks to the end of a list of spans */
+function addCharactersToSpans(args: {
+    characters: string[]
+    marks: MarkMapWithoutOpIds
+    spans: FormatSpanWithText[]
+}) {
+    const { characters, marks, spans } = args
+    if (characters.length === 0) {
+        return
+    }
+    // If the new marks are same as the previous span, we can just
+    // add the new characters to the last span
+    if (spans.length > 0 && isEqual(spans.slice(-1)[0].marks, marks)) {
+        spans.slice(-1)[0].text = spans
+            .slice(-1)[0]
+            .text.concat(characters.join(""))
+    } else {
+        // Otherwise we create a new span with the characters
+        spans.push({ text: characters.join(""), marks })
+    }
+}
+
 /**
  * Miniature implementation of a subset of Automerge.
  */
@@ -700,8 +722,8 @@ export default class Micromerge {
             )
         }
 
-        const spans = []
-        let charactersForSpan = []
+        const spans: FormatSpanWithText[] = []
+        let characters: string[] = []
         let marks: MarkMapWithoutOpIds = {}
         let visible = 0
 
@@ -720,12 +742,16 @@ export default class Micromerge {
 
             if (isStart || isAfterEnd) {
                 // Calculate the new marks that should start at this span
-                let newMarks
-                if (isStart && elMeta.markOperations !== undefined) {
+                let newMarks = marks
+                if (isStart) {
+                    if (elMeta.markOperations === undefined) {
+                        throw new Error(`impossible, assisting TS compiler`)
+                    }
                     newMarks = opsToMarks(elMeta.markOperations)
-                } else {
-                    // this is impossible
-                    if (prevMeta.markOperations === undefined) throw new Error()
+                } else if (isAfterEnd) {
+                    if (prevMeta.markOperations === undefined) {
+                        throw new Error(`impossible, assisting TS compiler`)
+                    }
 
                     newMarks = opsToMarks(
                         prevMeta.markOperations.filter(
@@ -735,45 +761,20 @@ export default class Micromerge {
                 }
 
                 // If we have some characters to emit, need to add to formatted spans
-                if (charactersForSpan.length > 0) {
-                    // If the new marks are same as the previous span, we can just
-                    // add the new charac
-                    if (
-                        spans.length > 0 &&
-                        isEqual(spans.slice(-1)[0].marks, marks)
-                    ) {
-                        spans.slice(-1)[0].text = spans
-                            .slice(-1)[0]
-                            .text.concat(charactersForSpan.join(""))
-                    } else {
-                        spans.push({ text: charactersForSpan.join(""), marks })
-                    }
+                addCharactersToSpans({ characters, spans, marks })
 
-                    charactersForSpan = []
-                }
+                characters = []
                 marks = newMarks
             }
 
             if (!elMeta.deleted) {
-                charactersForSpan.push(text[visible])
+                // todo: what happens if the char isn't a string?
+                characters.push(text[visible] as string)
                 visible += 1
             }
         }
 
-        // We've reached the end; need to emit some characters onto the spans
-        // TODO: DRY with similar code above
-        if (charactersForSpan.length > 0) {
-            if (spans.length > 0 && isEqual(spans.slice(-1)[0].marks, marks)) {
-                spans.slice(-1)[0].text = spans
-                    .slice(-1)[0]
-                    .text.concat(charactersForSpan.join(""))
-            } else {
-                spans.push({
-                    text: charactersForSpan.join(""),
-                    marks,
-                })
-            }
-        }
+        addCharactersToSpans({ characters, spans, marks })
 
         return spans
     }
@@ -881,34 +882,25 @@ export default class Micromerge {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
+                // Maintain a flag while we iterate, detecting whether the op we're applying
+                // overlaps with the metadata item we're currently considering
                 let opIntersectsItem = false
+
                 for (const [index, elMeta] of metadata.entries()) {
                     if (elMeta.elemId === op.start) {
-                        // Add this op to the starting item
-
                         opIntersectsItem = true
-                        // Get the active formatting at this location--
-                        // either directly from this element, or closest to the left
-                        let existingOps: Array<
-                            AddMarkOperation | RemoveMarkOperation
-                        > = []
-                        for (let i = index; i >= 0; i--) {
-                            const metadataAtLocation =
-                                metadata[i].markOperations
-                            if (metadataAtLocation !== undefined) {
-                                existingOps = metadataAtLocation.filter(
-                                    existingOp =>
-                                        existingOp.end !== metadata[i].elemId,
-                                )
-                                break
-                            }
-                        }
-
-                        elMeta.markOperations = [...existingOps, op]
                     } else if (elMeta.elemId === op.end) {
                         opIntersectsItem = false
-                        // Add this op to the end item
+                    }
 
+                    // On the start and end element of the op, we want to add this op
+                    // to the existing mark ops at that element.
+                    // There might not be mark ops stored at this element yet, in which case
+                    // we have to copy them from the nearest element to the left that has mark ops
+                    if (
+                        elMeta.elemId === op.start ||
+                        elMeta.elemId === op.end
+                    ) {
                         let existingOps: Array<
                             AddMarkOperation | RemoveMarkOperation
                         > = []
@@ -929,13 +921,17 @@ export default class Micromerge {
                         } else {
                             elMeta.markOperations = [...existingOps, op]
                         }
-                        break
                     } else if (
                         opIntersectsItem &&
                         elMeta.markOperations !== undefined
                     ) {
-                        // Add this op to any items between start and end
-                        elMeta.markOperations = [...elMeta.markOperations, op]
+                        if (!elMeta.markOperations.includes(op)) {
+                            // Add this op to any items between start and end
+                            elMeta.markOperations = [
+                                ...elMeta.markOperations,
+                                op,
+                            ]
+                        }
                     }
                 }
                 return []

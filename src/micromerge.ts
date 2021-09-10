@@ -925,6 +925,8 @@ export default class Micromerge {
                 }
                 return this.applyListUpdate(op)
             } else if (op.action === "addMark" || op.action === "removeMark") {
+                const patches: Patch[] = []
+
                 // find the active marks before; add this mark to that list
                 const metadata = this.metadata[op.obj]
                 if (!(metadata instanceof Array)) {
@@ -934,14 +936,13 @@ export default class Micromerge {
                 // Maintain a flag while we iterate, detecting whether the op we're applying
                 // overlaps with the metadata item we're currently considering
                 let opIntersectsItem = false
+                let visibleIndex = 0
+                let partialPatch:
+                    | Omit<AddMarkOperationInput, "end">
+                    | Omit<RemoveMarkOperationInput, "end">
+                    | null = null
 
                 for (const [index, elMeta] of metadata.entries()) {
-                    if (elMeta.elemId === op.start) {
-                        opIntersectsItem = true
-                    } else if (elMeta.elemId === op.end) {
-                        opIntersectsItem = false
-                    }
-
                     // On the start and end element of the op, we want to add this op
                     // to the existing mark ops at that element.
                     // There might not be mark ops stored at this element yet, in which case
@@ -965,6 +966,29 @@ export default class Micromerge {
                             }
                         }
 
+                        if (elMeta.elemId === op.start) {
+                            // We need to figure out if this op has any effect on this span,
+                            // in which case we will emit a patch representing the effects.
+                            // TODO: could do this more efficiently than diffing, by
+                            // having a function that incrementally applies an op to a mark map
+                            const oldMarks = opsToMarks(existingOps)
+                            const newMarks = opsToMarks([...existingOps, op])
+
+                            if (!isEqual(oldMarks, newMarks)) {
+                                partialPatch = {
+                                    path: [Micromerge.contentKey],
+                                    markType: op.markType,
+                                    action: op.action,
+                                    start: visibleIndex,
+                                }
+                            }
+                        }
+
+                        if (elMeta.elemId === op.end && partialPatch) {
+                            patches.push({ ...partialPatch, end: visibleIndex })
+                            partialPatch = null
+                        }
+
                         if (existingOps.includes(op)) {
                             elMeta.markOperations = [...existingOps]
                         } else {
@@ -974,16 +998,76 @@ export default class Micromerge {
                         opIntersectsItem &&
                         elMeta.markOperations !== undefined
                     ) {
-                        if (!elMeta.markOperations.includes(op)) {
+                        let nextPatchIndex = visibleIndex
+                        if (partialPatch) {
+                            // We need to be careful about where we emit a patch boundary.
+                            // If this element is the _end_ of some operation, then
+                            // the partial patch should end on this element and the next patch
+                            // should start on the next element.
+                            // But if it's the start of some operation, then the partial patch
+                            // should end on the previous element, and the new patch should
+                            // start on this element.
+
+                            if (
+                                elMeta.markOperations.find(
+                                    markOp => markOp.end === elMeta.elemId,
+                                )
+                            ) {
+                                patches.push({
+                                    ...partialPatch,
+                                    end: visibleIndex,
+                                })
+                                nextPatchIndex = visibleIndex + 1
+                            } else {
+                                patches.push({
+                                    ...partialPatch,
+                                    end: visibleIndex - 1,
+                                })
+                            }
+                        }
+
+                        const existingOps = elMeta.markOperations
+                        const nonEndingOps = existingOps.filter(
+                            existingOp => existingOp.end !== elMeta.elemId,
+                        )
+
+                        // Figure out if the marks are going to change after
+                        // this element due to applying this operation;
+                        // if they are, then prepare to emit a patch for this span
+                        const oldMarks = opsToMarks(nonEndingOps)
+                        const newMarks = opsToMarks([...nonEndingOps, op])
+
+                        if (!isEqual(oldMarks, newMarks)) {
+                            partialPatch = {
+                                path: [Micromerge.contentKey],
+                                markType: op.markType,
+                                action: op.action,
+                                start: nextPatchIndex,
+                            }
+                        } else {
+                            partialPatch = null
+                        }
+
+                        if (!existingOps.includes(op)) {
                             // Add this op to any items between start and end
-                            elMeta.markOperations = [
-                                ...elMeta.markOperations,
-                                op,
-                            ]
+                            elMeta.markOperations = [...existingOps, op]
                         }
                     }
+
+                    if (!elMeta.deleted) {
+                        visibleIndex += 1
+                    }
+
+                    if (elMeta.elemId === op.start) {
+                        opIntersectsItem = true
+                    } else if (elMeta.elemId === op.end) {
+                        // The op can't have consequences past its end, so we
+                        // stop iterating over the metadata once we reach op.end
+                        break
+                    }
                 }
-                return []
+
+                return patches
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {

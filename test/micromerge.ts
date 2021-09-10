@@ -1,5 +1,5 @@
 import assert from "assert"
-import Micromerge, { InputOperation } from "../src/micromerge"
+import Micromerge, { InputOperation, Patch } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 
@@ -172,6 +172,17 @@ describe("Micromerge", () => {
         const patchesOnDoc2 = doc2.applyChange(change2)
         const patchesOnDoc1 = doc1.applyChange(change3)
 
+        console.log(
+            inspect(
+                {
+                    patchesOnDoc1,
+                    patchesOnDoc2,
+                },
+                false,
+                4,
+            ),
+        )
+
         // Both sides should end up with the usual text:
         assert.deepStrictEqual(doc1.root.text, textChars)
         assert.deepStrictEqual(doc2.root.text, textChars)
@@ -188,17 +199,6 @@ describe("Micromerge", () => {
         const formatted1 = doc1.getTextWithFormatting(["text"])
         const formatted2 = doc2.getTextWithFormatting(["text"])
 
-        console.log(
-            inspect(
-                {
-                    formatted1,
-                    formatted2,
-                },
-                false,
-                4,
-            ),
-        )
-
         // And the same correct flattened format spans:
         assert.deepStrictEqual(formatted1, expectedTextWithFormatting)
         assert.deepStrictEqual(formatted2, expectedTextWithFormatting)
@@ -207,41 +207,41 @@ describe("Micromerge", () => {
 
         // On doc2, we're applying strong from 0 to 11, but there's already em
         // from 4 to 18, so we need to apply the strong in two separate spans:
-        // assert.deepStrictEqual(patchesOnDoc2, [
-        //     {
-        //         action: "addMark",
-        //         start: 0,
-        //         end: 3,
-        //         markType: "strong",
-        //         path: ["text"],
-        //     },
-        //     {
-        //         action: "addMark",
-        //         start: 4,
-        //         end: 11,
-        //         markType: "strong",
-        //         path: ["text"],
-        //     },
-        // ])
+        assert.deepStrictEqual(patchesOnDoc2, [
+            {
+                action: "addMark",
+                start: 0,
+                end: 3,
+                markType: "strong",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+                path: ["text"],
+            },
+        ])
 
         // on doc1, we're applying em from 4 to 18, but there's already strong
         // from 0 to 11, so we need to apply the em in two separate spans:
-        // assert.deepStrictEqual(patchesOnDoc1, [
-        //     {
-        //         action: "addMark",
-        //         start: 4,
-        //         end: 11,
-        //         markType: "em",
-        //         path: ["text"],
-        //     },
-        //     {
-        //         action: "addMark",
-        //         start: 12,
-        //         end: 18,
-        //         markType: "em",
-        //         path: ["text"],
-        //     },
-        // ])
+        assert.deepStrictEqual(patchesOnDoc1, [
+            {
+                action: "addMark",
+                start: 4,
+                end: 11,
+                markType: "em",
+                path: ["text"],
+            },
+            {
+                action: "addMark",
+                start: 12,
+                end: 18,
+                markType: "em",
+                path: ["text"],
+            },
+        ])
     })
 
     it("updates format span indexes when chars are inserted before", () => {
@@ -264,7 +264,6 @@ describe("Micromerge", () => {
 
         // When we insert some text at the beginning,
         // the formatting should stay attached to the same characters
-
         doc1.change([
             {
                 path: ["text"],
@@ -306,8 +305,8 @@ describe("Micromerge", () => {
         ])
 
         // and swap changes across the remote peers...
-        doc2.applyChange(change2)
-        doc1.applyChange(change3)
+        const patchesOnDoc2: Patch[] = doc2.applyChange(change2)
+        const patchesOnDoc1: Patch[] = doc1.applyChange(change3)
 
         // Both sides should end up with the usual text:
         assert.deepStrictEqual(doc1.root.text, textChars)
@@ -321,11 +320,34 @@ describe("Micromerge", () => {
         const text1 = doc1.getTextWithFormatting(["text"])
         const text2 = doc2.getTextWithFormatting(["text"])
 
-        debug({ text1, text2 })
+        // debug({ text1, text2 })
 
         // And the same correct flattened format spans:
         assert.deepStrictEqual(text1, expectedTextWithFormatting)
         assert.deepStrictEqual(text2, expectedTextWithFormatting)
+
+        console.log("patches")
+        debug({ patchesOnDoc1, patchesOnDoc2 })
+
+        assert.deepStrictEqual(patchesOnDoc1, [
+            {
+                path: ["text"],
+                action: "removeMark",
+                start: 4,
+                end: 11,
+                markType: "strong",
+            },
+        ])
+
+        assert.deepStrictEqual(patchesOnDoc2, [
+            {
+                path: ["text"],
+                action: "addMark",
+                start: 0,
+                end: 3,
+                markType: "strong",
+            },
+        ])
     })
 
     it("doesn't update format span indexes when chars are inserted after", () => {
@@ -756,6 +778,122 @@ describe("Micromerge", () => {
         )
     })
 
+    describe("patches", () => {
+        // In the simplest case, when a change is applied immediately to another peer,
+        // it simply generates the original input operations as the patch
+        it("produces the correct patch for applying a simple insertion", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 7,
+                    values: ["a"],
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(
+                patch,
+                inputOps.map(op => ({ ...op, marks: {} })),
+            )
+        })
+
+        // Sometimes the patch that gets returned isn't identical to the original input op.
+        // A simple example is when two peers concurrently insert text.
+        // We need to adjust one of the insertion indexes.
+        it("produces a patch with adjusted insertion index on concurrent inserts", () => {
+            const [doc1, doc2] = generateDocs()
+
+            // Doc 1 and Doc 2 start out synchronized.
+
+            // Insert "a" at index 1 on doc 1
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 1,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            // Insert "b" at index 2 on doc 2
+            const { change: change2 } = doc2.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 2,
+                    values: ["b"],
+                },
+            ])
+
+            // Apply change from doc 2 to doc 1.
+            // Was originally inserted at index 2 on doc 2,
+            // but that's now index 5 on doc 1, because 3 characters were inserted before it.
+            const patch = doc1.applyChange(change2)
+            assert.deepStrictEqual(patch, [
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 5,
+                    values: ["b"],
+                    marks: {},
+                },
+            ])
+        })
+
+        // In the simplest case, when a change is applied immediately to another peer,
+        // it simply generates the original input operations as the patch
+        it("produces the correct patch for applying a simple deletion", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(patch, inputOps)
+        })
+
+        // Sometimes, because of how the CRDT logic works, there's not an exact 1:1
+        // between input ops and patches. For example, a multi-char deletion
+        // turns into a patch that contains two single-char deletion operations.
+        it("turns a multi-char deletion into multiple single char deletions", () => {
+            const [doc1, doc2] = generateDocs()
+
+            const inputOps: InputOperation[] = [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 2,
+                },
+            ]
+            const { change: insertChange } = doc1.change(inputOps)
+            const patch = doc2.applyChange(insertChange)
+            assert.deepStrictEqual(patch, [
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 5,
+                    count: 1,
+                },
+            ])
+        })
+    })
+
     describe.skip("skipped", () => {
         describe("comments", () => {
             it("returns a single comment in the flattened spans", () => {
@@ -1135,122 +1273,6 @@ describe("Micromerge", () => {
                 const currentIndex = doc1.resolveCursor(cursor)
 
                 assert.deepStrictEqual(currentIndex, 0)
-            })
-        })
-
-        describe("patches", () => {
-            // In the simplest case, when a change is applied immediately to another peer,
-            // it simply generates the original input operations as the patch
-            it("produces the correct patch for applying a simple insertion", () => {
-                const [doc1, doc2] = generateDocs()
-
-                const inputOps: InputOperation[] = [
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 7,
-                        values: ["a"],
-                    },
-                ]
-                const { change: insertChange } = doc1.change(inputOps)
-                const patch = doc2.applyChange(insertChange)
-                assert.deepStrictEqual(
-                    patch,
-                    inputOps.map(op => ({ ...op, marks: {} })),
-                )
-            })
-
-            // Sometimes the patch that gets returned isn't identical to the original input op.
-            // A simple example is when two peers concurrently insert text.
-            // We need to adjust one of the insertion indexes.
-            it("produces a patch with adjusted insertion index on concurrent inserts", () => {
-                const [doc1, doc2] = generateDocs()
-
-                // Doc 1 and Doc 2 start out synchronized.
-
-                // Insert "a" at index 1 on doc 1
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 1,
-                        values: ["a", "b", "c"],
-                    },
-                ])
-
-                // Insert "b" at index 2 on doc 2
-                const { change: change2 } = doc2.change([
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 2,
-                        values: ["b"],
-                    },
-                ])
-
-                // Apply change from doc 2 to doc 1.
-                // Was originally inserted at index 2 on doc 2,
-                // but that's now index 5 on doc 1, because 3 characters were inserted before it.
-                const patch = doc1.applyChange(change2)
-                assert.deepStrictEqual(patch, [
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 5,
-                        values: ["b"],
-                        marks: {},
-                    },
-                ])
-            })
-
-            // In the simplest case, when a change is applied immediately to another peer,
-            // it simply generates the original input operations as the patch
-            it("produces the correct patch for applying a simple deletion", () => {
-                const [doc1, doc2] = generateDocs()
-
-                const inputOps: InputOperation[] = [
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 5,
-                        count: 1,
-                    },
-                ]
-                const { change: insertChange } = doc1.change(inputOps)
-                const patch = doc2.applyChange(insertChange)
-                assert.deepStrictEqual(patch, inputOps)
-            })
-
-            // Sometimes, because of how the CRDT logic works, there's not an exact 1:1
-            // between input ops and patches. For example, a multi-char deletion
-            // turns into a patch that contains two single-char deletion operations.
-            it("turns a multi-char deletion into multiple single char deletions", () => {
-                const [doc1, doc2] = generateDocs()
-
-                const inputOps: InputOperation[] = [
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 5,
-                        count: 2,
-                    },
-                ]
-                const { change: insertChange } = doc1.change(inputOps)
-                const patch = doc2.applyChange(insertChange)
-                assert.deepStrictEqual(patch, [
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 5,
-                        count: 1,
-                    },
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 5,
-                        count: 1,
-                    },
-                ])
             })
         })
     })

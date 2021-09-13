@@ -730,14 +730,13 @@ describe("Micromerge", () => {
             { marks: { strong: { active: true } }, text: "BC" },
         ]
 
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
+        const text1 = doc1.getTextWithFormatting(["text"])
+        const text2 = doc2.getTextWithFormatting(["text"])
+
+        // debug({ text1, text2 })
+
+        assert.deepStrictEqual(text1, expectedTextWithFormatting)
+        assert.deepStrictEqual(text2, expectedTextWithFormatting)
     })
 
     it("correctly handles an addMark boundary that is a tombstone", () => {

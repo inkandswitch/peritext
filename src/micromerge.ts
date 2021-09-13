@@ -1,5 +1,6 @@
 import uuid from "uuid"
 import { isEqual } from "lodash"
+import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
 
@@ -1060,7 +1061,9 @@ export default class Micromerge {
 
                     if (elMeta.elemId === op.start) {
                         opIntersectsItem = true
-                    } else if (elMeta.elemId === op.end) {
+                    }
+
+                    if (elMeta.elemId === op.end) {
                         // The op can't have consequences past its end, so we
                         // stop iterating over the metadata once we reach op.end
                         break

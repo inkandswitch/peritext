@@ -6,6 +6,7 @@ import { inspect } from "util"
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const debug = (obj: any) => {
     console.log(inspect(obj, false, 4))
 }

@@ -1,6 +1,5 @@
 import uuid from "uuid"
 import { isEqual } from "lodash"
-import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
 
@@ -423,7 +422,8 @@ function opsToMarks(
         if (
             (op.markType === "strong" || op.markType === "em") &&
             (existingValue === undefined ||
-                compareOpIds(op.opId, existingValue.opId) === 1)
+                (!(existingValue instanceof Array) &&
+                    compareOpIds(op.opId, existingValue.opId) === 1))
         ) {
             markMap[op.markType] = {
                 active: op.action === "addMark" ? true : false,
@@ -436,7 +436,11 @@ function opsToMarks(
     const cleanedMap: MarkMapWithoutOpIds = {}
 
     for (const [markType, markValue] of Object.entries(markMap)) {
-        if ((markType === "strong" || markType === "em") && markValue.active) {
+        if (
+            (markType === "strong" || markType === "em") &&
+            !(markValue instanceof Array) &&
+            markValue.active
+        ) {
             cleanedMap[markType] = { active: true }
         }
     }

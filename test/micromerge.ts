@@ -326,7 +326,6 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(text1, expectedTextWithFormatting)
         assert.deepStrictEqual(text2, expectedTextWithFormatting)
 
-        console.log("patches")
         debug({ patchesOnDoc1, patchesOnDoc2 })
 
         assert.deepStrictEqual(patchesOnDoc1, [
@@ -636,7 +635,7 @@ describe("Micromerge", () => {
         const [doc1, doc2] = generateDocs("AC")
 
         // In doc1, we format "AC" as bold, then unbold "C"
-        const { change: change1 } = doc1.change([
+        const { change: change1, patches: patchesFromDoc1 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -654,7 +653,7 @@ describe("Micromerge", () => {
         ])
 
         // Concurrently, in doc2, we insert "B" in between
-        const { change: change2 } = doc2.change([
+        const { change: change2, patches: patchesFromDoc2 } = doc2.change([
             {
                 path: ["text"],
                 action: "insert",
@@ -664,8 +663,21 @@ describe("Micromerge", () => {
         ])
 
         // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change1)
-        doc1.applyChange(change2)
+        const patchesOnDoc2 = doc2.applyChange(change1)
+        const patchesOnDoc1 = doc1.applyChange(change2)
+
+        console.log(
+            inspect(
+                {
+                    patchesFromDoc1,
+                    patchesFromDoc2,
+                    patchesOnDoc1,
+                    patchesOnDoc2,
+                },
+                false,
+                4,
+            ),
+        )
 
         assert.deepStrictEqual(doc1.root.text, "ABC".split(""))
         assert.deepStrictEqual(doc2.root.text, "ABC".split(""))
@@ -684,13 +696,61 @@ describe("Micromerge", () => {
             doc2.getTextWithFormatting(["text"]),
             expectedTextWithFormatting,
         )
+
+        assert.deepStrictEqual(patchesFromDoc1, [
+            {
+                path: ["text"],
+                markType: "strong",
+                action: "addMark",
+                start: 0,
+                end: 1,
+            },
+            {
+                path: ["text"],
+                markType: "strong",
+                action: "removeMark",
+                start: 1,
+                end: 1,
+            },
+        ])
+
+        const expectedPatchesOnDoc1: Patch[] = [
+            {
+                action: "insert",
+                index: 1,
+                path: [Micromerge.contentKey],
+                values: ["B"],
+                marks: { strong: { active: true } },
+            },
+        ]
+
+        assert.deepStrictEqual(patchesOnDoc1, expectedPatchesOnDoc1)
+
+        const expectedPatchesOnDoc2: Patch[] = [
+            {
+                action: "addMark",
+                path: [Micromerge.contentKey],
+                markType: "strong",
+                start: 0,
+                end: 2,
+            },
+            {
+                action: "removeMark",
+                path: [Micromerge.contentKey],
+                markType: "strong",
+                start: 2,
+                end: 2,
+            },
+        ]
+
+        assert.deepStrictEqual(patchesOnDoc2, expectedPatchesOnDoc2)
     })
 
     it("handles an insertion at boundary between unbolded and bold spans", () => {
         const [doc1, doc2] = generateDocs("AC")
 
         // In doc1, we format "AC" as bold, then unbold "A"
-        const { change: change1 } = doc1.change([
+        const { change: change1, patches: patchesFromDoc1 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -708,7 +768,7 @@ describe("Micromerge", () => {
         ])
 
         // Concurrently, in doc2, we insert "B" in between
-        const { change: change2 } = doc2.change([
+        const { change: change2, patches: patchesFromDoc2 } = doc2.change([
             {
                 path: ["text"],
                 action: "insert",
@@ -716,6 +776,17 @@ describe("Micromerge", () => {
                 values: ["B"],
             },
         ])
+
+        console.log(
+            inspect(
+                {
+                    patchesFromDoc1,
+                    patchesFromDoc2,
+                },
+                false,
+                4,
+            ),
+        )
 
         // Apply the concurrent changes to the respective other document
         doc2.applyChange(change1)

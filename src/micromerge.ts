@@ -13,7 +13,7 @@ const HEAD = Symbol("_head")
  *  to update a document.
  */
 export type Patch =
-    | (InsertOperationInput & { marks: MarkMap })
+    | (InsertOperationInput & { marks: MarkMapWithoutOpIds })
     | DeleteOperationInput
     | AddMarkOperationInput
     | RemoveMarkOperationInput
@@ -955,15 +955,27 @@ export default class Micromerge {
                         let existingOps: Array<
                             AddMarkOperation | RemoveMarkOperation
                         > = []
-                        for (let i = index; i >= 0; i--) {
-                            const metadataAtLocation =
-                                metadata[i].markOperations
-                            if (metadataAtLocation !== undefined) {
-                                existingOps = metadataAtLocation.filter(
-                                    existingOp =>
-                                        existingOp.end !== metadata[i].elemId,
-                                )
-                                break
+
+                        if (elMeta.markOperations !== undefined) {
+                            // If this element has mark ops on it, we can directly use those
+                            // to determine the existing marks before applying this op.
+                            existingOps = elMeta.markOperations
+                        } else {
+                            // Otherwise, we find the nearest element to the left tagged w/
+                            // marks ops, and use those ops. We have to be careful to remove
+                            // any ops that end on that other element though, since those ops
+                            // will no longer be active on this current element.
+                            for (let i = index; i >= 0; i--) {
+                                const metadataAtLocation =
+                                    metadata[i].markOperations
+                                if (metadataAtLocation !== undefined) {
+                                    existingOps = metadataAtLocation.filter(
+                                        existingOp =>
+                                            existingOp.end !==
+                                            metadata[i].elemId,
+                                    )
+                                    break
+                                }
                             }
                         }
 
@@ -1174,6 +1186,18 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
+        let existingOps: Array<AddMarkOperation | RemoveMarkOperation> = []
+        for (let i = index; i >= 0; i--) {
+            const metadataAtLocation = meta[i].markOperations
+            if (metadataAtLocation !== undefined) {
+                existingOps = metadataAtLocation.filter(
+                    existingOp => existingOp.end !== meta[i].elemId,
+                )
+                break
+            }
+        }
+        const marks = opsToMarks(existingOps)
+
         return [
             {
                 // TODO: We don't have convenient access to the path here so we just hardcode.
@@ -1182,7 +1206,7 @@ export default class Micromerge {
                 action: "insert",
                 index: visible,
                 values: [value],
-                marks: {},
+                marks,
             },
         ]
     }

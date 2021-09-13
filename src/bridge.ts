@@ -24,9 +24,9 @@ import type {
     Change,
     Operation as InternalOperation,
     InputOperation,
+    MarkValue,
 } from "./micromerge"
 import type { Comment, CommentId } from "./comment"
-import { MarkValue } from "./format"
 import { v4 as uuid } from "uuid"
 
 const schema = new Schema(schemaSpec)

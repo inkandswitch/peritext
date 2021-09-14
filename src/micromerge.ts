@@ -1,5 +1,6 @@
 import uuid from "uuid"
-import { isEqual } from "lodash"
+import { isEqual, sortBy } from "lodash"
+import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
 
@@ -429,6 +430,34 @@ function opsToMarks(
                 active: op.action === "addMark" ? true : false,
                 opId: op.opId,
             }
+        } else if (op.markType === "comment" && op.action === "addMark") {
+            const newMark = {
+                id: op.attrs.id,
+                opId: op.opId,
+            }
+            markMap["comment"] = [...(markMap["comment"] || []), newMark]
+        } else if (op.markType === "comment" && op.action === "removeMark") {
+            markMap["comment"] = (markMap["comment"] || []).filter(
+                c => c.id !== op.attrs.id,
+            )
+        } else if (
+            op.markType === "link" &&
+            (existingValue === undefined ||
+                (!(existingValue instanceof Array) &&
+                    compareOpIds(op.opId, existingValue.opId) === 1))
+        ) {
+            if (op.action === "addMark") {
+                markMap["link"] = {
+                    active: true,
+                    opId: op.opId,
+                    url: op.attrs.url,
+                }
+            } else {
+                markMap["link"] = {
+                    active: false,
+                    opId: op.opId,
+                }
+            }
         }
     }
 
@@ -442,6 +471,22 @@ function opsToMarks(
             markValue.active
         ) {
             cleanedMap[markType] = { active: true }
+        } else if (markType === "comment") {
+            cleanedMap[markType] = sortBy(
+                markMap["comment"]!,
+                (c: IdMarkValue) => c.id,
+            ).map((c: IdMarkValue) => ({
+                id: c.id,
+            }))
+        } else if (markType === "link") {
+            if (markMap["link"]!.active) {
+                cleanedMap["link"] = {
+                    active: true,
+                    url: markMap["link"]!.url,
+                }
+            } else {
+                cleanedMap["link"] = { active: false }
+            }
         }
     }
 

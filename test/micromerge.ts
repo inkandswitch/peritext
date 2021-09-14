@@ -1073,386 +1073,384 @@ describe("Micromerge", () => {
         })
     })
 
-    describe.skip("skipped", () => {
-        describe("comments", () => {
-            it("returns a single comment in the flattened spans", () => {
-                const [doc1] = generateDocs()
+    describe("comments", () => {
+        it("returns a single comment in the flattened spans", () => {
+            const [doc1] = generateDocs()
 
-                doc1.change([
-                    // Comment on the word "Peritext"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 11,
-                        markType: "comment",
-                        attrs: { id: "abc-123" },
-                    },
-                ])
+            doc1.change([
+                // Comment on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
 
-                assert.deepStrictEqual(doc1.root.text, textChars)
+            assert.deepStrictEqual(doc1.root.text, textChars)
 
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    { marks: {}, text: "The " },
-                    {
-                        marks: { comment: [{ id: "abc-123" }] },
-                        text: "Peritext",
-                    },
-                    { marks: {}, text: " editor" },
-                ])
-            })
-
-            it("correctly flattens two comments from the same user", () => {
-                const [doc1] = generateDocs()
-
-                doc1.change([
-                    // Comment on "The Peritext"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 0,
-                        end: 11,
-                        markType: "comment",
-                        attrs: { id: "abc-123" },
-                    },
-                    // Comment on "Peritext editor"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 18,
-                        markType: "comment",
-                        attrs: { id: "def-789" },
-                    },
-                ])
-
-                assert.deepStrictEqual(doc1.root.text, textChars)
-
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
-                    {
-                        marks: {
-                            comment: [{ id: "abc-123" }, { id: "def-789" }],
-                        },
-                        text: "Peritext",
-                    },
-                    {
-                        marks: { comment: [{ id: "def-789" }] },
-                        text: " editor",
-                    },
-                ])
-            })
-
-            // This case shouldn't be any different from the previous test;
-            // we don't really care which node comments are added on since
-            // adding a comment is inherently a commutative operation.
-            it("correctly overlaps two comments from different users", () => {
-                const [doc1, doc2] = generateDocs()
-
-                const { change: change2 } = doc1.change([
-                    // Comment on the word "The Peritext"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 0,
-                        end: 11,
-                        markType: "comment",
-                        attrs: { id: "abc-123" },
-                    },
-                ])
-
-                const { change: change3 } = doc2.change([
-                    // Comment on "Peritext Editor"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 18,
-                        markType: "comment",
-                        attrs: { id: "def-789" },
-                    },
-                ])
-
-                // Exchange edits
-                doc2.applyChange(change2)
-                doc1.applyChange(change3)
-
-                // Confirm that both peers converge to same result -- one link wins
-                assert.deepStrictEqual(
-                    doc1.getTextWithFormatting(["text"]),
-                    doc2.getTextWithFormatting(["text"]),
-                )
-
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
-                    {
-                        marks: {
-                            comment: [{ id: "abc-123" }, { id: "def-789" }],
-                        },
-                        text: "Peritext",
-                    },
-                    {
-                        marks: { comment: [{ id: "def-789" }] },
-                        text: " editor",
-                    },
-                ])
-            })
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: { comment: [{ id: "abc-123" }] },
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
         })
 
-        describe("links", () => {
-            it("returns a single link in the flattened spans", () => {
-                const [doc1] = generateDocs()
+        it("correctly flattens two comments from the same user", () => {
+            const [doc1] = generateDocs()
 
-                doc1.change([
-                    // Link on the word "Peritext"
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 11,
-                        markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
+            doc1.change([
+                // Comment on "The Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+                // Comment on "Peritext editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
+
+            assert.deepStrictEqual(doc1.root.text, textChars)
+
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                {
+                    marks: {
+                        comment: [{ id: "abc-123" }, { id: "def-789" }],
                     },
-                ])
-
-                assert.deepStrictEqual(doc1.root.text, textChars)
-
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    { marks: {}, text: "The " },
-                    {
-                        marks: {
-                            link: {
-                                active: true,
-                                url: "https://inkandswitch.com",
-                            },
-                        },
-                        text: "Peritext",
-                    },
-                    { marks: {}, text: " editor" },
-                ])
-            })
-
-            it("arbitrarily chooses one link as the winner when fully overlapping", () => {
-                const [doc1, doc2] = generateDocs()
-                const { change: change2 } = doc1.change([
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 11,
-                        markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
-                    },
-                ])
-
-                const { change: change3 } = doc2.change([
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 11,
-                        markType: "link",
-                        attrs: { url: "https://google.com" },
-                    },
-                ])
-
-                // Exchange edits
-                doc2.applyChange(change2)
-                doc1.applyChange(change3)
-
-                // Confirm that both peers converge to same result -- one link wins
-                assert.deepStrictEqual(
-                    doc1.getTextWithFormatting(["text"]),
-                    doc2.getTextWithFormatting(["text"]),
-                )
-
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    { marks: {}, text: "The " },
-                    {
-                        marks: {
-                            link: { active: true, url: "https://google.com" },
-                        },
-                        text: "Peritext",
-                    },
-                    { marks: {}, text: " editor" },
-                ])
-            })
-
-            it("arbitrarily chooses one link as the winner when partially overlapping", () => {
-                const [doc1, doc2] = generateDocs()
-                const { change: change2 } = doc1.change([
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 0,
-                        end: 11,
-                        markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
-                    },
-                ])
-
-                const { change: change3 } = doc2.change([
-                    {
-                        path: ["text"],
-                        action: "addMark",
-                        start: 4,
-                        end: 18,
-                        markType: "link",
-                        attrs: { url: "https://google.com" },
-                    },
-                ])
-
-                // Exchange edits
-                doc2.applyChange(change2)
-                doc1.applyChange(change3)
-
-                // Confirm that both peers converge to same result
-                assert.deepStrictEqual(
-                    doc1.getTextWithFormatting(["text"]),
-                    doc2.getTextWithFormatting(["text"]),
-                )
-
-                assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                    {
-                        marks: {
-                            link: {
-                                active: true,
-                                url: "https://inkandswitch.com",
-                            },
-                        },
-                        text: "The ",
-                    },
-                    {
-                        marks: {
-                            link: { active: true, url: "https://google.com" },
-                        },
-                        text: "Peritext editor",
-                    },
-                ])
-            })
+                    text: "Peritext",
+                },
+                {
+                    marks: { comment: [{ id: "def-789" }] },
+                    text: " editor",
+                },
+            ])
         })
 
-        describe("cursors", () => {
-            it("can resolve a cursor position", () => {
-                const [doc1] = generateDocs()
+        // This case shouldn't be any different from the previous test;
+        // we don't really care which node comments are added on since
+        // adding a comment is inherently a commutative operation.
+        it("correctly overlaps two comments from different users", () => {
+            const [doc1, doc2] = generateDocs()
 
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-                // return { objectId: "1@abcd", elemId: "5@abcd" }
+            const { change: change2 } = doc1.change([
+                // Comment on the word "The Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "comment",
+                    attrs: { id: "abc-123" },
+                },
+            ])
 
-                const currentIndex = doc1.resolveCursor(cursor)
+            const { change: change3 } = doc2.change([
+                // Comment on "Peritext Editor"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "comment",
+                    attrs: { id: "def-789" },
+                },
+            ])
 
-                assert.deepStrictEqual(currentIndex, 5)
-            })
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
 
-            it("increments cursor position when insert happens before cursor", () => {
-                const [doc1] = generateDocs()
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
 
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-                // return { objectId: "1@abcd", elemId: "5@abcd" }
-
-                // Insert 3 characters at beginning of the string
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 0,
-                        values: ["a", "b", "c"],
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                {
+                    marks: {
+                        comment: [{ id: "abc-123" }, { id: "def-789" }],
                     },
-                ])
+                    text: "Peritext",
+                },
+                {
+                    marks: { comment: [{ id: "def-789" }] },
+                    text: " editor",
+                },
+            ])
+        })
+    })
 
-                const currentIndex = doc1.resolveCursor(cursor)
+    describe("links", () => {
+        it("returns a single link in the flattened spans", () => {
+            const [doc1] = generateDocs()
 
-                assert.deepStrictEqual(currentIndex, 5 + 3)
-            })
+            doc1.change([
+                // Link on the word "Peritext"
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
 
-            it("does not move cursor position when insert happens after cursor", () => {
-                const [doc1] = generateDocs()
+            assert.deepStrictEqual(doc1.root.text, textChars)
 
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-                // return { objectId: "1@abcd", elemId: "5@abcd" }
-
-                // Insert 3 characters after the cursor
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "insert",
-                        index: 7,
-                        values: ["a", "b", "c"],
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: {
+                            active: true,
+                            url: "https://inkandswitch.com",
+                        },
                     },
-                ])
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
 
-                const currentIndex = doc1.resolveCursor(cursor)
+        it("arbitrarily chooses one link as the winner when fully overlapping", () => {
+            const [doc1, doc2] = generateDocs()
+            const { change: change2 } = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
 
-                assert.deepStrictEqual(currentIndex, 5)
-            })
+            const { change: change3 } = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
 
-            it("moves cursor left if deletion happens before cursor", () => {
-                const [doc1] = generateDocs()
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
 
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-                // return { objectId: "1@abcd", elemId: "5@abcd" }
+            // Confirm that both peers converge to same result -- one link wins
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
 
-                // Insert 3 characters after the cursor
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 0,
-                        count: 3,
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                { marks: {}, text: "The " },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
                     },
-                ])
+                    text: "Peritext",
+                },
+                { marks: {}, text: " editor" },
+            ])
+        })
 
-                const currentIndex = doc1.resolveCursor(cursor)
+        it("arbitrarily chooses one link as the winner when partially overlapping", () => {
+            const [doc1, doc2] = generateDocs()
+            const { change: change2 } = doc1.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 0,
+                    end: 11,
+                    markType: "link",
+                    attrs: { url: "https://inkandswitch.com" },
+                },
+            ])
 
-                assert.deepStrictEqual(currentIndex, 5 - 3)
-            })
+            const { change: change3 } = doc2.change([
+                {
+                    path: ["text"],
+                    action: "addMark",
+                    start: 4,
+                    end: 18,
+                    markType: "link",
+                    attrs: { url: "https://google.com" },
+                },
+            ])
 
-            it("doesn't move cursor if deletion happens after cursor", () => {
-                const [doc1] = generateDocs()
+            // Exchange edits
+            doc2.applyChange(change2)
+            doc1.applyChange(change3)
 
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-                // return { objectId: "1@abcd", elemId: "5@abcd" }
+            // Confirm that both peers converge to same result
+            assert.deepStrictEqual(
+                doc1.getTextWithFormatting(["text"]),
+                doc2.getTextWithFormatting(["text"]),
+            )
 
-                // Insert 3 characters after the cursor
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 7,
-                        count: 3,
+            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
+                {
+                    marks: {
+                        link: {
+                            active: true,
+                            url: "https://inkandswitch.com",
+                        },
                     },
-                ])
-
-                const currentIndex = doc1.resolveCursor(cursor)
-
-                assert.deepStrictEqual(currentIndex, 5)
-            })
-
-            it("returns index 0 if everything before the cursor is deleted", () => {
-                const [doc1] = generateDocs()
-
-                // get a cursor for a path + index
-                const cursor = doc1.getCursor(["text"], 5)
-
-                // Delete the first 7 chars, including the cursor
-                doc1.change([
-                    {
-                        path: ["text"],
-                        action: "delete",
-                        index: 0,
-                        count: 7,
+                    text: "The ",
+                },
+                {
+                    marks: {
+                        link: { active: true, url: "https://google.com" },
                     },
-                ])
+                    text: "Peritext editor",
+                },
+            ])
+        })
+    })
 
-                const currentIndex = doc1.resolveCursor(cursor)
+    describe("cursors", () => {
+        it("can resolve a cursor position", () => {
+            const [doc1] = generateDocs()
 
-                assert.deepStrictEqual(currentIndex, 0)
-            })
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("increments cursor position when insert happens before cursor", () => {
+            const [doc1] = generateDocs()
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters at beginning of the string
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 0,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5 + 3)
+        })
+
+        it("does not move cursor position when insert happens after cursor", () => {
+            const [doc1] = generateDocs()
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "insert",
+                    index: 7,
+                    values: ["a", "b", "c"],
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("moves cursor left if deletion happens before cursor", () => {
+            const [doc1] = generateDocs()
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 0,
+                    count: 3,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5 - 3)
+        })
+
+        it("doesn't move cursor if deletion happens after cursor", () => {
+            const [doc1] = generateDocs()
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+            // return { objectId: "1@abcd", elemId: "5@abcd" }
+
+            // Insert 3 characters after the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 7,
+                    count: 3,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 5)
+        })
+
+        it("returns index 0 if everything before the cursor is deleted", () => {
+            const [doc1] = generateDocs()
+
+            // get a cursor for a path + index
+            const cursor = doc1.getCursor(["text"], 5)
+
+            // Delete the first 7 chars, including the cursor
+            doc1.change([
+                {
+                    path: ["text"],
+                    action: "delete",
+                    index: 0,
+                    count: 7,
+                },
+            ])
+
+            const currentIndex = doc1.resolveCursor(cursor)
+
+            assert.deepStrictEqual(currentIndex, 0)
         })
     })
 })

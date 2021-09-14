@@ -461,7 +461,9 @@ function opsToMarks(
         }
     }
 
-    // Remove op IDs and unnecessary keys
+    // Next, we remove op IDs from the mark map for final output.
+    // This looks somewhat convoluted but we're just removing op IDs
+    // and need to make the Typescript compiler happy...
     const cleanedMap: MarkMapWithoutOpIds = {}
 
     for (const [markType, markValue] of Object.entries(markMap)) {

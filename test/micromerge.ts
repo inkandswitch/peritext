@@ -208,24 +208,12 @@ describe("Micromerge", () => {
         ])
     })
 
-    it("correctly merges concurrent overlapping bold and italic", () => {
-        const [doc1, doc2] = generateDocs()
-
-        const { change: change1 } = doc1.change([
-            { path: [], action: "makeList", key: "text" },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: textChars,
-            },
-        ])
-
-        doc2.applyChange(change1)
+    it.only("correctly merges concurrent overlapping bold and italic", () => {
+        let [doc1, doc2, patchesForDoc1, patchesForDoc2] = generateDocs()
 
         // Now both docs have the text in their state.
         // Concurrently format overlapping spans...
-        const { change: change2 } = doc1.change([
+        const { change: change2, patches: patches2 } = doc1.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -234,6 +222,7 @@ describe("Micromerge", () => {
                 markType: "strong",
             },
         ])
+
         const { change: change3 } = doc2.change([
             {
                 path: ["text"],

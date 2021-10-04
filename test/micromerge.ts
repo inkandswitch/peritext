@@ -2,6 +2,7 @@ import assert from "assert"
 import Micromerge, { InputOperation, Patch } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
+import { isEqual } from "lodash"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -14,13 +15,15 @@ const debug = (obj: any) => {
 /** Create and return two Micromerge documents with the same text content.
  *  Useful for creating a baseline upon which to play further changes
  */
-const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
+const generateDocs = (
+    text: string = defaultText,
+): [Micromerge, Micromerge, Patch[], Patch[]] => {
     const doc1 = new Micromerge("doc1")
     const doc2 = new Micromerge("doc2")
     const textChars = text.split("")
 
     // Generate a change on doc1
-    const { change: change1 } = doc1.change([
+    const { change: change1, patches: patchesOnDoc1 } = doc1.change([
         { path: [], action: "makeList", key: "text" },
         {
             path: ["text"],
@@ -31,8 +34,77 @@ const generateDocs = (text: string = defaultText): [Micromerge, Micromerge] => {
     ])
 
     // Generate change2 on doc2, which depends on change1
-    doc2.applyChange(change1)
-    return [doc1, doc2]
+    const patchesOnDoc2 = doc2.applyChange(change1)
+    return [doc1, doc2, patchesOnDoc1, patchesOnDoc2]
+}
+
+/** Define a naive structure that accumulates patches and computes a document state.
+ *  This isn't as optimized as the structure we use in the actual codebase,
+ *  but it lets us straightforwardly test whether the incremental patches that we have
+ *  generated have converged on the correct state.
+ */
+type TextWithMetadata = Array<{
+    character: string
+    marks: { [key: string]: boolean }
+}>
+
+const range = (start: number, end: number): number[] => {
+    return Array(end - start + 1)
+        .fill("_")
+        .map((_, idx) => start + idx)
+}
+
+const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
+    const metadata: TextWithMetadata = []
+    for (const patch of patches) {
+        if (!isEqual(patch.path, ["text"])) {
+            throw new Error(
+                "This implementation only supports a single path: 'text'",
+            )
+        }
+
+        switch (patch.action) {
+            case "insert": {
+                patch.values.forEach(
+                    (character: string, valueIndex: number) => {
+                        metadata.splice(patch.index + valueIndex, 0, {
+                            character,
+                            marks: {},
+                        })
+                    },
+                )
+
+                break
+            }
+
+            case "delete": {
+                metadata.splice(patch.index, patch.count)
+                break
+            }
+
+            case "addMark": {
+                for (const index of range(patch.start, patch.end)) {
+                    metadata[index].marks[patch.markType] = true
+                }
+                break
+            }
+
+            case "removeMark": {
+                for (const index of range(patch.start, patch.end)) {
+                    metadata[index].marks[patch.markType] = false
+                }
+                break
+            }
+
+            default: {
+                unreachable(patch)
+            }
+        }
+
+        // console.log({ patch, metadata })
+    }
+
+    return metadata
 }
 
 describe("Micromerge", () => {
@@ -73,23 +145,31 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, ["a", "b"])
     })
 
-    it("correctly handles concurrent deletion and insertion", () => {
-        const [doc1, doc2] = generateDocs("abrxabra")
+    it.only("correctly handles concurrent deletion and insertion", () => {
+        let [doc1, doc2, patchesForDoc1, patchesForDoc2] =
+            generateDocs("abrxabra")
 
         // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
-        const { change: change2 } = doc1.change([
+        const { change: change2, patches: patches2 } = doc1.change([
             { path: ["text"], action: "delete", index: 3, count: 1 },
             { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
         ])
 
+        patchesForDoc1 = patchesForDoc1.concat(patches2)
+
         // doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
-        const { change: change3 } = doc2.change([
+        const { change: change3, patches: patches3 } = doc2.change([
             { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
         ])
 
+        patchesForDoc2 = patchesForDoc2.concat(patches3)
+
         // doc1 and doc2 sync their changes
-        doc2.applyChange(change2)
-        doc1.applyChange(change3)
+        const patches4 = doc2.applyChange(change2)
+        const patches5 = doc1.applyChange(change3)
+
+        patchesForDoc1 = patchesForDoc1.concat(patches5)
+        patchesForDoc2 = patchesForDoc2.concat(patches4)
 
         // Now both should be in the same state
         assert.deepStrictEqual(doc1.root, {
@@ -98,6 +178,11 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc2.root, {
             text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
         })
+
+        assert.deepStrictEqual(
+            accumulatePatches(patchesForDoc1),
+            accumulatePatches(patchesForDoc2),
+        )
     })
 
     it("flattens local formatting operations into flat spans", () => {
@@ -113,16 +198,6 @@ describe("Micromerge", () => {
                 markType: "strong",
             },
         ])
-
-        console.log(
-            inspect(
-                {
-                    doc1: doc1.getTextWithFormatting(["text"]),
-                },
-                false,
-                4,
-            ),
-        )
 
         assert.deepStrictEqual(doc1.root.text, textChars)
 

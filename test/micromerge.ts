@@ -223,7 +223,9 @@ describe("Micromerge", () => {
             },
         ])
 
-        const { change: change3 } = doc2.change([
+        patchesForDoc1 = patchesForDoc1.concat(patches2)
+
+        const { change: change3, patches: patches3 } = doc2.change([
             {
                 path: ["text"],
                 action: "addMark",
@@ -233,9 +235,14 @@ describe("Micromerge", () => {
             },
         ])
 
+        patchesForDoc2 = patchesForDoc2.concat(patches3)
+
         // and swap changes across the remote peers...
         const patchesOnDoc2 = doc2.applyChange(change2)
         const patchesOnDoc1 = doc1.applyChange(change3)
+
+        patchesForDoc2 = patchesForDoc2.concat(patchesOnDoc2)
+        patchesForDoc1 = patchesForDoc1.concat(patchesOnDoc1)
 
         console.log(
             inspect(
@@ -307,6 +314,11 @@ describe("Micromerge", () => {
                 path: ["text"],
             },
         ])
+
+        assert.deepStrictEqual(
+            accumulatePatches(patchesForDoc1),
+            accumulatePatches(patchesForDoc2),
+        )
     })
 
     it("updates format span indexes when chars are inserted before", () => {

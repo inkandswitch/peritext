@@ -145,7 +145,7 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, ["a", "b"])
     })
 
-    it.only("correctly handles concurrent deletion and insertion", () => {
+    it("correctly handles concurrent deletion and insertion", () => {
         let [doc1, doc2, patchesForDoc1, patchesForDoc2] =
             generateDocs("abrxabra")
 
@@ -208,7 +208,7 @@ describe("Micromerge", () => {
         ])
     })
 
-    it.only("correctly merges concurrent overlapping bold and italic", () => {
+    it("correctly merges concurrent overlapping bold and italic", () => {
         let [doc1, doc2, patchesForDoc1, patchesForDoc2] = generateDocs()
 
         // Now both docs have the text in their state.

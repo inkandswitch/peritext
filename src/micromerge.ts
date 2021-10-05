@@ -1,5 +1,5 @@
 import uuid from "uuid"
-import { isEqual, sortBy } from "lodash"
+import { every, isEqual, sortBy } from "lodash"
 import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
@@ -1049,6 +1049,7 @@ export default class Micromerge {
                         }
 
                         if (elMeta.elemId === op.end && partialPatch) {
+                            // If the op is ending here, emit the pending partial patch
                             patches.push({ ...partialPatch, end: visibleIndex })
                             partialPatch = null
                         }
@@ -1063,31 +1064,74 @@ export default class Micromerge {
                         elMeta.markOperations !== undefined
                     ) {
                         let nextPatchIndex = visibleIndex
-                        if (partialPatch) {
-                            // We need to be careful about where we emit a patch boundary.
-                            // If this element is the _end_ of some operation, then
-                            // the partial patch should end on this element and the next patch
-                            // should start on the next element.
-                            // But if it's the start of some operation, then the partial patch
-                            // should end on the previous element, and the new patch should
-                            // start on this element.
 
-                            if (
-                                elMeta.markOperations.find(
-                                    markOp => markOp.end === elMeta.elemId,
-                                )
-                            ) {
+                        // Emit the pending partial patch
+                        if (
+                            every(
+                                elMeta.markOperations,
+                                markOp =>
+                                    markOp.end === elMeta.elemId &&
+                                    markOp.start !== elMeta.elemId,
+                            )
+                        ) {
+                            // This is a special case where this character is only the end
+                            // of operations, and no operations start here.
+                            // We can end the patch on this character and
+                            // start the next partial patch on the next character.
+                            nextPatchIndex = visibleIndex + 1
+                            if (partialPatch) {
                                 patches.push({
                                     ...partialPatch,
                                     end: visibleIndex,
                                 })
-                                nextPatchIndex = visibleIndex + 1
-                            } else {
+                            }
+                        } else if (
+                            every(
+                                elMeta.markOperations,
+                                markOp =>
+                                    markOp.start === elMeta.elemId &&
+                                    markOp.end !== elMeta.elemId,
+                            )
+                        ) {
+                            // In this case, this character is only the start of some ops,
+                            // and not the end of any ops.
+                            // We end the previous partial patch one character to the left,
+                            // and then start a new partial patch on this character.
+                            if (partialPatch) {
                                 patches.push({
                                     ...partialPatch,
                                     end: visibleIndex - 1,
                                 })
                             }
+                        } else {
+                            // In this case, this character is both start and end of some ops.
+                            // We need to emit the previous partial patch, emit a patch for
+                            // this single character, and then start the partial patch
+                            // for the next character.
+                            if (partialPatch) {
+                                patches.push({
+                                    ...partialPatch,
+                                    end: visibleIndex - 1,
+                                })
+                            }
+
+                            // Emit a patch for this character
+                            const oldMarks = opsToMarks(elMeta.markOperations)
+                            const newMarks = opsToMarks([
+                                ...elMeta.markOperations,
+                                op,
+                            ])
+
+                            if (!isEqual(oldMarks, newMarks)) {
+                                patches.push({
+                                    path: [Micromerge.contentKey],
+                                    markType: op.markType,
+                                    action: op.action,
+                                    start: visibleIndex,
+                                    end: visibleIndex,
+                                })
+                            }
+                            nextPatchIndex = visibleIndex + 1
                         }
 
                         const existingOps = elMeta.markOperations

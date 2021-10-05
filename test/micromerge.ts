@@ -146,7 +146,7 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
                     (character: string, valueIndex: number) => {
                         metadata.splice(patch.index + valueIndex, 0, {
                             character,
-                            marks: patch.marks,
+                            marks: { ...patch.marks },
                         })
                     },
                 )
@@ -278,6 +278,38 @@ describe("Micromerge", () => {
             expectedResult: [
                 { marks: { strong: { active: true } }, text: "The " },
                 { marks: {}, text: "Peritext editor" },
+            ],
+        })
+    })
+
+    it("correctly merges concurrent bold and unbold where unbold is inside the bold", () => {
+        testConcurrentWrites({
+            inputOps1: [
+                { action: "addMark", start: 0, end: 18, markType: "strong" },
+            ],
+            inputOps2: [
+                { action: "removeMark", start: 4, end: 11, markType: "strong" },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
+                { marks: {}, text: "Peritext" },
+                { marks: { strong: { active: true } }, text: " editor" },
+            ],
+        })
+    })
+
+    it("correctly merges concurrent bold and unbold where unbold is one character", () => {
+        testConcurrentWrites({
+            inputOps1: [
+                { action: "addMark", start: 0, end: 18, markType: "strong" },
+            ],
+            inputOps2: [
+                { action: "removeMark", start: 4, end: 4, markType: "strong" },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
+                { marks: {}, text: "P" },
+                { marks: { strong: { active: true } }, text: "eritext editor" },
             ],
         })
     })

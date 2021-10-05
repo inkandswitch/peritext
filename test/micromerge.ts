@@ -1,5 +1,10 @@
 import assert from "assert"
-import Micromerge, { InputOperation, Patch } from "../src/micromerge"
+import Micromerge, {
+    FormatSpanWithText,
+    InputOperation,
+    MarkMapWithoutOpIds,
+    Patch,
+} from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { isEqual } from "lodash"
@@ -17,13 +22,18 @@ const debug = (obj: any) => {
  */
 const generateDocs = (
     text: string = defaultText,
-): [Micromerge, Micromerge, Patch[], Patch[]] => {
+): {
+    doc1: Micromerge
+    doc2: Micromerge
+    patches1: Patch[]
+    patches2: Patch[]
+} => {
     const doc1 = new Micromerge("doc1")
     const doc2 = new Micromerge("doc2")
     const textChars = text.split("")
 
     // Generate a change on doc1
-    const { change: change1, patches: patchesOnDoc1 } = doc1.change([
+    const { change: change1, patches: patches1 } = doc1.change([
         { path: [], action: "makeList", key: "text" },
         {
             path: ["text"],
@@ -34,8 +44,8 @@ const generateDocs = (
     ])
 
     // Generate change2 on doc2, which depends on change1
-    const patchesOnDoc2 = doc2.applyChange(change1)
-    return [doc1, doc2, patchesOnDoc1, patchesOnDoc2]
+    const patches2 = doc2.applyChange(change1)
+    return { doc1, doc2, patches1, patches2 }
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.
@@ -45,13 +55,80 @@ const generateDocs = (
  */
 type TextWithMetadata = Array<{
     character: string
-    marks: { [key: string]: boolean }
+    marks: MarkMapWithoutOpIds
 }>
 
 const range = (start: number, end: number): number[] => {
     return Array(end - start + 1)
         .fill("_")
         .map((_, idx) => start + idx)
+}
+
+/** Concurrently apply a change to two documents,
+ *  then sync them and see if we converge to the expected result. */
+const testConcurrentWrites = (args: {
+    initialText?: string
+    preOps?: DistributiveOmit<InputOperation, "path">[]
+    inputOps1?: DistributiveOmit<InputOperation, "path">[]
+    inputOps2?: DistributiveOmit<InputOperation, "path">[]
+    expectedResult: FormatSpanWithText[]
+}): void => {
+    const {
+        initialText = "The Peritext editor",
+        preOps,
+        inputOps1 = [],
+        inputOps2 = [],
+        expectedResult,
+    } = args
+
+    const initialDocs = generateDocs(initialText)
+    const { doc1, doc2 } = initialDocs
+    let { patches1: patchesForDoc1, patches2: patchesForDoc2 } = initialDocs
+
+    if (preOps) {
+        const { change: change0, patches: patches0 } = doc1.change(
+            preOps.map(op => ({ ...op, path: ["text"] })),
+        )
+        patchesForDoc1 = patchesForDoc1.concat(patches0)
+        patchesForDoc2 = patchesForDoc2.concat(doc2.applyChange(change0))
+    }
+
+    const { change: change1, patches: patches1 } = doc1.change(
+        inputOps1.map(op => ({ ...op, path: ["text"] })),
+    )
+    patchesForDoc1 = patchesForDoc1.concat(patches1)
+
+    const { change: change2, patches: patches2 } = doc2.change(
+        inputOps2.map(op => ({ ...op, path: ["text"] })),
+    )
+    patchesForDoc2 = patchesForDoc2.concat(patches2)
+
+    // doc1 and doc2 sync their changes
+    const patches2b = doc2.applyChange(change1)
+    patchesForDoc2 = patchesForDoc2.concat(patches2b)
+    const patches1b = doc1.applyChange(change2)
+    patchesForDoc1 = patchesForDoc1.concat(patches1b)
+
+    // Test the "batch" codepath -- if we convert the internal metadata structure
+    // into a formatted document all at once, do we end up with the expected result?
+    assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), expectedResult)
+    assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), expectedResult)
+
+    // debug({
+    //     patchesForDoc1,
+    //     patchesForDoc2,
+    //     accumulated1: accumulatePatches(patchesForDoc1),
+    //     accumulated2: accumulatePatches(patchesForDoc2),
+    // })
+
+    // Test the "patches" codepath -- if we apply all the incremental patches
+    // on both sides, do we end up with the same state?
+    // TODO: We currently only check here that the two docs converged to same state;
+    // we could do better and actually check against the expected result as well.
+    assert.deepStrictEqual(
+        accumulatePatches(patchesForDoc1),
+        accumulatePatches(patchesForDoc2),
+    )
 }
 
 const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
@@ -69,7 +146,7 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
                     (character: string, valueIndex: number) => {
                         metadata.splice(patch.index + valueIndex, 0, {
                             character,
-                            marks: {},
+                            marks: patch.marks,
                         })
                     },
                 )
@@ -84,14 +161,14 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
 
             case "addMark": {
                 for (const index of range(patch.start, patch.end)) {
-                    metadata[index].marks[patch.markType] = true
+                    metadata[index].marks[patch.markType] = { active: true }
                 }
                 break
             }
 
             case "removeMark": {
                 for (const index of range(patch.start, patch.end)) {
-                    metadata[index].marks[patch.markType] = false
+                    delete metadata[index].marks[patch.markType]
                 }
                 break
             }
@@ -100,8 +177,6 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
                 unreachable(patch)
             }
         }
-
-        // console.log({ patch, metadata })
     }
 
     return metadata
@@ -109,7 +184,7 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
 
 describe("Micromerge", () => {
     it("can insert and delete text", () => {
-        const [doc1] = generateDocs("abcde")
+        const { doc1 } = generateDocs("abcde")
 
         doc1.change([
             {
@@ -129,7 +204,7 @@ describe("Micromerge", () => {
     })
 
     it("records local changes in the deps clock", () => {
-        const [doc1, doc2] = generateDocs("a")
+        const { doc1, doc2 } = generateDocs("a")
         const { change: change2 } = doc2.change([
             { path: ["text"], action: "insert", index: 1, values: ["b"] },
         ])
@@ -146,898 +221,217 @@ describe("Micromerge", () => {
     })
 
     it("correctly handles concurrent deletion and insertion", () => {
-        let [doc1, doc2, patchesForDoc1, patchesForDoc2] =
-            generateDocs("abrxabra")
-
-        // doc1: delete the 'x', format the middle 'rab' in bold, then insert 'ca' to form 'abracabra'
-        const { change: change2, patches: patches2 } = doc1.change([
-            { path: ["text"], action: "delete", index: 3, count: 1 },
-            { path: ["text"], action: "insert", index: 4, values: ["c", "a"] },
-        ])
-
-        patchesForDoc1 = patchesForDoc1.concat(patches2)
-
-        // doc2: insert 'da' to form 'abrxadabra', and format the final 'dabra' in italic
-        const { change: change3, patches: patches3 } = doc2.change([
-            { path: ["text"], action: "insert", index: 5, values: ["d", "a"] },
-        ])
-
-        patchesForDoc2 = patchesForDoc2.concat(patches3)
-
-        // doc1 and doc2 sync their changes
-        const patches4 = doc2.applyChange(change2)
-        const patches5 = doc1.applyChange(change3)
-
-        patchesForDoc1 = patchesForDoc1.concat(patches5)
-        patchesForDoc2 = patchesForDoc2.concat(patches4)
-
-        // Now both should be in the same state
-        assert.deepStrictEqual(doc1.root, {
-            text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
+        testConcurrentWrites({
+            initialText: "abrxabra",
+            // doc1: delete the 'x', then insert 'ca' to form 'abracabra'
+            inputOps1: [
+                { action: "delete", index: 3, count: 1 },
+                { action: "insert", index: 4, values: ["c", "a"] },
+            ],
+            // doc2: insert 'da' to form 'abrxadabra'
+            inputOps2: [{ action: "insert", index: 5, values: ["d", "a"] }],
+            expectedResult: [{ marks: {}, text: "abracadabra" }],
         })
-        assert.deepStrictEqual(doc2.root, {
-            text: ["a", "b", "r", "a", "c", "a", "d", "a", "b", "r", "a"],
-        })
-
-        assert.deepStrictEqual(
-            accumulatePatches(patchesForDoc1),
-            accumulatePatches(patchesForDoc2),
-        )
     })
 
     it("flattens local formatting operations into flat spans", () => {
-        const [doc1] = generateDocs()
-
-        doc1.change([
-            // Bold the word "Peritext"
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.root.text, textChars)
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
+        testConcurrentWrites({
+            inputOps1: [
+                // Bold the word "Peritext"
+                { action: "addMark", start: 4, end: 11, markType: "strong" },
+            ],
+            expectedResult: [
+                { marks: {}, text: "The " },
+                { marks: { strong: { active: true } }, text: "Peritext" },
+                { marks: {}, text: " editor" },
+            ],
+        })
     })
 
     it("correctly merges concurrent overlapping bold and italic", () => {
-        let [doc1, doc2, patchesForDoc1, patchesForDoc2] = generateDocs()
-
-        // Now both docs have the text in their state.
-        // Concurrently format overlapping spans...
-        const { change: change2, patches: patches2 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 0,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        patchesForDoc1 = patchesForDoc1.concat(patches2)
-
-        const { change: change3, patches: patches3 } = doc2.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 18,
-                markType: "em",
-            },
-        ])
-
-        patchesForDoc2 = patchesForDoc2.concat(patches3)
-
-        // and swap changes across the remote peers...
-        const patchesOnDoc2 = doc2.applyChange(change2)
-        const patchesOnDoc1 = doc1.applyChange(change3)
-
-        patchesForDoc2 = patchesForDoc2.concat(patchesOnDoc2)
-        patchesForDoc1 = patchesForDoc1.concat(patchesOnDoc1)
-
-        console.log(
-            inspect(
+        testConcurrentWrites({
+            inputOps1: [
+                { action: "addMark", start: 0, end: 11, markType: "strong" },
+            ],
+            inputOps2: [
+                { action: "addMark", start: 4, end: 18, markType: "em" },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
                 {
-                    patchesOnDoc1,
-                    patchesOnDoc2,
+                    marks: { strong: { active: true }, em: { active: true } },
+                    text: "Peritext",
                 },
-                false,
-                4,
-            ),
-        )
-
-        // Both sides should end up with the usual text:
-        assert.deepStrictEqual(doc1.root.text, textChars)
-        assert.deepStrictEqual(doc2.root.text, textChars)
-
-        const expectedTextWithFormatting = [
-            { marks: { strong: { active: true } }, text: "The " },
-            {
-                marks: { strong: { active: true }, em: { active: true } },
-                text: "Peritext",
-            },
-            { marks: { em: { active: true } }, text: " editor" },
-        ]
-
-        const formatted1 = doc1.getTextWithFormatting(["text"])
-        const formatted2 = doc2.getTextWithFormatting(["text"])
-
-        // And the same correct flattened format spans:
-        assert.deepStrictEqual(formatted1, expectedTextWithFormatting)
-        assert.deepStrictEqual(formatted2, expectedTextWithFormatting)
-
-        // Check the patches that got generated on both sides.
-
-        // On doc2, we're applying strong from 0 to 11, but there's already em
-        // from 4 to 18, so we need to apply the strong in two separate spans:
-        assert.deepStrictEqual(patchesOnDoc2, [
-            {
-                action: "addMark",
-                start: 0,
-                end: 3,
-                markType: "strong",
-                path: ["text"],
-            },
-            {
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-                path: ["text"],
-            },
-        ])
-
-        // on doc1, we're applying em from 4 to 18, but there's already strong
-        // from 0 to 11, so we need to apply the em in two separate spans:
-        assert.deepStrictEqual(patchesOnDoc1, [
-            {
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "em",
-                path: ["text"],
-            },
-            {
-                action: "addMark",
-                start: 12,
-                end: 18,
-                markType: "em",
-                path: ["text"],
-            },
-        ])
-
-        assert.deepStrictEqual(
-            accumulatePatches(patchesForDoc1),
-            accumulatePatches(patchesForDoc2),
-        )
-    })
-
-    it("updates format span indexes when chars are inserted before", () => {
-        const [doc1] = generateDocs()
-        doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
-
-        // When we insert some text at the beginning,
-        // the formatting should stay attached to the same characters
-        doc1.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 0,
-                values: "Hello to ".split(""),
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "Hello to The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
+                { marks: { em: { active: true } }, text: " editor" },
+            ],
+        })
     })
 
     it("correctly merges concurrent bold and unbold", () => {
-        const [doc1, doc2] = generateDocs()
-
-        // Now both docs have the text in their state.
-        // Concurrently format overlapping spans...
-        const { change: change2 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 0,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-        const { change: change3 } = doc2.change([
-            {
-                path: ["text"],
-                action: "removeMark",
-                start: 4,
-                end: 18,
-                markType: "strong",
-            },
-        ])
-
-        // and swap changes across the remote peers...
-        const patchesOnDoc2: Patch[] = doc2.applyChange(change2)
-        const patchesOnDoc1: Patch[] = doc1.applyChange(change3)
-
-        // Both sides should end up with the usual text:
-        assert.deepStrictEqual(doc1.root.text, textChars)
-        assert.deepStrictEqual(doc2.root.text, textChars)
-
-        const expectedTextWithFormatting = [
-            { marks: { strong: { active: true } }, text: "The " },
-            { marks: {}, text: "Peritext editor" },
-        ]
-
-        const text1 = doc1.getTextWithFormatting(["text"])
-        const text2 = doc2.getTextWithFormatting(["text"])
-
-        // debug({ text1, text2 })
-
-        // And the same correct flattened format spans:
-        assert.deepStrictEqual(text1, expectedTextWithFormatting)
-        assert.deepStrictEqual(text2, expectedTextWithFormatting)
-
-        debug({ patchesOnDoc1, patchesOnDoc2 })
-
-        assert.deepStrictEqual(patchesOnDoc1, [
-            {
-                path: ["text"],
-                action: "removeMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(patchesOnDoc2, [
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 0,
-                end: 3,
-                markType: "strong",
-            },
-        ])
-    })
-
-    it("doesn't update format span indexes when chars are inserted after", () => {
-        const [doc1] = generateDocs()
-        doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
-
-        // When we insert some text after the bold span,
-        // the formatting should stay attached to the same characters
-        doc1.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 19,
-                values: " is great".split(""),
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor is great" },
-        ])
-    })
-
-    it("updates format span indexes when chars are deleted before", () => {
-        const [doc1] = generateDocs()
-        doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
-
-        // When we delete some text before the bold span,
-        // the formatting should stay attached to the same characters
-        doc1.change([
-            {
-                path: ["text"],
-                action: "delete",
-                index: 0,
-                count: 4,
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
-    })
-
-    it("updates format span indexes when chars are deleted after", () => {
-        const [doc1] = generateDocs()
-        doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: " editor" },
-        ])
-
-        // When we delete some text after the bold span,
-        // the formatting should stay attached to the same characters
-        doc1.change([
-            {
-                path: ["text"],
-                action: "delete",
-                index: 12,
-                count: 7,
-            },
-        ])
-
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-        ])
+        testConcurrentWrites({
+            inputOps1: [
+                { action: "addMark", start: 0, end: 11, markType: "strong" },
+            ],
+            inputOps2: [
+                { action: "removeMark", start: 4, end: 18, markType: "strong" },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
+                { marks: {}, text: "Peritext editor" },
+            ],
+        })
     })
 
     it("correctly handles spans that have been collapsed to zero width", () => {
-        const [doc1] = generateDocs()
-
-        doc1.change([
-            // add strong mark to the word "Peritext" in "The Peritext editor"
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-
-            // delete all characters inside "Peritext"
-            {
-                path: ["text"],
-                action: "delete",
-                index: 4,
-                count: 8,
-            },
-        ])
-
-        const { patches: insertPatches } = doc1.change([
-            // insert a new character where the word used to be
-            {
-                path: ["text"],
-                action: "insert",
-                index: 4,
-                values: ["x"],
-            },
-        ])
-
-        console.log(inspect(doc1.getTextWithFormatting(["text"]), false, 4))
-
-        // Confirm the new document has the correct content
-        assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-            { marks: {}, text: "The x editor" },
-        ])
-
-        // Confirm that the generated patch has the correct content.
-        // In particular, the character shouldn't have any formatting
-        // because we deleted all of the bolded text.
-        assert.deepStrictEqual(insertPatches, [
-            {
-                action: "insert",
-                path: [Micromerge.contentKey],
-                index: 4,
-                values: ["x"],
-                marks: {},
-            },
-        ])
+        testConcurrentWrites({
+            preOps: [
+                // add strong mark to the word "Peritext" in "The Peritext editor"
+                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                // delete all characters inside "Peritext"
+                { action: "delete", index: 4, count: 8 },
+            ],
+            inputOps1: [
+                // insert a new character where the word used to be
+                { action: "insert", index: 4, values: ["x"] },
+            ],
+            // Should expect no formatting in the result
+            expectedResult: [{ marks: {}, text: "The x editor" }],
+        })
     })
 
     it("correctly merges concurrent bold and insertion at the mark boundary", () => {
-        const [doc1, doc2] = generateDocs()
-
-        // In doc1, we format the word "Peritext" as bold
-        const { change: change1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-
-        // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
-        const { change: change2 } = doc2.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 4,
-                values: ["*"],
-            },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 13,
-                values: ["*"],
-            },
-        ])
-
-        // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change1)
-        doc1.applyChange(change2)
-
-        // Both sides should end up with the text with asterisks
-        assert.deepStrictEqual(
-            doc1.root.text,
-            "The *Peritext* editor".split(""),
-        )
-        assert.deepStrictEqual(
-            doc2.root.text,
-            "The *Peritext* editor".split(""),
-        )
-
-        // The asterisks should not be bold
-        const expectedTextWithFormatting = [
-            { marks: {}, text: "The *" },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: "* editor" },
-        ]
-
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
+        testConcurrentWrites({
+            // In doc1, we format the word "Peritext" as bold
+            inputOps1: [
+                { action: "addMark", start: 4, end: 11, markType: "strong" },
+            ],
+            // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
+            inputOps2: [
+                { action: "insert", index: 4, values: ["*"] },
+                { action: "insert", index: 13, values: ["*"] },
+            ],
+            // Both sides should end up with asterisks unbolded
+            expectedResult: [
+                { marks: {}, text: "The *" },
+                { marks: { strong: { active: true } }, text: "Peritext" },
+                { marks: {}, text: "* editor" },
+            ],
+        })
     })
 
     it("correctly handles insertion where one mark ends and another begins", () => {
-        const [doc1, doc2] = generateDocs()
-
-        // In doc1, we format the word "Peritext" as bold, and " editor" as italic
-        const { change: change1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 12,
-                end: 18,
-                markType: "em",
-            },
-        ])
-
-        // Concurrently, in doc2, we add a footnote after "Peritext"
-        const { change: change2 } = doc2.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 12,
-                values: "[1]".split(""),
-            },
-        ])
-
-        // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change1)
-        doc1.applyChange(change2)
-
-        // Both sides should end up with the text with footnote
-        assert.deepStrictEqual(
-            doc1.root.text,
-            "The Peritext[1] editor".split(""),
-        )
-        assert.deepStrictEqual(
-            doc2.root.text,
-            "The Peritext[1] editor".split(""),
-        )
-
-        // The footnote marker should be neither bold nor italic
-        const expectedTextWithFormatting = [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "Peritext" },
-            { marks: {}, text: "[1]" },
-            { marks: { em: { active: true } }, text: " editor" },
-        ]
-
-        const text1 = doc1.getTextWithFormatting(["text"])
-        const text2 = doc2.getTextWithFormatting(["text"])
-
-        debug({ text1, text2 })
-
-        assert.deepStrictEqual(text1, expectedTextWithFormatting)
-        assert.deepStrictEqual(text2, expectedTextWithFormatting)
+        testConcurrentWrites({
+            // In doc1, we format the word "Peritext" as bold, and " editor" as italic
+            inputOps1: [
+                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                { action: "addMark", start: 12, end: 18, markType: "em" },
+            ],
+            // Concurrently, in doc2, we add a footnote after "Peritext"
+            inputOps2: [
+                { action: "insert", index: 12, values: "[1]".split("") },
+            ],
+            // The footnote marker should be neither bold nor italic
+            expectedResult: [
+                { marks: {}, text: "The " },
+                { marks: { strong: { active: true } }, text: "Peritext" },
+                { marks: {}, text: "[1]" },
+                { marks: { em: { active: true } }, text: " editor" },
+            ],
+        })
     })
 
     it("handles an insertion at a boundary between bold and unbolded spans", () => {
-        const [doc1, doc2] = generateDocs("AC")
-
-        // In doc1, we format "AC" as bold, then unbold "C"
-        const { change: change1, patches: patchesFromDoc1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 0,
-                end: 1,
-                markType: "strong",
-            },
-            {
-                path: ["text"],
-                action: "removeMark",
-                start: 1,
-                end: 1,
-                markType: "strong",
-            },
-        ])
-
-        // Concurrently, in doc2, we insert "B" in between
-        const { change: change2, patches: patchesFromDoc2 } = doc2.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 1,
-                values: ["B"],
-            },
-        ])
-
-        // Apply the concurrent changes to the respective other document
-        const patchesOnDoc2 = doc2.applyChange(change1)
-        const patchesOnDoc1 = doc1.applyChange(change2)
-
-        console.log(
-            inspect(
-                {
-                    patchesFromDoc1,
-                    patchesFromDoc2,
-                    patchesOnDoc1,
-                    patchesOnDoc2,
-                },
-                false,
-                4,
-            ),
-        )
-
-        assert.deepStrictEqual(doc1.root.text, "ABC".split(""))
-        assert.deepStrictEqual(doc2.root.text, "ABC".split(""))
-
-        // The B should be bold
-        const expectedTextWithFormatting = [
-            { marks: { strong: { active: true } }, text: "AB" },
-            { marks: {}, text: "C" },
-        ]
-
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-
-        assert.deepStrictEqual(patchesFromDoc1, [
-            {
-                path: ["text"],
-                markType: "strong",
-                action: "addMark",
-                start: 0,
-                end: 1,
-            },
-            {
-                path: ["text"],
-                markType: "strong",
-                action: "removeMark",
-                start: 1,
-                end: 1,
-            },
-        ])
-
-        const expectedPatchesOnDoc1: Patch[] = [
-            {
-                action: "insert",
-                index: 1,
-                path: [Micromerge.contentKey],
-                values: ["B"],
-                marks: { strong: { active: true } },
-            },
-        ]
-
-        assert.deepStrictEqual(patchesOnDoc1, expectedPatchesOnDoc1)
-
-        const expectedPatchesOnDoc2: Patch[] = [
-            {
-                action: "addMark",
-                path: [Micromerge.contentKey],
-                markType: "strong",
-                start: 0,
-                end: 2,
-            },
-            {
-                action: "removeMark",
-                path: [Micromerge.contentKey],
-                markType: "strong",
-                start: 2,
-                end: 2,
-            },
-        ]
-
-        assert.deepStrictEqual(patchesOnDoc2, expectedPatchesOnDoc2)
+        testConcurrentWrites({
+            initialText: "AC",
+            // In doc1, we format "AC" as bold, then unbold "C"
+            inputOps1: [
+                { action: "addMark", start: 0, end: 1, markType: "strong" },
+                { action: "removeMark", start: 1, end: 1, markType: "strong" },
+            ],
+            // Concurrently, in doc2, we insert "B" in between
+            inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
+            // The B should be bold
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "AB" },
+                { marks: {}, text: "C" },
+            ],
+        })
     })
 
     it("handles an insertion at boundary between unbolded and bold spans", () => {
-        const [doc1, doc2] = generateDocs("AC")
-
-        // In doc1, we format "AC" as bold, then unbold "A"
-        const { change: change1, patches: patchesFromDoc1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 0,
-                end: 1,
-                markType: "strong",
-            },
-            {
-                path: ["text"],
-                action: "removeMark",
-                start: 0,
-                end: 0,
-                markType: "strong",
-            },
-        ])
-
-        // Concurrently, in doc2, we insert "B" in between
-        const { change: change2, patches: patchesFromDoc2 } = doc2.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 1,
-                values: ["B"],
-            },
-        ])
-
-        console.log(
-            inspect(
-                {
-                    patchesFromDoc1,
-                    patchesFromDoc2,
-                },
-                false,
-                4,
-            ),
-        )
-
-        // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change1)
-        doc1.applyChange(change2)
-
-        assert.deepStrictEqual(doc1.root.text, "ABC".split(""))
-        assert.deepStrictEqual(doc2.root.text, "ABC".split(""))
-
-        // The B should be bold
-        const expectedTextWithFormatting = [
-            { marks: {}, text: "A" },
-            { marks: { strong: { active: true } }, text: "BC" },
-        ]
-
-        const text1 = doc1.getTextWithFormatting(["text"])
-        const text2 = doc2.getTextWithFormatting(["text"])
-
-        // debug({ text1, text2 })
-
-        assert.deepStrictEqual(text1, expectedTextWithFormatting)
-        assert.deepStrictEqual(text2, expectedTextWithFormatting)
+        testConcurrentWrites({
+            initialText: "AC",
+            // In doc1, we format "AC" as bold, then unbold "A"
+            inputOps1: [
+                { action: "addMark", start: 0, end: 1, markType: "strong" },
+                { action: "removeMark", start: 0, end: 0, markType: "strong" },
+            ],
+            // Concurrently, in doc2, we insert "B" in between
+            inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
+            // The B should be bold
+            expectedResult: [
+                { marks: {}, text: "A" },
+                { marks: { strong: { active: true } }, text: "BC" },
+            ],
+        })
     })
 
     it("correctly handles an addMark boundary that is a tombstone", () => {
-        const [doc1, doc2] = generateDocs("The *Peritext* editor")
-
-        // In doc1, we format "*Peritext*" as bold and then delete the asterisks
-        const { change: change1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 13,
-                markType: "strong",
-            },
-            {
-                path: ["text"],
-                action: "delete",
-                index: 4,
-                count: 1,
-            },
-            {
-                path: ["text"],
-                action: "delete",
-                index: 12,
-                count: 1,
-            },
-        ])
-
-        // Concurrently, in doc2, we add underscores inside of the asterisks
-        // so that the text reads "The *_Peritext_* editor"
-        const { change: change2 } = doc2.change([
-            {
-                path: ["text"],
-                action: "insert",
-                index: 5,
-                values: ["_"],
-            },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 14,
-                values: ["_"],
-            },
-        ])
-
-        // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change1)
-        doc1.applyChange(change2)
-
-        // Both sides should end up with the same text
-        assert.deepStrictEqual(
-            doc1.root.text,
-            "The _Peritext_ editor".split(""),
-        )
-        assert.deepStrictEqual(
-            doc2.root.text,
-            "The _Peritext_ editor".split(""),
-        )
-
-        // The underscores should be bold, because the bold span ran from asterisk
-        // to asterisk, and the underscores were inside of the asterisks
-        const expectedTextWithFormatting = [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "_Peritext_" },
-            { marks: {}, text: " editor" },
-        ]
-
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
+        testConcurrentWrites({
+            initialText: "The *Peritext* editor",
+            // In doc1, we format "*Peritext*" as bold and then delete the asterisks
+            inputOps1: [
+                { action: "addMark", start: 4, end: 13, markType: "strong" },
+                { action: "delete", index: 4, count: 1 },
+                { action: "delete", index: 12, count: 1 },
+            ],
+            // Concurrently, in doc2, we add underscores inside of the asterisks
+            // so that the text reads "The *_Peritext_* editor"
+            inputOps2: [
+                { action: "insert", index: 5, values: ["_"] },
+                { action: "insert", index: 14, values: ["_"] },
+            ],
+            // The underscores should be bold, because the bold span ran from asterisk
+            // to asterisk, and the underscores were inside of the asterisks
+            expectedResult: [
+                { marks: {}, text: "The " },
+                { marks: { strong: { active: true } }, text: "_Peritext_" },
+                { marks: {}, text: " editor" },
+            ],
+        })
     })
 
     it("handles an insertion into a deleted span with mark", () => {
-        const [doc1, doc2] = generateDocs()
-
-        // Format "Peritext" as bold in both documents
-        const { change: change1 } = doc1.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start: 4,
-                end: 11,
-                markType: "strong",
-            },
-        ])
-        doc2.applyChange(change1)
-
-        // In doc1, delete the word "Peritext"
-        const { change: change2 } = doc1.change([
-            {
-                path: ["text"],
-                action: "delete",
-                index: 4,
-                count: 8,
-            },
-        ])
-        assert.deepStrictEqual(doc1.root.text, "The  editor".split(""))
-
-        // Concurrently, in doc2, change "Peritext" to "Paratext"
-        const { change: change3 } = doc2.change([
-            {
-                path: ["text"],
-                action: "delete",
-                index: 5,
-                count: 3,
-            },
-            {
-                path: ["text"],
-                action: "insert",
-                index: 5,
-                values: "ara".split(""),
-            },
-        ])
-        assert.deepStrictEqual(doc2.root.text, "The Paratext editor".split(""))
-
-        // Apply the concurrent changes to the respective other document
-        doc2.applyChange(change2)
-        doc1.applyChange(change3)
-
-        // Both sides should end up with the same text. The outcome doesn't
-        // really make sense, but it's standard behaviour for CRDTs...
-        // see also: https://github.com/automerge/automerge/issues/401
-        assert.deepStrictEqual(doc1.root.text, "The ara editor".split(""))
-        assert.deepStrictEqual(doc2.root.text, "The ara editor".split(""))
-
-        // The "ara" should be bold because it was inserted into the middle of a
-        // span that was bold at the time of insertion
-        const expectedTextWithFormatting = [
-            { marks: {}, text: "The " },
-            { marks: { strong: { active: true } }, text: "ara" },
-            { marks: {}, text: " editor" },
-        ]
-
-        assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
-        assert.deepStrictEqual(
-            doc2.getTextWithFormatting(["text"]),
-            expectedTextWithFormatting,
-        )
+        testConcurrentWrites({
+            // Format "Peritext" as bold in both documents
+            preOps: [
+                { action: "addMark", start: 4, end: 11, markType: "strong" },
+            ],
+            // In doc1, delete the word "Peritext"
+            inputOps1: [{ action: "delete", index: 4, count: 8 }],
+            // Concurrently, in doc2, change "Peritext" to "Paratext"
+            inputOps2: [
+                { action: "delete", index: 5, count: 3 },
+                { action: "insert", index: 5, values: "ara".split("") },
+            ],
+            // Both sides should end up with the same text. The outcome doesn't
+            // really make sense, but it's standard behaviour for CRDTs...
+            // see also: https://github.com/automerge/automerge/issues/401
+            // The "ara" should be bold because it was inserted into the middle of a
+            // span that was bold at the time of insertion
+            expectedResult: [
+                { marks: {}, text: "The " },
+                { marks: { strong: { active: true } }, text: "ara" },
+                { marks: {}, text: " editor" },
+            ],
+        })
     })
 
     describe("patches", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple insertion", () => {
-            const [doc1, doc2] = generateDocs()
+            const { doc1, doc2 } = generateDocs()
 
             const inputOps: InputOperation[] = [
                 {
@@ -1059,7 +453,7 @@ describe("Micromerge", () => {
         // A simple example is when two peers concurrently insert text.
         // We need to adjust one of the insertion indexes.
         it("produces a patch with adjusted insertion index on concurrent inserts", () => {
-            const [doc1, doc2] = generateDocs()
+            const { doc1, doc2 } = generateDocs()
 
             // Doc 1 and Doc 2 start out synchronized.
 
@@ -1101,7 +495,7 @@ describe("Micromerge", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple deletion", () => {
-            const [doc1, doc2] = generateDocs()
+            const { doc1, doc2 } = generateDocs()
 
             const inputOps: InputOperation[] = [
                 {
@@ -1120,7 +514,7 @@ describe("Micromerge", () => {
         // between input ops and patches. For example, a multi-char deletion
         // turns into a patch that contains two single-char deletion operations.
         it("turns a multi-char deletion into multiple single char deletions", () => {
-            const [doc1, doc2] = generateDocs()
+            const { doc1, doc2 } = generateDocs()
 
             const inputOps: InputOperation[] = [
                 {
@@ -1151,7 +545,7 @@ describe("Micromerge", () => {
 
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             doc1.change([
                 // Comment on the word "Peritext"
@@ -1178,7 +572,7 @@ describe("Micromerge", () => {
         })
 
         it("correctly flattens two comments from the same user", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             doc1.change([
                 // Comment on "The Peritext"
@@ -1222,61 +616,47 @@ describe("Micromerge", () => {
         // we don't really care which node comments are added on since
         // adding a comment is inherently a commutative operation.
         it("correctly overlaps two comments from different users", () => {
-            const [doc1, doc2] = generateDocs()
-
-            const { change: change2 } = doc1.change([
-                // Comment on the word "The Peritext"
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 0,
-                    end: 11,
-                    markType: "comment",
-                    attrs: { id: "abc-123" },
-                },
-            ])
-
-            const { change: change3 } = doc2.change([
-                // Comment on "Peritext Editor"
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 18,
-                    markType: "comment",
-                    attrs: { id: "def-789" },
-                },
-            ])
-
-            // Exchange edits
-            doc2.applyChange(change2)
-            doc1.applyChange(change3)
-
-            // Confirm that both peers converge to same result -- one link wins
-            assert.deepStrictEqual(
-                doc1.getTextWithFormatting(["text"]),
-                doc2.getTextWithFormatting(["text"]),
-            )
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
-                {
-                    marks: {
-                        comment: [{ id: "abc-123" }, { id: "def-789" }],
+            testConcurrentWrites({
+                inputOps1: [
+                    // Comment on the word "The Peritext"
+                    {
+                        action: "addMark",
+                        start: 0,
+                        end: 11,
+                        markType: "comment",
+                        attrs: { id: "abc-123" },
                     },
-                    text: "Peritext",
-                },
-                {
-                    marks: { comment: [{ id: "def-789" }] },
-                    text: " editor",
-                },
-            ])
+                ],
+                inputOps2: [
+                    // Comment on "Peritext Editor"
+                    {
+                        action: "addMark",
+                        start: 4,
+                        end: 18,
+                        markType: "comment",
+                        attrs: { id: "def-789" },
+                    },
+                ],
+                expectedResult: [
+                    { marks: { comment: [{ id: "abc-123" }] }, text: "The " },
+                    {
+                        marks: {
+                            comment: [{ id: "abc-123" }, { id: "def-789" }],
+                        },
+                        text: "Peritext",
+                    },
+                    {
+                        marks: { comment: [{ id: "def-789" }] },
+                        text: " editor",
+                    },
+                ],
+            })
         })
     })
 
     describe("links", () => {
         it("returns a single link in the flattened spans", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             doc1.change([
                 // Link on the word "Peritext"
@@ -1308,108 +688,82 @@ describe("Micromerge", () => {
         })
 
         it("arbitrarily chooses one link as the winner when fully overlapping", () => {
-            const [doc1, doc2] = generateDocs()
-            const { change: change2 } = doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "link",
-                    attrs: { url: "https://inkandswitch.com" },
-                },
-            ])
-
-            const { change: change3 } = doc2.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 11,
-                    markType: "link",
-                    attrs: { url: "https://google.com" },
-                },
-            ])
-
-            // Exchange edits
-            doc2.applyChange(change2)
-            doc1.applyChange(change3)
-
-            // Confirm that both peers converge to same result -- one link wins
-            assert.deepStrictEqual(
-                doc1.getTextWithFormatting(["text"]),
-                doc2.getTextWithFormatting(["text"]),
-            )
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                { marks: {}, text: "The " },
-                {
-                    marks: {
-                        link: { active: true, url: "https://google.com" },
+            testConcurrentWrites({
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        start: 4,
+                        end: 11,
+                        markType: "link",
+                        attrs: { url: "https://inkandswitch.com" },
                     },
-                    text: "Peritext",
-                },
-                { marks: {}, text: " editor" },
-            ])
+                ],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        start: 4,
+                        end: 11,
+                        markType: "link",
+                        attrs: { url: "https://google.com" },
+                    },
+                ],
+                expectedResult: [
+                    { marks: {}, text: "The " },
+                    {
+                        marks: {
+                            link: { active: true, url: "https://google.com" },
+                        },
+                        text: "Peritext",
+                    },
+                    { marks: {}, text: " editor" },
+                ],
+            })
         })
 
         it("arbitrarily chooses one link as the winner when partially overlapping", () => {
-            const [doc1, doc2] = generateDocs()
-            const { change: change2 } = doc1.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 0,
-                    end: 11,
-                    markType: "link",
-                    attrs: { url: "https://inkandswitch.com" },
-                },
-            ])
-
-            const { change: change3 } = doc2.change([
-                {
-                    path: ["text"],
-                    action: "addMark",
-                    start: 4,
-                    end: 18,
-                    markType: "link",
-                    attrs: { url: "https://google.com" },
-                },
-            ])
-
-            // Exchange edits
-            doc2.applyChange(change2)
-            doc1.applyChange(change3)
-
-            // Confirm that both peers converge to same result
-            assert.deepStrictEqual(
-                doc1.getTextWithFormatting(["text"]),
-                doc2.getTextWithFormatting(["text"]),
-            )
-
-            assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), [
-                {
-                    marks: {
-                        link: {
-                            active: true,
-                            url: "https://inkandswitch.com",
+            testConcurrentWrites({
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        start: 0,
+                        end: 11,
+                        markType: "link",
+                        attrs: { url: "https://inkandswitch.com" },
+                    },
+                ],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        start: 4,
+                        end: 18,
+                        markType: "link",
+                        attrs: { url: "https://google.com" },
+                    },
+                ],
+                expectedResult: [
+                    {
+                        marks: {
+                            link: {
+                                active: true,
+                                url: "https://inkandswitch.com",
+                            },
                         },
+                        text: "The ",
                     },
-                    text: "The ",
-                },
-                {
-                    marks: {
-                        link: { active: true, url: "https://google.com" },
+                    {
+                        marks: {
+                            link: { active: true, url: "https://google.com" },
+                        },
+                        text: "Peritext editor",
                     },
-                    text: "Peritext editor",
-                },
-            ])
+                ],
+            })
         })
     })
 
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1421,7 +775,7 @@ describe("Micromerge", () => {
         })
 
         it("increments cursor position when insert happens before cursor", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1443,7 +797,7 @@ describe("Micromerge", () => {
         })
 
         it("does not move cursor position when insert happens after cursor", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1465,7 +819,7 @@ describe("Micromerge", () => {
         })
 
         it("moves cursor left if deletion happens before cursor", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1487,7 +841,7 @@ describe("Micromerge", () => {
         })
 
         it("doesn't move cursor if deletion happens after cursor", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1509,7 +863,7 @@ describe("Micromerge", () => {
         })
 
         it("returns index 0 if everything before the cursor is deleted", () => {
-            const [doc1] = generateDocs()
+            const { doc1 } = generateDocs()
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)

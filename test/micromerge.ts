@@ -65,7 +65,9 @@ const range = (start: number, end: number): number[] => {
 }
 
 /** Concurrently apply a change to two documents,
- *  then sync them and see if we converge to the expected result. */
+ *  then sync them and see if we converge to the expected result.
+ *  This tests both the "batch" codepath as well as the result after
+ *  incrementally applying the patches generated on both sides. */
 const testConcurrentWrites = (args: {
     initialText?: string
     preOps?: DistributiveOmit<InputOperation, "path">[]

@@ -1069,15 +1069,15 @@ export default class Micromerge {
                         if (
                             every(
                                 elMeta.markOperations,
-                                markOp =>
-                                    markOp.end === elMeta.elemId &&
-                                    markOp.start !== elMeta.elemId,
+                                markOp => markOp.start !== elMeta.elemId,
                             )
                         ) {
-                            // This is a special case where this character is only the end
-                            // of operations, and no operations start here.
-                            // We can end the patch on this character and
-                            // start the next partial patch on the next character.
+                            // In this case, no op starts on this element --
+                            // for each op stored on the element, this element is either
+                            // in the middle of the op, or at the end of it.
+                            // As a result, we don't need to start any patches here,
+                            // we can instead emit a patch ending here and start the next one
+                            // 1 character to the right.
                             nextPatchIndex = visibleIndex + 1
                             if (partialPatch) {
                                 patches.push({
@@ -1088,13 +1088,10 @@ export default class Micromerge {
                         } else if (
                             every(
                                 elMeta.markOperations,
-                                markOp =>
-                                    markOp.start === elMeta.elemId &&
-                                    markOp.end !== elMeta.elemId,
+                                markOp => markOp.end !== elMeta.elemId,
                             )
                         ) {
-                            // In this case, this character is only the start of some ops,
-                            // and not the end of any ops.
+                            // In this case, this character is not the end of any ops.
                             // We end the previous partial patch one character to the left,
                             // and then start a new partial patch on this character.
                             if (partialPatch) {

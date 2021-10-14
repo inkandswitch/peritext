@@ -116,12 +116,12 @@ const testConcurrentWrites = (args: {
     assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), expectedResult)
     assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), expectedResult)
 
-    // debug({
-    //     patchesForDoc1,
-    //     patchesForDoc2,
-    //     accumulated1: accumulatePatches(patchesForDoc1),
-    //     accumulated2: accumulatePatches(patchesForDoc2),
-    // })
+    debug({
+        patchesForDoc1,
+        patchesForDoc2,
+        accumulated1: accumulatePatches(patchesForDoc1),
+        accumulated2: accumulatePatches(patchesForDoc2),
+    })
 
     // Test the "patches" codepath -- if we apply all the incremental patches
     // on both sides, do we end up with the same state?
@@ -460,6 +460,44 @@ describe("Micromerge", () => {
             ],
         })
     })
+
+    it.only("handles formatting on a deleted span", () => {
+        testConcurrentWrites({
+            // In doc1, delete the word "Peritext"
+            inputOps1: [{ action: "delete", index: 4, count: 9 }],
+            // Concurrently, in doc2, add a mark to part of the word Peritext
+            inputOps2: [
+                { action: "addMark", start: 5, end: 10, markType: "strong" },
+            ],
+            // Both sides should end up with the text deleted
+            expectedResult: [{ marks: {}, text: "The editor" }],
+        })
+    })
+
+    it.only("handles formatting on a single character", () => {
+        // This is a very simple test. Only one editor edits;
+        // it adds a mark to a single character.
+        // The point of this test is to ensure we don't get too aggressive
+        // with excluding patches that only apply to a single character,
+        // as part of our attempts to avoid emitting patches that
+        // only apply to deleted content.
+        testConcurrentWrites({
+            inputOps1: [],
+            // In doc2,
+            inputOps2: [
+                { action: "addMark", start: 4, end: 4, markType: "strong" },
+            ],
+            //
+            expectedResult: [
+                { marks: {}, text: "The " },
+                { marks: { strong: { active: true } }, text: "P" },
+                { marks: {}, text: "eritext editor" },
+            ],
+        })
+    })
+
+    // Other test cases:
+    // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 
     describe("patches", () => {
         // In the simplest case, when a change is applied immediately to another peer,

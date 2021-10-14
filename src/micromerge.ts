@@ -145,18 +145,13 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 }
 
 // TODO: automatically populate attrs type w/o manual enumeration
-export type AddMarkOperationInput = Values<
-    {
-        [M in MarkType]: keyof Omit<
-            MarkValue[M],
-            "opId" | "active"
-        > extends never
-            ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-            : AddMarkOperationInputBase<M> & {
-                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-              }
-    }
->
+export type AddMarkOperationInput = Values<{
+    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+        : AddMarkOperationInputBase<M> & {
+              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+          }
+}>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
@@ -269,18 +264,13 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     markType: M
 }
 
-export type AddMarkOperation = Values<
-    {
-        [M in MarkType]: keyof Omit<
-            MarkValue[M],
-            "opId" | "active"
-        > extends never
-            ? AddMarkOperationBase<M> & { attrs?: undefined }
-            : AddMarkOperationBase<M> & {
-                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-              }
-    }
->
+export type AddMarkOperation = Values<{
+    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+        ? AddMarkOperationBase<M> & { attrs?: undefined }
+        : AddMarkOperationBase<M> & {
+              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+          }
+}>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"

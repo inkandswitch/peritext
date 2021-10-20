@@ -49,6 +49,16 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
             return false
         },
     })
+
+    // Every 1 second, insert new text into the editor
+    setInterval(() => {
+        editors["alice"].view.dispatch(
+            // The insertion index is a little tricky here--
+            // Prosemirror reserves position 0 for the position before our inline span,
+            // so position 1 is the leftmost position in the actual text itself
+            editors["alice"].view.state.tr.insertText("Hello world ", 1),
+        )
+    }, 3000)
 } else {
     throw new Error(`Didn't find expected node in the DOM`)
 }

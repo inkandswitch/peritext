@@ -13,10 +13,9 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
     domNode.innerHTML = marks
         .map(
             m =>
-                `• ${m.type.name} ${
-                    Object.keys(m.attrs).length !== 0
-                        ? JSON.stringify(m.attrs)
-                        : ""
+                `• ${m.type.name} ${Object.keys(m.attrs).length !== 0
+                    ? JSON.stringify(m.attrs)
+                    : ""
                 }`,
         )
         .join("<br/>")
@@ -87,24 +86,14 @@ if (bobNode && bobEditor && bobChanges) {
     throw new Error(`Didn't find expected node in the DOM`)
 }
 
-// Add a button for connecting/disconnecting the two editors
-let connected = true
-document.querySelector("#toggle-connect")?.addEventListener("click", e => {
-    if (connected) {
-        for (const editor of Object.values(editors)) {
-            editor.queue.drop()
-        }
-        if (e.target instanceof HTMLElement) {
-            e.target.innerText = "🟢 Connect"
-        }
-        connected = false
-    } else {
-        for (const editor of Object.values(editors)) {
-            editor.queue.start()
-        }
-        if (e.target instanceof HTMLElement) {
-            e.target.innerText = "❌ Disconnect"
-        }
-        connected = true
+for (const editor of Object.values(editors)) {
+    editor.queue.drop()
+}
+
+// Add a button for syncing the two editors
+document.querySelector("#sync")?.addEventListener("click", () => {
+    for (const editor of Object.values(editors)) {
+        editor.queue.flush()
     }
 })
+

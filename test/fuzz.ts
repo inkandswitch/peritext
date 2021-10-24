@@ -3,7 +3,7 @@ import Micromerge, { Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
 function addMarkChange(doc: Micromerge) {
-    const length = (doc1.root.text as any[]).length
+    const length = (doc.root.text as any[]).length
     const start = Math.floor(Math.random() * length)
     const end = start + Math.floor(Math.random() * (length - start - 1))
     const { change } = doc.change([
@@ -20,7 +20,7 @@ function addMarkChange(doc: Micromerge) {
 }
 
 function insertChange(doc: Micromerge) {
-    const length = (doc1.root.text as any[]).length
+    const length = (doc.root.text as any[]).length
     const start = Math.floor(Math.random() * length)
 
     const { change } = doc.change([
@@ -36,12 +36,11 @@ function insertChange(doc: Micromerge) {
 }
 
 function removeChange(doc: Micromerge) {
-    const length = (doc1.root.text as any[]).length
+    const length = (doc.root.text as any[]).length
     const index = Math.floor(Math.random() * length)
-    const count = Math.floor(Math.random() * (length - index - 1))
+    const count = Math.floor(Math.random() * (length - index - 2))
 
-    console.log(doc.root.text)
-    console.log(`l ${length} i ${index} c ${ count}`)
+    // console.log(`l ${length} i ${index} c ${ count}`)
 
     const { change } = doc.change([
         {

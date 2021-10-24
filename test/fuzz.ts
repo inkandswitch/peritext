@@ -3,12 +3,15 @@ import Micromerge, { Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
 function addMarkChange(doc: Micromerge) {
+    const length = (doc1.root.text as any[]).length
+    const start = Math.floor(Math.random() * length)
+    const end = start + Math.floor(Math.random() * (length - start - 1))
     const { change } = doc.change([
         {
             path: ["text"],
             action: "addMark",
-            start: 0,
-            end: 3,
+            start,
+            end,
             markType: "comment",
             attrs: { id: `abc-${Math.floor(Math.random() * 1000)}` },
         },
@@ -17,11 +20,14 @@ function addMarkChange(doc: Micromerge) {
 }
 
 function insertChange(doc: Micromerge) {
+    const length = (doc1.root.text as any[]).length
+    const start = Math.floor(Math.random() * length)
+
     const { change } = doc.change([
         {
             path: ["text"],
             action: "insert",
-            index: 0,
+            index: start,
             values: "textChars".split(""),
         },
     ])
@@ -30,12 +36,19 @@ function insertChange(doc: Micromerge) {
 }
 
 function removeChange(doc: Micromerge) {
+    const length = (doc1.root.text as any[]).length
+    const index = Math.floor(Math.random() * length)
+    const count = Math.floor(Math.random() * (length - index - 1))
+
+    console.log(doc.root.text)
+    console.log(`l ${length} i ${index} c ${ count}`)
+
     const { change } = doc.change([
         {
             path: ["text"],
             action: "delete",
-            index: 0,
-            count: 2
+            index,
+            count
         },
     ])
     // pvh is not a huge fan of the mutable interface
@@ -60,11 +73,11 @@ while(true) {
             queue.push(insertChange(doc))
             break
         case "remove":
-            console.log(`Inserting into ${randomTarget ? "doc1" : "doc2"}`)
+            console.log(`Deleting from ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeChange(doc))
             break
         case "addMark":
-            console.log(`Inserting into ${randomTarget ? "doc1" : "doc2"}`)
+            console.log(`Adding mark into ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(addMarkChange(doc))
             break
     }
@@ -79,10 +92,10 @@ while(true) {
         doc1Queue.length = 0
         doc2Queue.length = 0 // typical JS "elegance"
 
+        console.log(doc1.root.text.join(''))
         assert.deepStrictEqual(
             doc1.getTextWithFormatting(["text"]),
             doc2.getTextWithFormatting(["text"]),
         )
-        console.log(doc1.getTextWithFormatting(["text"]))
     }
 }

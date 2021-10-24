@@ -1,4 +1,5 @@
 import assert from "assert"
+import crypto from "crypto"
 import Micromerge, { Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
@@ -19,16 +20,19 @@ function addMarkChange(doc: Micromerge) {
     return change
 }
 
+const MAX_CHARS = 10
 function insertChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
-    const start = Math.floor(Math.random() * length)
+    const index = Math.floor(Math.random() * length)
+    const numChars = Math.floor(Math.random() * MAX_CHARS)
+    const values = crypto.randomBytes(numChars).toString('hex').split('');
 
     const { change } = doc.change([
         {
             path: ["text"],
             action: "insert",
-            index: start,
-            values: "textChars".split(""),
+            index,
+            values,
         },
     ])
     // pvh is not a huge fan of the mutable interface

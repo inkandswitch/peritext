@@ -8,6 +8,7 @@ import Micromerge, {
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { isEqual } from "lodash"
+import { generateDocs } from "./generateDocs"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")

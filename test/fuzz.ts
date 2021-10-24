@@ -10,7 +10,7 @@ function addMarkChange(doc: Micromerge) {
             start: 0,
             end: 3,
             markType: "comment",
-            attrs: { id: "abc-123" },
+            attrs: { id: `abc-${Math.floor(Math.random() * 1000)}` },
         },
     ])
     return change

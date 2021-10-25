@@ -121,10 +121,11 @@ function insertChange(doc: Micromerge) {
 
 function removeChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
+    // gklitt: this appears to be a real bug! if you delete everything things go wonky
     const index = Math.floor(Math.random() * length) + 1
     const count = Math.ceil(Math.random() * (length - index))
 
-    console.log(`l ${length} i ${index} c ${count}`)
+    // console.log(`l ${length} i ${index} c ${count}`)
 
     const { change } = doc.change([
         {

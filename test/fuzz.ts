@@ -13,50 +13,46 @@ const exampleURLs = ["https://inkandswitch.com",
 
 const commentHistory: string[] = []
 
-function addConflictingMarkChange(doc: Micromerge) {
+function addMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const start = Math.floor(Math.random() * length)
-    const end = start + Math.floor(Math.random() * (length - start - 1))
+    const end = start + Math.floor(Math.random() * (length - start))
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sharedStuff: any = {
+        path: ["text"],
+        action: "addMark",
+        start,
+        end,
+        markType,
+    }
+
     if (markType === "link") {
+        // pick one of the four urls we use to encourage adjacent matching spans
         const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
         const { change } = doc.change([
             {
-                path: ["text"],
-                action: "addMark",
-                start,
-                end,
-                markType,
+                ...sharedStuff,
                 attrs: { url },
             },
         ])
         return change
     }
     else if (markType === "comment") {
-        const id = "comment-" + crypto.randomBytes(4).toString('hex')
+        // make a new comment ID and remember it so we can try removing it later 
+        const id = "comment-" + crypto.randomBytes(2).toString('hex')
         commentHistory.push(id)
         const { change } = doc.change([
             {
-                path: ["text"],
-                action: "addMark",
-                start,
-                end,
-                markType,
+                ...sharedStuff,
                 attrs: { id },
             },
         ])
         return change
     }
     else {
-        const { change } = doc.change([
-            {
-                path: ["text"],
-                action: "addMark",
-                start,
-                end,
-                markType
-            },
-        ])
+        const { change } = doc.change([sharedStuff])
         return change
     }
 }
@@ -64,16 +60,24 @@ function addConflictingMarkChange(doc: Micromerge) {
 function removeMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const start = Math.floor(Math.random() * length)
-    const end = start + Math.floor(Math.random() * (length - start - 1))
+    const end = start + Math.floor(Math.random() * (length - start))
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sharedStuff: any = {
+        path: ["text"],
+        action: "addMark",
+        start,
+        end,
+        markType,
+    }
+
     if (markType === "link") {
+        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
         const { change } = doc.change([
             {
-                path: ["text"],
-                action: "removeMark",
-                start,
-                end,
-                markType,
+                ...sharedStuff,
+                attrs: { url } // do we need a URL?
             },
         ])
         return change
@@ -81,29 +85,16 @@ function removeMarkChange(doc: Micromerge) {
     else if (markType === "comment") {
         // note to gklitt: we should probably enumerate the existing comments, right now it just grows
         const id = commentHistory[Math.floor(Math.random() * commentHistory.length)];
-
         const { change } = doc.change([
             {
-                path: ["text"],
-                action: "removeMark",
-                start,
-                end,
-                markType,
+                ...sharedStuff,
                 attrs: { id },
             },
         ])
         return change
     }
     else {
-        const { change } = doc.change([
-            {
-                path: ["text"],
-                action: "removeMark",
-                start,
-                end,
-                markType
-            },
-        ])
+        const { change } = doc.change([sharedStuff])
         return change
     }
 
@@ -130,10 +121,10 @@ function insertChange(doc: Micromerge) {
 
 function removeChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
-    const index = Math.floor(Math.random() * length)
-    const count = Math.floor(Math.random() * (length - index - 2))
+    const index = Math.floor(Math.random() * length) + 1
+    const count = Math.ceil(Math.random() * (length - index))
 
-    // console.log(`l ${length} i ${index} c ${ count}`)
+    console.log(`l ${length} i ${index} c ${count}`)
 
     const { change } = doc.change([
         {
@@ -143,11 +134,10 @@ function removeChange(doc: Micromerge) {
             count
         },
     ])
-    // pvh is not a huge fan of the mutable interface
     return change
 }
 
-const { doc1, doc2 } = generateDocs("alphabet")
+const { doc1, doc2 } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 const doc1Queue: Change[] = []
 const doc2Queue: Change[] = []
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
@@ -155,7 +145,6 @@ const opTypes = ["insert", "remove", "addMark", "removeMark"]
 // eslint-disable-next-line no-constant-condition
 let totalChanges = 0
 while (totalChanges++ < 1_000_000) {
-    if (totalChanges % 1000 == 0) { console.log("Total changes: ", totalChanges) }
     const randomTarget = (Math.random() < 0.5)
     const doc = randomTarget ? doc1 : doc2
     const queue = randomTarget ? doc1Queue : doc2Queue
@@ -172,7 +161,7 @@ while (totalChanges++ < 1_000_000) {
             break
         case "addMark":
             // console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
-            queue.push(addConflictingMarkChange(doc))
+            queue.push(addMarkChange(doc))
             break
         case "removeMark":
             // console.log(`R ${randomTarget ? "doc1" : "doc2"}`)
@@ -180,7 +169,7 @@ while (totalChanges++ < 1_000_000) {
             break
     }
 
-    const shouldSync = (Math.random() < 0.1)
+    const shouldSync = (Math.random() < 0.2)
     if (shouldSync) {
         console.log(`M doc1: ${doc1Queue.length} doc2: ${doc2Queue.length}`)
 

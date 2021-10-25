@@ -9,7 +9,8 @@
         "typecheck": "tsc --noEmit --watch",
         "prettier": "prettier --write ./index.html *.json ./src/**/* ./test/**/*",
         "check-prettier": "prettier --check ./index.html *.json ./src/**/* ./test/**/*",
-        "test": "ts-mocha ./test/*.ts -p ./test/tsconfig.json",
+        "test": "ts-mocha ./test/micromerge.ts -p ./test/tsconfig.json",
+        "fuzz": "ts-mocha ./test/fuzz.ts -p ./test/tsconfig.json",
         "lint": "eslint ./src/**/* ./test/**/*"
     },
     "author": "",

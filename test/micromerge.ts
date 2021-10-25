@@ -18,37 +18,6 @@ const debug = (obj: any) => {
     console.log(inspect(obj, false, 4))
 }
 
-/** Create and return two Micromerge documents with the same text content.
- *  Useful for creating a baseline upon which to play further changes
- */
-const generateDocs = (
-    text: string = defaultText,
-): {
-    doc1: Micromerge
-    doc2: Micromerge
-    patches1: Patch[]
-    patches2: Patch[]
-} => {
-    const doc1 = new Micromerge("doc1")
-    const doc2 = new Micromerge("doc2")
-    const textChars = text.split("")
-
-    // Generate a change on doc1
-    const { change: change1, patches: patches1 } = doc1.change([
-        { path: [], action: "makeList", key: "text" },
-        {
-            path: ["text"],
-            action: "insert",
-            index: 0,
-            values: textChars,
-        },
-    ])
-
-    // Generate change2 on doc2, which depends on change1
-    const patches2 = doc2.applyChange(change1)
-    return { doc1, doc2, patches1, patches2 }
-}
-
 /** Define a naive structure that accumulates patches and computes a document state.
  *  This isn't as optimized as the structure we use in the actual codebase,
  *  but it lets us straightforwardly test whether the incremental patches that we have

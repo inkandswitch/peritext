@@ -3,15 +3,51 @@ import crypto from "crypto"
 import Micromerge, { Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
-type MarkTypes = "strong" | "em"
-const markTypes: MarkTypes[] = ["strong", "em"]
+type MarkTypes = "strong" | "em" | "link" | "comment"
+const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
+
+const exampleURLs = ["https://inkandswitch.com", 
+                     "https://inkandswitch.com/cambria/",
+                     "https://inkandswitch.com/peritext/",
+                     "https://inkandswitch.com/pushpin"]
 
 function addConflictingMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const start = Math.floor(Math.random() * length)
     const end = start + Math.floor(Math.random() * (length - start - 1))
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
-    const { change } = doc.change([
+    if (markType === "link") {
+        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
+        const { change } = doc.change([
+        {
+            path: ["text"],
+            action: "addMark",
+            start,
+            end,
+            markType,
+            attrs: { url },
+        },
+        ])
+        return change
+    }
+    else if (markType === "comment") {
+        // const id = "comment-" + crypto.randomBytes(4).toString('hex')
+        const { change } = doc.change([
+        {
+            path: ["text"],
+            action: "addMark",
+            start,
+            end,
+            markType,
+            
+            attrs: { id: "abc-123" }, 
+            //attrs: { id },
+        },
+        ])
+        return change
+    }
+    else {
+        const { change } = doc.change([
         {
             path: ["text"],
             action: "addMark",
@@ -19,8 +55,9 @@ function addConflictingMarkChange(doc: Micromerge) {
             end,
             markType
         },
-    ])
-    return change
+        ])
+        return change
+    }
 }
 
 function removeMarkChange(doc: Micromerge) {
@@ -28,7 +65,38 @@ function removeMarkChange(doc: Micromerge) {
     const start = Math.floor(Math.random() * length)
     const end = start + Math.floor(Math.random() * (length - start - 1))
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
-    const { change } = doc.change([
+    if (markType === "link") {
+        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
+        const { change } = doc.change([
+        {
+            path: ["text"],
+            action: "removeMark",
+            start,
+            end,
+            markType,
+            attrs: { url },
+        },
+        ])
+        return change
+    }
+    else if (markType === "comment") {
+        // const id = "comment-" + crypto.randomBytes(4).toString('hex')
+        const { change } = doc.change([
+        {
+            path: ["text"],
+            action: "removeMark",
+            start,
+            end,
+            markType,
+            
+            attrs: { id: "abc-123" }, 
+            //attrs: { id },
+        },
+        ])
+        return change
+    }
+    else {
+        const { change } = doc.change([
         {
             path: ["text"],
             action: "removeMark",
@@ -36,8 +104,10 @@ function removeMarkChange(doc: Micromerge) {
             end,
             markType
         },
-    ])
-    return change
+        ])
+        return change
+    }
+
 }
 
 const MAX_CHARS = 10
@@ -78,7 +148,7 @@ function removeChange(doc: Micromerge) {
     return change
 }
 
-const [doc1, doc2] = generateDocs("alphabet")
+const {doc1, doc2} = generateDocs("alphabet")
 const doc1Queue: Change[] = []
 const doc2Queue: Change[] = []
 const opTypes = ["insert", "remove", "addMark", "removeMark"]

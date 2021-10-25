@@ -94,24 +94,24 @@ while(totalChanges++ < 1_000_000) {
     const op = opTypes[Math.floor(Math.random() * opTypes.length)];
     switch(op) {
         case "insert":
-            console.log(`I ${randomTarget ? "doc1" : "doc2"}`)
+            // console.log(`I ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(insertChange(doc))
             break
         case "remove":
-            console.log(`D ${randomTarget ? "doc1" : "doc2"}`)
+            // console.log(`D ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeChange(doc))
             break
         case "addMark":
-            console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
+            // console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(addConflictingMarkChange(doc))
             break
         case "removeMark":
-            console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
+            // console.log(`R ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeMarkChange(doc))
             break
         }
 
-    const shouldSync = (Math.random() < 0.02)
+    const shouldSync = (Math.random() < 0.1)
     if (shouldSync) {
         console.log(`M doc1: ${doc1Queue.length} doc2: ${doc2Queue.length}`)
 

@@ -1,9 +1,9 @@
 import crypto from "crypto"
 import { Schema } from "prosemirror-model"
-import Micromerge from "../src/micromerge"
+import { Editor } from "./bridge"
 
 /* prosemirror boilerplate */
-import { ALL_MARKS, schemaSpec } from "./schema"
+import { ALL_MARKS, schemaSpec, isMarkType } from "./schema"
 const schema = new Schema(schemaSpec)
 type MarkTypes = "strong" | "em" | "link" | "comment"
 // end
@@ -15,7 +15,7 @@ const exampleURLs = ["https://inkandswitch.com",
 
 const commentHistory: string[] = []
 
-function addMarkChange(editor) {
+function addMarkChange(editor: Editor) {
     const length = editor.view.state.doc.textContent.length
     const start = Math.floor(Math.random() * length)
     const end = start + Math.floor(Math.random() * (length - start))
@@ -44,51 +44,43 @@ function addMarkChange(editor) {
     }
 }
 
-function removeMarkChange(doc: Micromerge) {
-    const length = (doc.root.text as any[]).length
+function removeMarkChange(editor: Editor) {
+    const length = editor.view.state.doc.textContent.length
     const start = Math.floor(Math.random() * length)
     const end = start + Math.floor(Math.random() * (length - start))
     const markType = ALL_MARKS[Math.floor(Math.random() * ALL_MARKS.length)];
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sharedStuff: any = {
-        path: ["text"],
-        action: "addMark",
-        start,
-        end,
-        markType,
+    
+    if (!isMarkType(markType)) {
+        throw new Error(`Invalid mark type: ${markType}`)
     }
 
     if (markType === "link") {
+        // pick one of the four urls we use to encourage adjacent matching spans
         const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
-        const { change } = doc.change([
-            {
-                ...sharedStuff,
-                attrs: { url } // do we need a URL?
-            },
-        ])
-        return change
+        editor.view.dispatch(
+            editor.view.state.tr.removeMark(start, end)
+        )
+    
     }
     else if (markType === "comment") {
-        // note to gklitt: we should probably enumerate the existing comments, right now it just grows
-        const id = commentHistory[Math.floor(Math.random() * commentHistory.length)];
-        const { change } = doc.change([
-            {
-                ...sharedStuff,
-                attrs: { id },
-            },
-        ])
-        return change
+        // make a new comment ID and remember it so we can try removing it later 
+        const id = "comment-" + crypto.randomBytes(2).toString('hex')
+        commentHistory.push(id)
+        editor.view.dispatch(
+            editor.view.state.tr.removeMark(start, end)
+        )
     }
     else {
-        const { change } = doc.change([sharedStuff])
-        return change
-    }
+        console.log('removing')
 
+        editor.view.dispatch(
+            editor.view.state.tr.removeMark(start, end)
+        )
+    }
 }
 
 const MAX_CHARS = 10
-function insertChange(editor) {
+function insertChange(editor: Editor) {
     const length = editor.view.state.doc.textContent.length
     const index = Math.floor(Math.random() * length)
     const numChars = Math.floor(Math.random() * MAX_CHARS)
@@ -102,7 +94,7 @@ function insertChange(editor) {
     )
 }
 
-function removeChange(editor) {
+function removeChange(editor: Editor) {
     const length = editor.view.state.doc.textContent.length
     // gklitt: this appears to be a real bug! if you delete everything things go wonky
     const index = Math.floor(Math.random() * length) + 1
@@ -118,9 +110,9 @@ function removeChange(editor) {
     )
 }
 
-const opTypes = [/*"insert", "remove",*/ "addMark" /*, "removeMark"*/]
+const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
-export function change(editor1, editor2): void {
+export function change(editor1: Editor, editor2: Editor): void {
     const randomTarget = (Math.random() < 0.5)
     const editor = randomTarget ? editor1 : editor2
 

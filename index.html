@@ -1,41 +1,44 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Help" />
-        <title>Peritext</title>
-        <link rel="stylesheet" href="https://prosemirror.net/css/editor.css" />
-        <link rel="stylesheet" href="static/styles.css" />
-    </head>
-    <body>
-        <button id="toggle-connect">❌ Disconnect</button>
-        <div class="editors-container">
-            <div class="editor-container" id="alice">
-                <h3>Editor</h3>
-                <div class="editor"></div>
-                <div class="marks-container">
-                    <h3>Marks</h3>
-                    <div class="marks"></div>
-                </div>
-                <div class="changes-container">
-                    <h3>Micromerge Operations + Prosemirror Steps</h3>
-                    <div class="changes"></div>
-                </div>
+
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Help" />
+    <title>Peritext</title>
+    <link rel="stylesheet" href="https://prosemirror.net/css/editor.css" />
+    <link rel="stylesheet" href="static/styles.css" />
+</head>
+
+<body>
+    <button id="sync">🔄 Sync</button>
+    <div class="editors-container">
+        <div class="editor-container" id="alice">
+            <h3>Editor</h3>
+            <div class="editor"></div>
+            <div class="marks-container">
+                <h3>Marks</h3>
+                <div class="marks"></div>
             </div>
-            <div class="editor-container" id="bob">
-                <h3>Editor</h3>
-                <div class="editor"></div>
-                <div class="marks-container">
-                    <h3>Marks</h3>
-                    <div class="marks"></div>
-                </div>
-                <div class="changes-container">
-                    <h3>Micromerge Operations + Prosemirror Steps</h3>
-                    <div class="changes"></div>
-                </div>
+            <div class="changes-container">
+                <h3>Micromerge Operations + Prosemirror Steps</h3>
+                <div class="changes"></div>
             </div>
         </div>
-        <script src="src/index.ts"></script>
-    </body>
+        <div class="editor-container" id="bob">
+            <h3>Editor</h3>
+            <div class="editor"></div>
+            <div class="marks-container">
+                <h3>Marks</h3>
+                <div class="marks"></div>
+            </div>
+            <div class="changes-container">
+                <h3>Micromerge Operations + Prosemirror Steps</h3>
+                <div class="changes"></div>
+            </div>
+        </div>
+    </div>
+    <script src="src/index.ts"></script>
+</body>
+
 </html>

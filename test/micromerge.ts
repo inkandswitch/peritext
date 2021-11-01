@@ -1,9 +1,12 @@
 import assert from "assert"
 import Micromerge, {
+    AddMarkOperation,
+    AddMarkOperationInput,
     FormatSpanWithText,
     InputOperation,
     MarkMapWithoutOpIds,
     Patch,
+    RemoveMarkOperationInput,
 } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
@@ -13,7 +16,7 @@ const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const debug = (obj: any) => {
+export const debug = (obj: any) => {
     console.log(inspect(obj, false, 4))
 }
 
@@ -111,26 +114,22 @@ const testConcurrentWrites = (args: {
     const patches1b = doc1.applyChange(change2)
     patchesForDoc1 = patchesForDoc1.concat(patches1b)
 
+    // debug({
+    //     doc1: doc1.getTextWithFormatting(["text"]),
+    //     doc2: doc2.getTextWithFormatting(["text"]),
+    // })
+
     // Test the "batch" codepath -- if we convert the internal metadata structure
     // into a formatted document all at once, do we end up with the expected result?
     assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), expectedResult)
     assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), expectedResult)
 
-    debug({
-        patchesForDoc1,
-        patchesForDoc2,
-        accumulated1: accumulatePatches(patchesForDoc1),
-        accumulated2: accumulatePatches(patchesForDoc2),
-    })
-
-    // Test the "patches" codepath -- if we apply all the incremental patches
-    // on both sides, do we end up with the same state?
-    // TODO: We currently only check here that the two docs converged to same state;
-    // we could do better and actually check against the expected result as well.
-    assert.deepStrictEqual(
-        accumulatePatches(patchesForDoc1),
-        accumulatePatches(patchesForDoc2),
-    )
+    // For now, we have commented out this code which tests that patches converge;
+    // we'll add it back once we're ready to emit patches again.
+    // assert.deepStrictEqual(
+    //     accumulatePatches(patchesForDoc1),
+    //     accumulatePatches(patchesForDoc2),
+    // )
 }
 
 const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
@@ -184,7 +183,7 @@ const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
     return metadata
 }
 
-describe("Micromerge", () => {
+describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
         const { doc1 } = generateDocs("abcde")
 
@@ -222,7 +221,7 @@ describe("Micromerge", () => {
         assert.deepStrictEqual(doc2.root.text, ["a", "b"])
     })
 
-    it("correctly handles concurrent deletion and insertion", () => {
+    it("handles concurrent deletion and insertion", () => {
         testConcurrentWrites({
             initialText: "abrxabra",
             // doc1: delete the 'x', then insert 'ca' to form 'abracabra'
@@ -240,7 +239,12 @@ describe("Micromerge", () => {
         testConcurrentWrites({
             inputOps1: [
                 // Bold the word "Peritext"
-                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             expectedResult: [
                 { marks: {}, text: "The " },
@@ -250,13 +254,23 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly merges concurrent overlapping bold and italic", () => {
+    it("merges concurrent overlapping bold and italic", () => {
         testConcurrentWrites({
             inputOps1: [
-                { action: "addMark", start: 0, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             inputOps2: [
-                { action: "addMark", start: 4, end: 18, markType: "em" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 19,
+                    markType: "em",
+                },
             ],
             expectedResult: [
                 { marks: { strong: { active: true } }, text: "The " },
@@ -269,13 +283,23 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly merges concurrent bold and unbold", () => {
+    it("merges concurrent bold and unbold", () => {
         testConcurrentWrites({
             inputOps1: [
-                { action: "addMark", start: 0, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             inputOps2: [
-                { action: "removeMark", start: 4, end: 18, markType: "strong" },
+                {
+                    action: "removeMark",
+                    startIndex: 4,
+                    endIndex: 19,
+                    markType: "strong",
+                },
             ],
             expectedResult: [
                 { marks: { strong: { active: true } }, text: "The " },
@@ -284,13 +308,23 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly merges concurrent bold and unbold where unbold is inside the bold", () => {
+    it("merges concurrent bold and unbold where unbold is inside the bold", () => {
         testConcurrentWrites({
             inputOps1: [
-                { action: "addMark", start: 0, end: 18, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 19,
+                    markType: "strong",
+                },
             ],
             inputOps2: [
-                { action: "removeMark", start: 4, end: 11, markType: "strong" },
+                {
+                    action: "removeMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             expectedResult: [
                 { marks: { strong: { active: true } }, text: "The " },
@@ -300,13 +334,23 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly merges concurrent bold and unbold where unbold is one character", () => {
+    it("merges concurrent bold and unbold where unbold is one character", () => {
         testConcurrentWrites({
             inputOps1: [
-                { action: "addMark", start: 0, end: 18, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 19,
+                    markType: "strong",
+                },
             ],
             inputOps2: [
-                { action: "removeMark", start: 4, end: 4, markType: "strong" },
+                {
+                    action: "removeMark",
+                    startIndex: 4,
+                    endIndex: 5,
+                    markType: "strong",
+                },
             ],
             expectedResult: [
                 { marks: { strong: { active: true } }, text: "The " },
@@ -316,11 +360,16 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly handles spans that have been collapsed to zero width", () => {
+    it("handles spans that have been collapsed to zero width", () => {
         testConcurrentWrites({
             preOps: [
                 // add strong mark to the word "Peritext" in "The Peritext editor"
-                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
                 // delete all characters inside "Peritext"
                 { action: "delete", index: 4, count: 8 },
             ],
@@ -333,11 +382,16 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly merges concurrent bold and insertion at the mark boundary", () => {
+    it("merges concurrent bold and insertion at the mark boundary", () => {
         testConcurrentWrites({
             // In doc1, we format the word "Peritext" as bold
             inputOps1: [
-                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
             inputOps2: [
@@ -353,12 +407,22 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly handles insertion where one mark ends and another begins", () => {
+    it("handles insertion where one mark ends and another begins", () => {
         testConcurrentWrites({
             // In doc1, we format the word "Peritext" as bold, and " editor" as italic
             inputOps1: [
-                { action: "addMark", start: 4, end: 11, markType: "strong" },
-                { action: "addMark", start: 12, end: 18, markType: "em" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
+                {
+                    action: "addMark",
+                    startIndex: 12,
+                    endIndex: 19,
+                    markType: "em",
+                },
             ],
             // Concurrently, in doc2, we add a footnote after "Peritext"
             inputOps2: [
@@ -379,8 +443,18 @@ describe("Micromerge", () => {
             initialText: "AC",
             // In doc1, we format "AC" as bold, then unbold "C"
             inputOps1: [
-                { action: "addMark", start: 0, end: 1, markType: "strong" },
-                { action: "removeMark", start: 1, end: 1, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 2,
+                    markType: "strong",
+                },
+                {
+                    action: "removeMark",
+                    startIndex: 1,
+                    endIndex: 2,
+                    markType: "strong",
+                },
             ],
             // Concurrently, in doc2, we insert "B" in between
             inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
@@ -397,8 +471,18 @@ describe("Micromerge", () => {
             initialText: "AC",
             // In doc1, we format "AC" as bold, then unbold "A"
             inputOps1: [
-                { action: "addMark", start: 0, end: 1, markType: "strong" },
-                { action: "removeMark", start: 0, end: 0, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 2,
+                    markType: "strong",
+                },
+                {
+                    action: "removeMark",
+                    startIndex: 0,
+                    endIndex: 1,
+                    markType: "strong",
+                },
             ],
             // Concurrently, in doc2, we insert "B" in between
             inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
@@ -410,12 +494,17 @@ describe("Micromerge", () => {
         })
     })
 
-    it("correctly handles an addMark boundary that is a tombstone", () => {
+    it("handles an addMark boundary that is a tombstone", () => {
         testConcurrentWrites({
             initialText: "The *Peritext* editor",
             // In doc1, we format "*Peritext*" as bold and then delete the asterisks
             inputOps1: [
-                { action: "addMark", start: 4, end: 13, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 14,
+                    markType: "strong",
+                },
                 { action: "delete", index: 4, count: 1 },
                 { action: "delete", index: 12, count: 1 },
             ],
@@ -439,7 +528,12 @@ describe("Micromerge", () => {
         testConcurrentWrites({
             // Format "Peritext" as bold in both documents
             preOps: [
-                { action: "addMark", start: 4, end: 11, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 12,
+                    markType: "strong",
+                },
             ],
             // In doc1, delete the word "Peritext"
             inputOps1: [{ action: "delete", index: 4, count: 8 }],
@@ -461,20 +555,25 @@ describe("Micromerge", () => {
         })
     })
 
-    it.only("handles formatting on a deleted span", () => {
+    it("handles formatting on a deleted span", () => {
         testConcurrentWrites({
             // In doc1, delete the word "Peritext"
             inputOps1: [{ action: "delete", index: 4, count: 9 }],
             // Concurrently, in doc2, add a mark to part of the word Peritext
             inputOps2: [
-                { action: "addMark", start: 5, end: 10, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 5,
+                    endIndex: 11,
+                    markType: "strong",
+                },
             ],
             // Both sides should end up with the text deleted
             expectedResult: [{ marks: {}, text: "The editor" }],
         })
     })
 
-    it.only("handles formatting on a single character", () => {
+    it("handles formatting on a single character", () => {
         // This is a very simple test. Only one editor edits;
         // it adds a mark to a single character.
         // The point of this test is to ensure we don't get too aggressive
@@ -485,7 +584,12 @@ describe("Micromerge", () => {
             inputOps1: [],
             // In doc2,
             inputOps2: [
-                { action: "addMark", start: 4, end: 4, markType: "strong" },
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 5,
+                    markType: "strong",
+                },
             ],
             //
             expectedResult: [
@@ -499,7 +603,7 @@ describe("Micromerge", () => {
     // Other test cases:
     // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 
-    describe("patches", () => {
+    describe.skip("patches", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple insertion", () => {
@@ -624,8 +728,8 @@ describe("Micromerge", () => {
                 {
                     path: ["text"],
                     action: "addMark",
-                    start: 4,
-                    end: 11,
+                    startIndex: 4,
+                    endIndex: 12,
                     markType: "comment",
                     attrs: { id: "abc-123" },
                 },
@@ -643,7 +747,7 @@ describe("Micromerge", () => {
             ])
         })
 
-        it("correctly flattens two comments from the same user", () => {
+        it("flattens two comments from the same user", () => {
             const { doc1 } = generateDocs()
 
             doc1.change([
@@ -651,8 +755,8 @@ describe("Micromerge", () => {
                 {
                     path: ["text"],
                     action: "addMark",
-                    start: 0,
-                    end: 11,
+                    startIndex: 0,
+                    endIndex: 12,
                     markType: "comment",
                     attrs: { id: "abc-123" },
                 },
@@ -660,8 +764,8 @@ describe("Micromerge", () => {
                 {
                     path: ["text"],
                     action: "addMark",
-                    start: 4,
-                    end: 18,
+                    startIndex: 4,
+                    endIndex: 19,
                     markType: "comment",
                     attrs: { id: "def-789" },
                 },
@@ -687,14 +791,14 @@ describe("Micromerge", () => {
         // This case shouldn't be any different from the previous test;
         // we don't really care which node comments are added on since
         // adding a comment is inherently a commutative operation.
-        it("correctly overlaps two comments from different users", () => {
+        it("overlaps two comments from different users", () => {
             testConcurrentWrites({
                 inputOps1: [
                     // Comment on the word "The Peritext"
                     {
                         action: "addMark",
-                        start: 0,
-                        end: 11,
+                        startIndex: 0,
+                        endIndex: 12,
                         markType: "comment",
                         attrs: { id: "abc-123" },
                     },
@@ -703,8 +807,8 @@ describe("Micromerge", () => {
                     // Comment on "Peritext Editor"
                     {
                         action: "addMark",
-                        start: 4,
-                        end: 18,
+                        startIndex: 4,
+                        endIndex: 19,
                         markType: "comment",
                         attrs: { id: "def-789" },
                     },
@@ -735,8 +839,8 @@ describe("Micromerge", () => {
                 {
                     path: ["text"],
                     action: "addMark",
-                    start: 4,
-                    end: 11,
+                    startIndex: 4,
+                    endIndex: 12,
                     markType: "link",
                     attrs: { url: "https://inkandswitch.com" },
                 },
@@ -764,8 +868,8 @@ describe("Micromerge", () => {
                 inputOps1: [
                     {
                         action: "addMark",
-                        start: 4,
-                        end: 11,
+                        startIndex: 4,
+                        endIndex: 12,
                         markType: "link",
                         attrs: { url: "https://inkandswitch.com" },
                     },
@@ -773,8 +877,8 @@ describe("Micromerge", () => {
                 inputOps2: [
                     {
                         action: "addMark",
-                        start: 4,
-                        end: 11,
+                        startIndex: 4,
+                        endIndex: 12,
                         markType: "link",
                         attrs: { url: "https://google.com" },
                     },
@@ -797,8 +901,8 @@ describe("Micromerge", () => {
                 inputOps1: [
                     {
                         action: "addMark",
-                        start: 0,
-                        end: 11,
+                        startIndex: 0,
+                        endIndex: 12,
                         markType: "link",
                         attrs: { url: "https://inkandswitch.com" },
                     },
@@ -806,8 +910,8 @@ describe("Micromerge", () => {
                 inputOps2: [
                     {
                         action: "addMark",
-                        start: 4,
-                        end: 18,
+                        startIndex: 4,
+                        endIndex: 19,
                         markType: "link",
                         attrs: { url: "https://google.com" },
                     },

@@ -3,6 +3,7 @@ import { every, isEqual, sortBy } from "lodash"
 import { inspect } from "util"
 
 import type { Marks, MarkType } from "./schema"
+import { debug } from "../test/micromerge"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -134,24 +135,28 @@ interface DelOperationInput {
 
 interface AddMarkOperationInputBase<M extends MarkType> {
     action: "addMark"
-    /** Path to a list object. */
     path: OperationPath
-    /** Index in the list to apply the mark start, inclusive. */
-    start: number
-    /** Index in the list to end the mark, inclusive. */
-    end: number
+    /** Index of the first character in the mark span */
+    startIndex: number
+    /** Index after the last character in the mark span (exclusive end) */
+    endIndex: number
     /** Mark to add. */
     markType: M
 }
 
 // TODO: automatically populate attrs type w/o manual enumeration
-export type AddMarkOperationInput = Values<{
-    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-        : AddMarkOperationInputBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
-}>
+export type AddMarkOperationInput = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+            : AddMarkOperationInputBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
@@ -160,9 +165,9 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
     /** Path to a list object. */
     path: OperationPath
     /** Index in the list to remove the mark, inclusive. */
-    start: number
-    /** Index in the list to end the mark removal, inclusive. */
-    end: number
+    startIndex: number
+    /** Index in the list to end the mark removal, exclusive. */
+    endIndex: number
     /** Mark to remove. */
     markType: M
 }
@@ -256,28 +261,33 @@ interface DelOperation extends BaseOperation {
 
 interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "addMark"
-    /** List element to apply the mark start. */
-    start: OperationId
-    /** List element to apply the mark end, inclusive. */
-    end: OperationId
+    /** List element after which to start the new mark */
+    startAfter: ElemId
+    /** List element after which to end the new mark */
+    endAfter: ElemId
     /** Mark to add. */
     markType: M
 }
 
-export type AddMarkOperation = Values<{
-    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationBase<M> & { attrs?: undefined }
-        : AddMarkOperationBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
-}>
+export type AddMarkOperation = Values<
+    {
+        [M in MarkType]: keyof Omit<
+            MarkValue[M],
+            "opId" | "active"
+        > extends never
+            ? AddMarkOperationBase<M> & { attrs?: undefined }
+            : AddMarkOperationBase<M> & {
+                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+              }
+    }
+>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
-    /** List element to apply the mark start. */
-    start: OperationId
-    /** List element to apply the mark end, inclusive. */
-    end: OperationId
+    /** List element after which to begin removing the mark */
+    startAfter: ElemId
+    /** List element after which to stop removing the mark */
+    endAfter: ElemId
     /** Mark to add. */
     markType: M
 }
@@ -301,6 +311,8 @@ export type Operation =
     | AddMarkOperation
     | RemoveMarkOperation
 
+type MarkOperation = AddMarkOperation | RemoveMarkOperation
+
 /**
  * Tracks the operation ID that set each field.
  */
@@ -323,7 +335,11 @@ type MapMetadata<M extends { [key: string]: Json }> = {
     }
 }
 
-type ListItemMetadata = {
+type ListItemMetadata = TextCharacter | MarkOpStart | MarkOpEnd
+
+type TextCharacter = {
+    type: "textCharacter"
+
     /** Operation that created the list item.
         NOTE: InputOperations are not internal Operations! One InsertInputOperation
         can produce multiple InsertOperations. The `elemId` corresponds to an
@@ -335,9 +351,19 @@ type ListItemMetadata = {
     valueId: OperationId
     /** Has the list item been deleted? */
     deleted: boolean
-    /** A list of the mark operations that intersect with this item */
-    markOperations?: Array<AddMarkOperation | RemoveMarkOperation>
 }
+
+type MarkOpBoundary = {
+    // todo: figure out how we populate elemId on the two ends.
+    // - generate two different op Ids for this op?
+    // - string format: "<opid>-start" and "<opid>-end"
+    elemId: string
+    op: MarkOperation
+    overlappingOps: MarkOperation[]
+}
+
+type MarkOpStart = MarkOpBoundary & { type: "markOpStart" }
+type MarkOpEnd = MarkOpBoundary & { type: "markOpEnd" }
 
 type ListMetadata = Array<ListItemMetadata>
 
@@ -643,57 +669,83 @@ export default class Micromerge {
                         })
                         patchesForChange.push(...patches)
                     }
-                } else if (inputOp.action === "addMark") {
+                } else if (
+                    inputOp.action === "addMark" ||
+                    inputOp.action === "removeMark"
+                ) {
+                    // TODO: use Zod to properly runtime-check all input commands?
+                    if (
+                        inputOp.startIndex === undefined ||
+                        inputOp.endIndex === undefined
+                    ) {
+                        throw new Error(
+                            `Expected mark input op to have start index: ${inputOp.action}`,
+                        )
+                    }
+
+                    if (inputOp.endIndex <= inputOp.startIndex) {
+                        throw new Error(
+                            "Expected mark end index to be after start index",
+                        )
+                    }
+
                     const partialOp = {
                         action: inputOp.action,
                         obj: objId,
-                        start: this.getListElementId(objId, inputOp.start),
-                        end: this.getListElementId(objId, inputOp.end),
+                        // Todo: are both of these subtractions correct?
+                        // Todo: handle spans that start at the beginning of the string w/ _head
+                        startAfter:
+                            inputOp.startIndex === 0
+                                ? HEAD
+                                : this.getListElementId(
+                                      objId,
+                                      inputOp.startIndex - 1,
+                                  ),
+                        endAfter: this.getListElementId(
+                            objId,
+                            inputOp.endIndex - 1,
+                        ),
                     } as const
 
-                    if (inputOp.markType === "comment") {
-                        const { markType, attrs } = inputOp
-                        const { patches } = this.makeNewOp(change, {
-                            ...partialOp,
-                            markType,
-                            attrs,
-                        })
-                        patchesForChange.push(...patches)
-                    } else if (inputOp.markType === "link") {
-                        const { markType, attrs } = inputOp
-                        const { patches } = this.makeNewOp(change, {
-                            ...partialOp,
-                            markType,
-                            attrs,
-                        })
-                        patchesForChange.push(...patches)
+                    if (inputOp.action === "addMark") {
+                        if (inputOp.markType === "comment") {
+                            const { markType, attrs } = inputOp
+                            const { patches } = this.makeNewOp(change, {
+                                ...partialOp,
+                                markType,
+                                attrs,
+                            })
+                            patchesForChange.push(...patches)
+                        } else if (inputOp.markType === "link") {
+                            const { markType, attrs } = inputOp
+                            const { patches } = this.makeNewOp(change, {
+                                ...partialOp,
+                                markType,
+                                attrs,
+                            })
+                            patchesForChange.push(...patches)
+                        } else {
+                            const { patches } = this.makeNewOp(change, {
+                                ...partialOp,
+                                markType: inputOp.markType,
+                            })
+                            patchesForChange.push(...patches)
+                        }
                     } else {
-                        const { patches } = this.makeNewOp(change, {
-                            ...partialOp,
-                            markType: inputOp.markType,
-                        })
-                        patchesForChange.push(...patches)
-                    }
-                } else if (inputOp.action === "removeMark") {
-                    const partialOp = {
-                        action: inputOp.action,
-                        obj: objId,
-                        start: this.getListElementId(objId, inputOp.start),
-                        end: this.getListElementId(objId, inputOp.end),
-                    } as const
-                    if (inputOp.markType === "comment") {
-                        const { patches } = this.makeNewOp(change, {
-                            ...partialOp,
-                            markType: inputOp.markType,
-                            attrs: inputOp.attrs,
-                        })
-                        patchesForChange.push(...patches)
-                    } else {
-                        const { patches } = this.makeNewOp(change, {
-                            ...partialOp,
-                            markType: inputOp.markType,
-                        })
-                        patchesForChange.push(...patches)
+                        if (inputOp.markType === "comment") {
+                            const { patches } = this.makeNewOp(change, {
+                                ...partialOp,
+                                markType: inputOp.markType,
+                                attrs: inputOp.attrs,
+                            })
+                            patchesForChange.push(...patches)
+                        } else {
+                            const { patches } = this.makeNewOp(change, {
+                                ...partialOp,
+                                markType: inputOp.markType,
+                            })
+                            patchesForChange.push(...patches)
+                        }
                     }
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
@@ -792,6 +844,15 @@ export default class Micromerge {
         const objectId = this.getObjectIdForPath(path)
         const text = this.objects[objectId]
         const metadata = this.metadata[objectId]
+        // debug({
+        //     metadata: metadata.map((m: ListItemMetadata) => {
+        //         if (m.type === "textCharacter") {
+        //             return { type: "text" }
+        //         } else {
+        //             return m
+        //         }
+        //     }),
+        // })
         // console.log(
         //     inspect(
         //         {
@@ -819,46 +880,21 @@ export default class Micromerge {
         let visible = 0
 
         for (const [index, elMeta] of metadata.entries()) {
-            // We may need to start a new span because
-            // some operation begins at this point
-            const isStart = elMeta.markOperations !== undefined
-
-            // Detect if some operation ended at the previous character
-            // so we need to start a new span here
-            const prevMeta = metadata[index - 1]
-            const isAfterEnd =
-                index > 0 &&
-                prevMeta.markOperations !== undefined &&
-                prevMeta.markOperations?.find(op => op.end === prevMeta.elemId)
-
-            if (isStart || isAfterEnd) {
-                // Calculate the new marks that should start at this span
-                let newMarks = marks
-                if (isStart) {
-                    if (elMeta.markOperations === undefined) {
-                        throw new Error(`impossible, assisting TS compiler`)
-                    }
-                    newMarks = opsToMarks(elMeta.markOperations)
-                } else if (isAfterEnd) {
-                    if (prevMeta.markOperations === undefined) {
-                        throw new Error(`impossible, assisting TS compiler`)
-                    }
-
-                    newMarks = opsToMarks(
-                        prevMeta.markOperations.filter(
-                            op => op.end !== prevMeta.elemId,
-                        ),
-                    )
-                }
-
-                // If we have some characters to emit, need to add to formatted spans
+            if (elMeta.type === "markOpStart") {
+                // Emit the previous span
                 addCharactersToSpans({ characters, spans, marks })
 
+                // Start the new span
+                marks = opsToMarks([elMeta.op, ...elMeta.overlappingOps])
                 characters = []
-                marks = newMarks
-            }
+            } else if (elMeta.type === "markOpEnd") {
+                // Emit the previous span
+                addCharactersToSpans({ characters, spans, marks })
 
-            if (!elMeta.deleted) {
+                // Start the new span
+                marks = opsToMarks(elMeta.overlappingOps)
+                characters = []
+            } else if (elMeta.type === "textCharacter" && !elMeta.deleted) {
                 // todo: what happens if the char isn't a string?
                 characters.push(text[visible] as string)
                 visible += 1
@@ -975,196 +1011,89 @@ export default class Micromerge {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
-                // Maintain a flag while we iterate, detecting whether the op we're applying
-                // overlaps with the metadata item we're currently considering
-                let opIntersectsItem = false
-                let visibleIndex = 0
-                let partialPatch:
-                    | Omit<AddMarkOperationInput, "end">
-                    | Omit<RemoveMarkOperationInput, "end">
-                    | null = null
+                // Remember if we have already seen the start of this op
+                let opIsActive = false
 
+                // Remember the marks that are currently active in the text
+                let activeMarkOpsAtCurrentPosition: MarkOperation[] = []
+
+                // Handle the case where a mark is inserted after
+                if (op.action === "addMark" && op.startAfter === HEAD) {
+                    metadata.splice(0, 0, {
+                        type: "markOpStart",
+                        // TODO: consider whether we really want the elemID to take this form.
+                        // Convenient to do it this way, but maybe better to generate 2 op IDs?
+                        elemId: `${op.opId}-start`,
+                        op,
+                        overlappingOps: activeMarkOpsAtCurrentPosition,
+                    })
+                    opIsActive = true
+                }
+
+                // TODO: how does iteration interact with adding entries as we go?
                 for (const [index, elMeta] of metadata.entries()) {
-                    // On the start and end element of the op, we want to add this op
-                    // to the existing mark ops at that element.
-                    // There might not be mark ops stored at this element yet, in which case
-                    // we have to copy them from the nearest element to the left that has mark ops
                     if (
-                        elMeta.elemId === op.start ||
-                        elMeta.elemId === op.end
+                        elMeta.type === "markOpStart" ||
+                        elMeta.type === "markOpEnd"
                     ) {
-                        let existingOps: Array<
-                            AddMarkOperation | RemoveMarkOperation
-                        > = []
-
-                        if (elMeta.markOperations !== undefined) {
-                            // If this element has mark ops on it, we can directly use those
-                            // to determine the existing marks before applying this op.
-                            existingOps = elMeta.markOperations
-                        } else {
-                            // Otherwise, we find the nearest element to the left tagged w/
-                            // marks ops, and use those ops. We have to be careful to remove
-                            // any ops that end on that other element though, since those ops
-                            // will no longer be active on this current element.
-                            for (let i = index; i >= 0; i--) {
-                                const metadataAtLocation =
-                                    metadata[i].markOperations
-                                if (metadataAtLocation !== undefined) {
-                                    existingOps = metadataAtLocation.filter(
-                                        existingOp =>
-                                            existingOp.end !==
-                                            metadata[i].elemId,
-                                    )
-                                    break
-                                }
-                            }
-                        }
-
-                        if (elMeta.elemId === op.start) {
-                            // We need to figure out if this op has any effect on this span,
-                            // in which case we will emit a patch representing the effects.
-                            // TODO: could do this more efficiently than diffing, by
-                            // having a function that incrementally applies an op to a mark map
-                            const oldMarks = opsToMarks(existingOps)
-                            const newMarks = opsToMarks([...existingOps, op])
-
-                            if (!isEqual(oldMarks, newMarks)) {
-                                partialPatch = {
-                                    path: [Micromerge.contentKey],
-                                    markType: op.markType,
-                                    action: op.action,
-                                    start: visibleIndex,
-                                }
-                            }
-                        }
-
-                        if (elMeta.elemId === op.end && partialPatch) {
-                            // If the op is ending here, emit the pending partial patch
-                            patches.push({ ...partialPatch, end: visibleIndex })
-                            partialPatch = null
-                        }
-
-                        if (existingOps.includes(op)) {
-                            elMeta.markOperations = [...existingOps]
-                        } else {
-                            elMeta.markOperations = [...existingOps, op]
-                        }
-                    } else if (
-                        opIntersectsItem &&
-                        elMeta.markOperations !== undefined
-                    ) {
-                        let nextPatchIndex = visibleIndex
-
-                        // Emit the pending partial patch
-                        if (
-                            every(
-                                elMeta.markOperations,
-                                markOp => markOp.start !== elMeta.elemId,
-                            )
-                        ) {
-                            // In this case, no op starts on this element --
-                            // for each op stored on the element, this element is either
-                            // in the middle of the op, or at the end of it.
-                            // As a result, we don't need to start any patches here,
-                            // we can instead emit a patch ending here and start the next one
-                            // 1 character to the right.
-                            nextPatchIndex = visibleIndex + 1
-                            if (partialPatch) {
-                                patches.push({
-                                    ...partialPatch,
-                                    end: visibleIndex,
-                                })
-                            }
-                        } else if (
-                            every(
-                                elMeta.markOperations,
-                                markOp => markOp.end !== elMeta.elemId,
-                            )
-                        ) {
-                            // In this case, this character is not the end of any ops.
-                            // We end the previous partial patch one character to the left,
-                            // and then start a new partial patch on this character.
-                            if (partialPatch) {
-                                patches.push({
-                                    ...partialPatch,
-                                    end: visibleIndex - 1,
-                                })
-                            }
-                        } else {
-                            // In this case, this character is both start and end of some ops.
-                            // We need to emit the previous partial patch, emit a patch for
-                            // this single character, and then start the partial patch
-                            // for the next character.
-                            if (partialPatch) {
-                                patches.push({
-                                    ...partialPatch,
-                                    end: visibleIndex - 1,
-                                })
-                            }
-
-                            // Emit a patch for this character
-                            const oldMarks = opsToMarks(elMeta.markOperations)
-                            const newMarks = opsToMarks([
-                                ...elMeta.markOperations,
+                        // If the newly applied op is already active at this position in the metadata list,
+                        // we want to add it to the overlapping list for any mark control character we encounter.
+                        if (opIsActive && elMeta.op !== op) {
+                            elMeta.overlappingOps = [
+                                ...elMeta.overlappingOps,
                                 op,
-                            ])
-
-                            if (!isEqual(oldMarks, newMarks)) {
-                                patches.push({
-                                    path: [Micromerge.contentKey],
-                                    markType: op.markType,
-                                    action: op.action,
-                                    start: visibleIndex,
-                                    end: visibleIndex,
-                                })
-                            }
-                            nextPatchIndex = visibleIndex + 1
+                            ]
                         }
 
-                        const existingOps = elMeta.markOperations
-                        const nonEndingOps = existingOps.filter(
-                            existingOp => existingOp.end !== elMeta.elemId,
-                        )
-
-                        // Figure out if the marks are going to change after
-                        // this element due to applying this operation;
-                        // if they are, then prepare to emit a patch for this span
-                        const oldMarks = opsToMarks(nonEndingOps)
-                        const newMarks = opsToMarks([...nonEndingOps, op])
-
-                        if (!isEqual(oldMarks, newMarks)) {
-                            partialPatch = {
-                                path: [Micromerge.contentKey],
-                                markType: op.markType,
-                                action: op.action,
-                                start: nextPatchIndex,
-                            }
+                        // Now we remember all the mark operations active at the current position;
+                        // this is based on looking at the local metadata for this control character.
+                        if (elMeta.type === "markOpStart") {
+                            activeMarkOpsAtCurrentPosition = [
+                                elMeta.op,
+                                ...elMeta.overlappingOps,
+                            ]
                         } else {
-                            partialPatch = null
-                        }
-
-                        if (!existingOps.includes(op)) {
-                            // Add this op to any items between start and end
-                            elMeta.markOperations = [...existingOps, op]
+                            activeMarkOpsAtCurrentPosition =
+                                elMeta.overlappingOps
                         }
                     }
 
-                    if (!elMeta.deleted) {
-                        visibleIndex += 1
+                    // If we've found the place to insert the start control character, insert it!
+                    if (elMeta.elemId === op.startAfter) {
+                        metadata.splice(index + 1, 0, {
+                            type: "markOpStart",
+                            // TODO: consider whether we really want the elemID to take this form.
+                            // Convenient to do it this way, but maybe better to generate 2 op IDs?
+                            elemId: `${op.opId}-start`,
+                            op,
+                            overlappingOps: activeMarkOpsAtCurrentPosition,
+                        })
+
+                        opIsActive = true
+
+                        // console.log(`Start mark at ${index}`, { metadata })
                     }
 
-                    if (elMeta.elemId === op.start) {
-                        opIntersectsItem = true
-                    }
+                    // If we've found the place to insert the end control character, insert it!
+                    if (elMeta.elemId === op.endAfter) {
+                        metadata.splice(index + 1, 0, {
+                            type: "markOpEnd",
+                            elemId: `${op.opId}-end`,
+                            op,
+                            overlappingOps:
+                                activeMarkOpsAtCurrentPosition.filter(
+                                    o => o !== op,
+                                ),
+                        })
 
-                    if (elMeta.elemId === op.end) {
-                        // The op can't have consequences past its end, so we
-                        // stop iterating over the metadata once we reach op.end
                         break
+
+                        // console.log(`End mark at ${index}`, { metadata })
                     }
                 }
 
-                return patches
+                // Todo: emit patches
+                return []
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {
@@ -1229,7 +1158,9 @@ export default class Micromerge {
             op.elemId === HEAD
                 ? { index: -1, visible: 0 }
                 : this.findListElement(op.obj, op.elemId)
-        if (index >= 0 && !meta[index].deleted) {
+
+        const el = meta[index]
+        if (index >= 0 && el.type === "textCharacter" && !el.deleted) {
             visible++
         }
         index++
@@ -1240,14 +1171,70 @@ export default class Micromerge {
             index < meta.length &&
             compareOpIds(op.opId, meta[index].elemId) < 0
         ) {
-            if (!meta[index].deleted) {
+            const el = meta[index]
+            if (el.type === "textCharacter" && !el.deleted) {
                 visible++
             }
             index++
         }
 
+        // We may be inserting immediately adjacent to one or more mark boundaries.
+        // If so, we should deterministically insert this new character either to the left
+        // or the right of all the mark boundaries at this position.
+        // let adjacentMarkBoundary = null
+        // if (
+        //     index > 0 &&
+        //     (meta[index - 1].type === "markOpStart" ||
+        //         meta[index - 1].type === "markOpEnd")
+        // ) {
+        //     adjacentMarkBoundary = meta[index - 1]
+        // } else if (
+        //     meta[index] &&
+        //     (meta[index].type === "markOpStart" ||
+        //         meta[index].type === "markOpEnd")
+        // ) {
+        //     adjacentMarkBoundary = meta[index]
+        // }
+        // if (adjacentMarkBoundary) {
+        //     // console.log("handling adjacent mark boundary!!")
+        //     if (
+        //         (adjacentMarkBoundary.type === "markOpStart" &&
+        //             adjacentMarkBoundary.op.action === "addMark") ||
+        //         (adjacentMarkBoundary.type === "markOpEnd" &&
+        //             adjacentMarkBoundary.op.action === "removeMark")
+        //     ) {
+        //         // console.log("rewinding left")
+        //         // If we're adjacent to the beginning of an addmark or the end of a removemark,
+        //         // we move leftwards and insert to the left of all adjacent mark boundaries.
+        //         // (This assumes that all marks are exclusive; todo: support inclusive marks)
+        //         while (
+        //             index > 0 &&
+        //             (meta[index - 1].type === "markOpStart" ||
+        //                 meta[index - 1].type === "markOpEnd")
+        //         ) {
+        //             index--
+        //         }
+        //     } else {
+        //         // console.log("forwarding right")
+        //         // If we're adjacent to the end of an addmark or the beginning of a removemark,
+        //         // we move rightwards and insert to the right of all adjacent mark boundaries.
+        //         // (This assumes that all marks are exclusive; todo: support inclusive marks)
+        //         while (
+        //             index < meta.length - 1 &&
+        //             (meta[index].type === "markOpStart" ||
+        //                 meta[index].type === "markOpEnd")
+        //         ) {
+        //             index++
+        //         }
+        //     }
+        // }
+
         // Insert the new list element at the correct index
+        // TODO: this should consider control characters in the immediate vicinity.
+        // Currently it will probably end up arbitrarily making marks inclusive on one side and
+        // exclusive on the other side.
         meta.splice(index, 0, {
+            type: "textCharacter",
             elemId: op.opId,
             valueId: op.opId,
             deleted: false,
@@ -1268,17 +1255,10 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
-        let existingOps: Array<AddMarkOperation | RemoveMarkOperation> = []
-        for (let i = index; i >= 0; i--) {
-            const metadataAtLocation = meta[i].markOperations
-            if (metadataAtLocation !== undefined) {
-                existingOps = metadataAtLocation.filter(
-                    existingOp => existingOp.end !== meta[i].elemId,
-                )
-                break
-            }
-        }
-        const marks = opsToMarks(existingOps)
+        // console.log({ obj })
+
+        // TODO: compute the correct marks that apply to this inserted character
+        const marks = {}
 
         return [
             {
@@ -1308,7 +1288,7 @@ export default class Micromerge {
         const meta = listMeta[index]
         // TODO: Do we need to compare op ids here for deletion?
         if (op.action === "del") {
-            if (!meta.deleted) {
+            if (meta.type === "textCharacter" && !meta.deleted) {
                 const obj = this.objects[op.obj]
                 if (!Array.isArray(obj)) {
                     throw new Error(`Not a list: ${String(op.obj)}`)
@@ -1324,7 +1304,10 @@ export default class Micromerge {
                     },
                 ]
             }
-        } else if (compareOpIds(meta.valueId, op.opId) < 0) {
+        } else if (
+            meta.type === "textCharacter" &&
+            compareOpIds(meta.valueId, op.opId) < 0
+        ) {
             throw new Error("Not implemented yet")
             // // Currently this can never happen, but applies when there is an update
             // // operation that isn't deletion.
@@ -1367,7 +1350,8 @@ export default class Micromerge {
             throw new Error("Expected array metadata for findListElement")
         }
         while (index < meta.length && meta[index].elemId !== elemId) {
-            if (!meta[index].deleted) visible++
+            const el = meta[index]
+            if (el.type === "textCharacter" && !el.deleted) visible++
             index++
         }
         if (index === meta.length) {
@@ -1390,7 +1374,7 @@ export default class Micromerge {
             throw new Error("Expected array metadata for findListElement")
         }
         for (const element of meta) {
-            if (!element.deleted) {
+            if (element.type === "textCharacter" && !element.deleted) {
                 visible++
                 if (visible === index) {
                     return element.elemId

@@ -5,10 +5,13 @@ import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
 import { change } from "./automate"
+import { Transaction } from "prosemirror-state"
 
 const publisher = new Publisher<Array<Change>>()
 
 const editors: { [key: string]: Editor } = {}
+
+let transactions: Array<Transaction> = []
 
 const renderMarks = (domNode: Element, marks: Mark[]): void => {
     domNode.innerHTML = marks
@@ -33,6 +36,7 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
         changesNode: aliceChanges,
         doc: aliceDoc,
         publisher,
+        transactionCollector: transactions,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
             // We only want to run our callback once, on the innermost clicked node.
@@ -62,6 +66,7 @@ if (bobNode && bobEditor && bobChanges) {
         changesNode: bobChanges,
         doc: bobDoc,
         publisher,
+        transactionCollector: transactions,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
             // We only want to run our callback once, on the innermost clicked node.
@@ -85,4 +90,24 @@ document.querySelector("#sync")?.addEventListener("click", () => {
     for (const editor of Object.values(editors)) {
         editor.queue.flush()
     }
+})
+
+document.querySelector("#download")?.addEventListener("click", () => {
+    console.log(
+        "Contents of the transactions file being downloaded:",
+        transactions,
+    )
+    const fileData = JSON.stringify(transactions)
+    const blob = new Blob([fileData], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.download = "transactions.json"
+    link.href = url
+    link.click()
+})
+
+document.querySelector("#clear-transactions")?.addEventListener("click", () => {
+    transactions = []
+    bobChanges.innerHTML = ""
+    aliceChanges.innerHTML = ""
 })

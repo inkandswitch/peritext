@@ -175,6 +175,7 @@ export function createEditor(args: {
     changesNode: Element
     doc: Micromerge
     publisher: Publisher<Array<Change>>
+    transactionCollector: Array<Transaction>
     handleClickOn?: (
         this: unknown,
         view: EditorView<Schema>,
@@ -185,7 +186,15 @@ export function createEditor(args: {
         direct: boolean,
     ) => boolean
 }): Editor {
-    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } = args
+    const {
+        actorId,
+        editorNode,
+        changesNode,
+        doc,
+        publisher,
+        transactionCollector,
+        handleClickOn,
+    } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -213,17 +222,15 @@ export function createEditor(args: {
                             // single character deletion
                             stepText = `delete at index <strong>${step.from}</strong>`
                         } else {
-                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${
-                                step.to - 1
-                            }</strong>`
+                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${step.to - 1
+                                }</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${
-                            step.slice.content.firstChild?.marks?.length &&
-                            step.slice.content.firstChild?.marks?.length > 0
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${step.slice.content.firstChild?.marks?.length &&
+                                step.slice.content.firstChild?.marks?.length > 0
                                 ? `with marks `
                                 : ``
-                        } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
+                            } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
@@ -301,6 +308,7 @@ export function createEditor(args: {
             let state = view.state
             console.group("dispatch", txn.steps[0])
             console.log("input txn", txn)
+            transactionCollector.push(txn)
 
             // Apply a corresponding change to the Micromerge document.
             // We observe a Micromerge Patch from applying the change, and

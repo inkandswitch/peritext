@@ -1019,10 +1019,11 @@ export default class Micromerge {
 
                 // Handle the case where a mark is inserted after
                 if (op.action === "addMark" && op.startAfter === HEAD) {
+                    // TODO: need to properly compare op IDs here to ensure convergence
                     metadata.splice(0, 0, {
                         type: "markOpStart",
-                        // TODO: consider whether we really want the elemID to take this form.
-                        // Convenient to do it this way, but maybe better to generate 2 op IDs?
+                        // TODO: consider whether we want ElemIDs to take this form or whether
+                        // we want to do the "two op IDs" thing
                         elemId: `${op.opId}-start`,
                         op,
                         overlappingOps: activeMarkOpsAtCurrentPosition,
@@ -1059,22 +1060,20 @@ export default class Micromerge {
                     }
 
                     // If we've found the place to insert the start control character, insert it!
+                    // TODO: need to properly compare op IDs here to ensure convergence
                     if (elMeta.elemId === op.startAfter) {
                         metadata.splice(index + 1, 0, {
                             type: "markOpStart",
-                            // TODO: consider whether we really want the elemID to take this form.
-                            // Convenient to do it this way, but maybe better to generate 2 op IDs?
                             elemId: `${op.opId}-start`,
                             op,
                             overlappingOps: activeMarkOpsAtCurrentPosition,
                         })
 
                         opIsActive = true
-
-                        // console.log(`Start mark at ${index}`, { metadata })
                     }
 
                     // If we've found the place to insert the end control character, insert it!
+                    // TODO: need to properly compare op IDs here to ensure convergence
                     if (elMeta.elemId === op.endAfter) {
                         metadata.splice(index + 1, 0, {
                             type: "markOpEnd",
@@ -1087,8 +1086,6 @@ export default class Micromerge {
                         })
 
                         break
-
-                        // console.log(`End mark at ${index}`, { metadata })
                     }
                 }
 

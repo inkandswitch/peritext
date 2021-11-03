@@ -196,6 +196,7 @@ export function createEditor(args: {
     changesNode: Element
     doc: Micromerge
     publisher: Publisher<Array<Change>>
+    transactionCollector: Array<Transaction>
     handleClickOn?: (
         this: unknown,
         view: EditorView<Schema>,
@@ -206,8 +207,15 @@ export function createEditor(args: {
         direct: boolean,
     ) => boolean
 }): Editor {
-    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } =
-        args
+    const {
+        actorId,
+        editorNode,
+        changesNode,
+        doc,
+        publisher,
+        transactionCollector,
+        handleClickOn,
+    } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -330,6 +338,7 @@ export function createEditor(args: {
             let state = view.state
             console.group("dispatch", txn.steps[0])
             console.log("input txn", txn)
+            transactionCollector.push(txn)
 
             // Apply a corresponding change to the Micromerge document.
             // We observe a Micromerge Patch from applying the change, and

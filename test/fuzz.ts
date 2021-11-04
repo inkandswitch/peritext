@@ -1,6 +1,6 @@
 import assert from "assert"
 import crypto from "crypto"
-import Micromerge, { Change } from "../src/micromerge"
+import Micromerge, { ActorId, Change, Clock } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
@@ -138,51 +138,113 @@ function removeChange(doc: Micromerge) {
     return change
 }
 
-const { doc1, doc2 } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-const doc1Queue: Change[] = []
-const doc2Queue: Change[] = []
+const { docs, initialChange } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)
+const docIds = docs.map(d => d.actorId)
+
+type SharedHistory = Record<ActorId, Change[]>
+const queues: SharedHistory = {}
+docIds.forEach(id => queues[id] = [])
+queues["doc0"].push(initialChange)
+
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
 // eslint-disable-next-line no-constant-condition
 let totalChanges = 0
 while (totalChanges++ < 1_000_000) {
-    const randomTarget = (Math.random() < 0.5)
-    const doc = randomTarget ? doc1 : doc2
-    const queue = randomTarget ? doc1Queue : doc2Queue
+    const randomTarget = Math.floor(Math.random() * docs.length)
+    const doc = docs[randomTarget]
+    const queue = queues[docIds[randomTarget]]
 
     const op = opTypes[Math.floor(Math.random() * opTypes.length)];
+
     switch (op) {
         case "insert":
-            // console.log(`I ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(insertChange(doc))
             break
         case "remove":
-            // console.log(`D ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeChange(doc))
             break
         case "addMark":
-            // console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(addMarkChange(doc))
             break
         case "removeMark":
-            // console.log(`R ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeMarkChange(doc))
             break
     }
 
     const shouldSync = (Math.random() < 0.2)
     if (shouldSync) {
-        console.log(`M doc1: ${doc1Queue.length} doc2: ${doc2Queue.length}`)
 
-        doc1Queue.forEach(c => doc2.applyChange(c))
-        doc2Queue.forEach(c => doc1.applyChange(c))
-        doc1Queue.length = 0
-        doc2Queue.length = 0 // typical JS "elegance"
+        const left = Math.floor(Math.random() * docs.length)
 
-        console.log(doc1.getTextWithFormatting(["text"]))
+        let right: number
+        do {
+            right = Math.floor(Math.random() * docs.length)
+        } while (left == right)
+
+
+        const rightHistory = queues[docIds[right]]
+        const lastRight = rightHistory[rightHistory.length - 1]
+        console.log('before', docs[left].clock, docs[right].clock)
+
+        applyDepsThenChange(docs[left], lastRight)
+
+        const leftHistory = queues[docIds[left]]
+        const lastLeft = leftHistory[leftHistory.length - 1]
+        applyDepsThenChange(docs[right], lastLeft)
+
+        // console.log(docs[left].getTextWithFormatting(["text"]))
+        assert.deepStrictEqual(docs[left].clock, docs[right].clock)
         assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            doc2.getTextWithFormatting(["text"]),
+            docs[left].getTextWithFormatting(["text"]),
+            docs[right].getTextWithFormatting(["text"]),
         )
     }
+}
+
+/*
+// pseudocode
+* get the most recent change. 
+* see if we can apply it.if not, try and apply the greatest change in the dependencies change
+
+    * calculating dependencies
+        * get the current clock
+            * for each actor, see if our current value is equal to or higher than that
+                * if so, return null
+                    * else return the first missing thing we found
+*/
+
+function applyDepsThenChange(doc: Micromerge, change: Change) {
+    if (!change) {
+        return
+    }
+    if (doc.clock[change.actor] >= change.seq) {
+        // nothing to do here, we're up to date
+        return
+    }
+
+    // first, apply all the dependencies
+    // console.log('we want to apply change', change, ' to doc.clock:', doc.clock)
+    let missingChange
+    do {
+        missingChange = getMissingDependency(change.deps, doc.clock)
+        if (missingChange) {
+            applyDepsThenChange(doc, missingChange)
+        }
+    } while (missingChange)
+    doc.applyChange(change)
+}
+
+function getMissingDependency(dependencies: Clock, target: Clock): Change | null {
+    console.log("checking: ", dependencies, target)
+    for (const [actor, number] of Object.entries(dependencies)) {
+        if (target[actor] < number || target[actor] === undefined) {
+            console.log("we're missing something: ", actor, number)
+            assert.equal(queues[actor][number - 1].actor, actor)
+            assert.equal(queues[actor][number - 1].seq, number)
+
+            return queues[actor][number - 1]
+        }
+    }
+    return null
 }

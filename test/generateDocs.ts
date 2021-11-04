@@ -1,4 +1,4 @@
-import Micromerge, { Patch } from "../src/micromerge"
+import Micromerge, { Change, Patch } from "../src/micromerge"
 
 /** Create and return two Micromerge documents with the same text content.
  *  Useful for creating a baseline upon which to play further changes
@@ -9,19 +9,19 @@ const defaultText = "The Peritext editor"
  *  Useful for creating a baseline upon which to play further changes
  */
 export const generateDocs = (
-    text: string = defaultText,
+    text: string = defaultText, count: number = 2
 ): {
-    doc1: Micromerge
-    doc2: Micromerge
-    patches1: Patch[]
-    patches2: Patch[]
+    docs: Micromerge[]
+    patches: Patch[][]
+    initialChange: Change
 } => {
-    const doc1 = new Micromerge("doc1")
-    const doc2 = new Micromerge("doc2")
+    /*                           js sucks */
+    const docs = new Array(count).fill(null).map((n, i) => { console.log(i); return new Micromerge("doc" + i) })
+    const patches: Patch[][] = new Array(count).fill(null).map(() => [])
     const textChars = text.split("")
 
     // Generate a change on doc1
-    const { change: change1, patches: patches1 } = doc1.change([
+    const { change: initialChange, patches: initialPatches } = docs[0].change([
         { path: [], action: "makeList", key: "text" },
         {
             path: ["text"],
@@ -30,8 +30,10 @@ export const generateDocs = (
             values: textChars,
         },
     ])
+    patches[0] = initialPatches
 
-    // Generate change2 on doc2, which depends on change1
-    const patches2 = doc2.applyChange(change1)
-    return { doc1, doc2, patches1, patches2 }
+    for (const doc of docs.slice(1)) {
+        doc.applyChange(initialChange)
+    }
+    return { docs, patches, initialChange }
 }

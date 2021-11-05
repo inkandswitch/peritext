@@ -183,15 +183,13 @@ while (totalChanges++ < 1_000_000) {
         } while (left == right)
 
 
-        const rightHistory = queues[docIds[right]]
-        const lastRight = rightHistory[rightHistory.length - 1]
         console.log('before', docs[left].clock, docs[right].clock)
-
-        applyDepsThenChange(docs[left], lastRight)
-
-        const leftHistory = queues[docIds[left]]
-        const lastLeft = leftHistory[leftHistory.length - 1]
-        applyDepsThenChange(docs[right], lastLeft)
+        const changesForRight = getMissingChanges(docs[left], docs[right])
+        changesForRight.forEach(c => docs[right].applyChange(c))
+        
+        const changesForLeft = getMissingChanges(docs[right], docs[left])
+        changesForLeft.forEach(c => docs[left].applyChange(c))
+        console.log('after', docs[left].clock, docs[right].clock)
 
         // console.log(docs[left].getTextWithFormatting(["text"]))
         assert.deepStrictEqual(docs[left].clock, docs[right].clock)
@@ -247,4 +245,59 @@ function getMissingDependency(dependencies: Clock, target: Clock): Change | null
         }
     }
     return null
+}
+
+/*
+before { doc0: 1, doc2: 5, doc3: 3 } { doc0: 2, doc1: 11 }
+[
+    [ 'doc2@1', { doc0: 1 } ],
+    [ 'doc2@2', { doc0: 1, doc2: 1 } ],
+    [ 'doc2@3', { doc0: 1, doc2: 2 } ],
+    [ 'doc2@4', { doc0: 1, doc2: 3 } ],
+    [ 'doc2@5', { doc0: 1, doc2: 4, doc3: 3 } ],
+    [ 'doc3@1', { doc0: 1 } ],
+    [ 'doc3@2', { doc0: 1, doc3: 1 } ],
+    [ 'doc3@3', { doc0: 1, doc3: 2, doc2: 4 } ]
+  ]
+*/  
+
+
+function changeCompare(c: Change, d: Change): number {
+    // c is less than d iff c is a dependency of d
+    console.log('comparing: ', [c, d].map(c => [`${c.actor}@${c.seq}`, c.deps]))
+    if (c.actor == d.actor) {
+        console.log('actors match')
+        if (c.seq < d.seq) { return -1 }
+        if (c.seq > d.seq) { return 1 }
+        return 0
+    }
+    
+    if (d.deps[c.actor] >= c.seq) {
+        console.log('d depends on c, so c has to go first')
+        return -1
+    }
+    if (c.deps[d.actor] >= d.seq) {
+        console.log('c depends on d, so d has to go first')
+        return 1
+    }
+    console.log("c doesn't depend on d or vice versa")
+    return 1
+}
+
+function getMissingChanges(source: Micromerge, target: Micromerge) {
+    const sourceClock = source.clock
+    const targetClock = target.clock
+    const changes = []
+    for (const [actor, number] of Object.entries(sourceClock)) {
+        if (targetClock[actor] === undefined) {
+            changes.push(...queues[actor].slice(0, number))
+        }
+        if (targetClock[actor] < number) {
+            changes.push(...queues[actor].slice(targetClock[actor], number))            
+        }
+    }
+    changes.sort((c, d) => changeCompare(c, d))
+    console.log('result')
+    console.log(changes.map(c => [`${c.actor}@${c.seq}`, c.deps]))
+    return changes
 }

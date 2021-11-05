@@ -200,68 +200,6 @@ while (totalChanges++ < 1_000_000) {
     }
 }
 
-/*
-// pseudocode
-* get the most recent change. 
-* see if we can apply it.if not, try and apply the greatest change in the dependencies change
-
-    * calculating dependencies
-        * get the current clock
-            * for each actor, see if our current value is equal to or higher than that
-                * if so, return null
-                    * else return the first missing thing we found
-*/
-
-function applyDepsThenChange(doc: Micromerge, change: Change) {
-    if (!change) {
-        return
-    }
-    if (doc.clock[change.actor] >= change.seq) {
-        // nothing to do here, we're up to date
-        return
-    }
-
-    // first, apply all the dependencies
-    // console.log('we want to apply change', change, ' to doc.clock:', doc.clock)
-    let missingChange
-    do {
-        missingChange = getMissingDependency(change.deps, doc.clock)
-        if (missingChange) {
-            applyDepsThenChange(doc, missingChange)
-        }
-    } while (missingChange)
-    doc.applyChange(change)
-}
-
-function getMissingDependency(dependencies: Clock, target: Clock): Change | null {
-    console.log("checking: ", dependencies, target)
-    for (const [actor, number] of Object.entries(dependencies)) {
-        if (target[actor] < number || target[actor] === undefined) {
-            console.log("we're missing something: ", actor, number)
-            assert.equal(queues[actor][number - 1].actor, actor)
-            assert.equal(queues[actor][number - 1].seq, number)
-
-            return queues[actor][number - 1]
-        }
-    }
-    return null
-}
-
-/*
-before { doc0: 1, doc2: 5, doc3: 3 } { doc0: 2, doc1: 11 }
-[
-    [ 'doc2@1', { doc0: 1 } ],
-    [ 'doc2@2', { doc0: 1, doc2: 1 } ],
-    [ 'doc2@3', { doc0: 1, doc2: 2 } ],
-    [ 'doc2@4', { doc0: 1, doc2: 3 } ],
-    [ 'doc2@5', { doc0: 1, doc2: 4, doc3: 3 } ],
-    [ 'doc3@1', { doc0: 1 } ],
-    [ 'doc3@2', { doc0: 1, doc3: 1 } ],
-    [ 'doc3@3', { doc0: 1, doc3: 2, doc2: 4 } ]
-  ]
-*/  
-
-
 function changeCompare(c: Change, d: Change): number {
     // c is less than d iff c is a dependency of d
     console.log('comparing: ', [c, d].map(c => [`${c.actor}@${c.seq}`, c.deps]))

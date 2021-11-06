@@ -15,8 +15,7 @@ export const generateDocs = (
     patches: Patch[][]
     initialChange: Change
 } => {
-    /*                           js sucks */
-    const docs = new Array(count).fill(null).map((n, i) => { console.log(i); return new Micromerge("doc" + i) })
+    const docs = new Array(count).fill(null).map((n, i) => { return new Micromerge("doc" + i) })
     const patches: Patch[][] = new Array(count).fill(null).map(() => [])
     const textChars = text.split("")
 

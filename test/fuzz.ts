@@ -1,6 +1,6 @@
 import assert from "assert"
 import crypto from "crypto"
-import Micromerge, { ActorId, Change, Clock } from "../src/micromerge"
+import Micromerge, { ActorId, Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
@@ -183,15 +183,10 @@ while (totalChanges++ < 1_000_000) {
         } while (left == right)
 
 
-        console.log('before', docs[left].clock, docs[right].clock)
-        const changesForRight = getMissingChanges(docs[left], docs[right])
-        changesForRight.forEach(c => docs[right].applyChange(c))
-        
-        const changesForLeft = getMissingChanges(docs[right], docs[left])
-        changesForLeft.forEach(c => docs[left].applyChange(c))
-        console.log('after', docs[left].clock, docs[right].clock)
+        console.log('merging', docs[left], docs[right])
+        applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
+        applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
 
-        // console.log(docs[left].getTextWithFormatting(["text"]))
         assert.deepStrictEqual(docs[left].clock, docs[right].clock)
         assert.deepStrictEqual(
             docs[left].getTextWithFormatting(["text"]),
@@ -200,26 +195,23 @@ while (totalChanges++ < 1_000_000) {
     }
 }
 
-function changeCompare(c: Change, d: Change): number {
-    // c is less than d iff c is a dependency of d
-    console.log('comparing: ', [c, d].map(c => [`${c.actor}@${c.seq}`, c.deps]))
-    if (c.actor == d.actor) {
-        console.log('actors match')
-        if (c.seq < d.seq) { return -1 }
-        if (c.seq > d.seq) { return 1 }
-        return 0
+function applyChanges(document: Micromerge, changes: Change[]) {
+    let iterations = 0
+    while (changes.length > 0) {
+        const change = changes.shift()
+        if (!change) {
+            return
+        }
+        try {
+            document.applyChange(change)
+        }
+        catch {
+            changes.push(change)
+        }
+        if (iterations++ > 10000) {
+            throw "applyChanges did not converge"
+        }
     }
-    
-    if (d.deps[c.actor] >= c.seq) {
-        console.log('d depends on c, so c has to go first')
-        return -1
-    }
-    if (c.deps[d.actor] >= d.seq) {
-        console.log('c depends on d, so d has to go first')
-        return 1
-    }
-    console.log("c doesn't depend on d or vice versa")
-    return 1
 }
 
 function getMissingChanges(source: Micromerge, target: Micromerge) {
@@ -234,8 +226,5 @@ function getMissingChanges(source: Micromerge, target: Micromerge) {
             changes.push(...queues[actor].slice(targetClock[actor], number))            
         }
     }
-    changes.sort((c, d) => changeCompare(c, d))
-    console.log('result')
-    console.log(changes.map(c => [`${c.actor}@${c.seq}`, c.deps]))
     return changes
 }

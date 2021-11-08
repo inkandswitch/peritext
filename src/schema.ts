@@ -1,12 +1,4 @@
-import {
-    MarkSpec,
-    Node,
-    Schema,
-    SchemaSpec,
-    DOMOutputSpec,
-    DOMOutputSpecArray,
-    Mark,
-} from "prosemirror-model"
+import { MarkSpec, Node, Schema, SchemaSpec, DOMOutputSpec, DOMOutputSpecArray, Mark } from "prosemirror-model"
 
 import ColorHash from "color-hash"
 const colorHash = new ColorHash()
@@ -31,17 +23,12 @@ type Nodes = typeof nodeSpec
 
 export type NodeType = keyof Nodes
 export type GroupType = {
-    [T in NodeType]: Nodes[T] extends { group: string }
-        ? Nodes[T]["group"]
-        : never
+    [T in NodeType]: Nodes[T] extends { group: string } ? Nodes[T]["group"] : never
 }[NodeType]
 
 type Quantifier = "+" | "*" | "?"
 
-export type ContentDescription =
-    | NodeType
-    | GroupType
-    | `${NodeType | GroupType}${Quantifier}`
+export type ContentDescription = NodeType | GroupType | `${NodeType | GroupType}${Quantifier}`
 
 interface NodeSpec {
     content?: ContentDescription
@@ -61,12 +48,14 @@ export const markSpec = {
             return ["strong"] as const
         },
         allowMultiple: false,
+        inclusive: true,
     },
     em: {
         toDOM() {
             return ["em"] as const
         },
         allowMultiple: false,
+        inclusive: true,
     },
     comment: {
         attrs: {
@@ -108,21 +97,13 @@ export const markSpec = {
 
 export type Marks = typeof markSpec
 
-export const ALL_MARKS = [
-    "strong" as const,
-    "em" as const,
-    "comment" as const,
-    "link" as const,
-]
+export const ALL_MARKS = ["strong" as const, "em" as const, "comment" as const, "link" as const]
 
 type AssertAllListedAreMarks = Assert<Inner<typeof ALL_MARKS>, MarkType>
 type AssertAllMarksAreListed = Assert<MarkType, Inner<typeof ALL_MARKS>>
 
 export type MarkType = keyof typeof markSpec
-type AssertMarksMatchSpec = Assert<
-    typeof markSpec,
-    { [T in MarkType]: MarkSpec }
->
+type AssertMarksMatchSpec = Assert<typeof markSpec, { [T in MarkType]: MarkSpec }>
 
 export function isMarkType(s: string): s is MarkType {
     if (s === "strong" || s === "em" || s === "comment" || s === "link") {

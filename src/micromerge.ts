@@ -2,7 +2,7 @@ import uuid from "uuid"
 import { every, isEqual, sortBy } from "lodash"
 import { inspect } from "util"
 
-import type { Marks, MarkType } from "./schema"
+import { Marks, markSpec, MarkType } from "./schema"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -631,20 +631,39 @@ export default class Micromerge {
                 } else if (inputOp.action === "addMark" || inputOp.action === "removeMark") {
                     const { action } = inputOp
 
-                    // TODO: Soon we should allow configurable mark growing behavior,
-                    // e.g. by attaching the end of a markOp to the "before" of the
-                    // next character after the mark, rather than the "after" of
-                    // the last character within the mark.
-                    // But for now, we just make all marks non-growing, because that was
-                    // our prior assumption for our existing tests.
-                    const start: BoundaryPosition = {
-                        type: "before",
-                        elemId: this.getListElementId(objId, inputOp.startIndex),
+                    // TODO: factor this out to a proper per-mark-type config object somewhere
+                    const startGrows = false
+                    const endGrows = markSpec[inputOp.markType].inclusive
+
+                    let start: BoundaryPosition
+                    let end: BoundaryPosition
+
+                    if (startGrows) {
+                        if (inputOp.startIndex > 0) {
+                            start = { type: "after", elemId: this.getListElementId(objId, inputOp.startIndex - 1) }
+                        } else {
+                            start = { type: "startOfText" }
+                        }
+                    } else {
+                        start = {
+                            type: "before",
+                            elemId: this.getListElementId(objId, inputOp.startIndex),
+                        }
                     }
 
-                    const end: BoundaryPosition = {
-                        type: "after",
-                        elemId: this.getListElementId(objId, inputOp.endIndex - 1),
+                    if (endGrows) {
+                        if (inputOp.endIndex < obj.length) {
+                            // Because the end index on the input op is exclusive, to attach the end of the op
+                            // to the following character we just use the index as-is
+                            end = { type: "before", elemId: this.getListElementId(objId, inputOp.endIndex) }
+                        } else {
+                            end = { type: "endOfText" }
+                        }
+                    } else {
+                        end = {
+                            type: "after",
+                            elemId: this.getListElementId(objId, inputOp.endIndex - 1),
+                        }
                     }
 
                     const partialOp = { action, obj: objId, start, end } as const
@@ -872,6 +891,46 @@ export default class Micromerge {
         return change.ops.flatMap(this.applyOp)
     }
 
+    // Given a position before or after a character in a list, returns a set of mark operations
+    // which represent the closest set of mark ops to the left in the metadata.
+    // - The search excludes the passed-in position itself, so if there is metadata at that position
+    //   it will not be returned.
+    // - Returns a new Set object that clones the existing one to avoid problems with sharing references.
+    // - If no mark operations are found between the beginning of the sequence and this position,
+    //
+    private findClosestMarkOpsToLeft = (args: {
+        index: number
+        side: "before" | "after"
+        metadata: ListMetadata
+    }): Set<AddMarkOperation | RemoveMarkOperation> => {
+        const { index, side, metadata } = args
+
+        let ops = new Set<AddMarkOperation | RemoveMarkOperation>()
+
+        // First, if our initial position is after a character, look before that character
+        if (side === "after" && metadata[index].markOpsBefore !== undefined) {
+            return new Set(metadata[index].markOpsBefore!)
+        }
+
+        // Iterate through all characters to the left of the initial one;
+        // first look after each character, then before it.
+        for (let i = index; i >= 0; i--) {
+            const metadataAfter = metadata[i].markOpsAfter
+            if (metadataAfter !== undefined) {
+                ops = new Set(metadataAfter)
+                break
+            }
+
+            const metadataBefore = metadata[i].markOpsBefore
+            if (metadataBefore !== undefined) {
+                ops = new Set(metadataBefore)
+                break
+            }
+        }
+
+        return ops
+    }
+
     /**
      * Updates the document state with one of the operations from a change.
      */
@@ -920,101 +979,41 @@ export default class Micromerge {
                 let visibleIndex = 0
 
                 for (const [index, elMeta] of metadata.entries()) {
-                    // On the start and end element of the op, we want to add this op
-                    // to the existing mark ops at that element.
-                    // There might not be mark ops stored at this element yet, in which case
-                    // we have to copy them from the nearest element to the left that has mark ops
-                    if (op.start.type === "before" && op.start.elemId === elMeta.elemId) {
-                        let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
+                    // We compute the effects that this op has on the position before and after this character,
+                    // the logic is the same in both cases and we need to consider the before case first.
 
-                        if (elMeta.markOpsBefore !== undefined) {
-                            // If this element has mark ops on it, we can directly use those
-                            // to determine the existing marks before applying this op.
-                            existingOps = elMeta.markOpsBefore
-                        } else {
-                            // Otherwise, we find the nearest gap to the left which has existing ops,
-                            // and copy those over before adding this new op.
-                            // (There might be no existing ops to the left, in which case we just
-                            // initialize a new empty set.)
-                            existingOps = new Set()
+                    const positions = [
+                        { side: "before", metadataProperty: "markOpsBefore" },
+                        { side: "after", metadataProperty: "markOpsAfter" },
+                    ] as const
 
-                            // TODO: maybe extract this to a function "find closest metadata to left"?
-                            for (let i = index; i >= 0; i--) {
-                                const metadataAfter = metadata[i].markOpsAfter
-                                if (metadataAfter !== undefined) {
-                                    existingOps = new Set(metadataAfter)
-                                    break
-                                }
-
-                                const metadataBefore = metadata[i].markOpsBefore
-                                if (metadataBefore !== undefined) {
-                                    existingOps = new Set(metadataBefore)
-                                    break
-                                }
+                    for (const { side, metadataProperty } of positions) {
+                        if (op.start.type === side && op.start.elemId === elMeta.elemId) {
+                            // If we already have a set of mark ops here, just add the new op
+                            // Otherwise, we first copy over closest ops from left, then add this new one
+                            if (elMeta[metadataProperty] !== undefined) {
+                                elMeta[metadataProperty]!.add(op)
+                            } else {
+                                const existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
+                                elMeta[metadataProperty] = existingOps.add(op)
                             }
-                        }
-
-                        elMeta.markOpsBefore = existingOps.add(op)
-
-                        opIntersectsItem = true
-                    } else if (op.end.type === "before" && op.end.elemId === elMeta.elemId) {
-                        throw new Error(`Not implemented yet, will do once we actually support growing spans`)
-                    } else if (opIntersectsItem) {
-                        // If we have existing mark op sets on this character, add this op to those sets.
-                        if (elMeta.markOpsBefore !== undefined) {
-                            elMeta.markOpsBefore.add(op)
-                        }
-
-                        // Need to be careful here to only add the op if it doesn't end after this character.
-                        // There's probably a way to refactor this code to handle this more clearly;
-                        // basically we should separately iterate over the "before" and "after" positions
-                        // and reason about them in two separate steps.
-                        if (
-                            elMeta.markOpsAfter !== undefined &&
-                            !isEqual(op.end, { type: "after", elemId: elMeta.elemId })
-                        ) {
-                            elMeta.markOpsAfter.add(op)
-                        }
-                    }
-
-                    if (op.start.type === "after" && op.start.elemId === elMeta.elemId) {
-                        throw new Error(`Not implemented yet, will do once we actually support growing spans`)
-                    } else if (op.end.type === "after" && op.end.elemId === elMeta.elemId) {
-                        // If the op ends on this element, we need to make sure there's a
-                        // set of mark ops initialized on the boundary position, to signal that
-                        // the formatting changes at that position.
-
-                        // If there's already a set there, nothing to do.
-                        if (elMeta.markOpsAfter !== undefined) {
-                            continue
-                        }
-
-                        // Otherwise, need to intialize a set which looks to the left and copies over
-                        // the closest existing set of marks, but omitting this new op itself.
-                        let existingOps: Set<AddMarkOperation | RemoveMarkOperation> = new Set()
-
-                        if (elMeta.markOpsBefore) {
-                            existingOps = new Set([...elMeta.markOpsBefore].filter(o => o !== op))
-                        }
-
-                        // TODO: maybe extract this to a function "find closest metadata to left"?
-                        for (let i = index; i >= 0; i--) {
-                            const metadataAfter = metadata[i].markOpsAfter
-                            if (metadataAfter !== undefined) {
-                                existingOps = new Set([...metadataAfter].filter(o => o !== op))
-                                break
+                            opIntersectsItem = true
+                        } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
+                            // We need to record what mark ops should be active to the right of this position.
+                            // We do this by finding the nearest set of ops to the left, and then
+                            // excluding the op which is ending at this position.
+                            if (elMeta[metadataProperty] === undefined) {
+                                elMeta[metadataProperty] = new Set(
+                                    [...this.findClosestMarkOpsToLeft({ index, side, metadata })].filter(
+                                        opInSet => opInSet !== op,
+                                    ),
+                                )
                             }
 
-                            const metadataBefore = metadata[i].markOpsBefore
-                            if (metadataBefore !== undefined) {
-                                existingOps = new Set([...metadataBefore].filter(o => o !== op))
-                                break
-                            }
+                            break // Stop iterating; this op can't have consequences after its end
+                        } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
+                            elMeta[metadataProperty]!.add(op)
                         }
-
-                        elMeta.markOpsAfter = existingOps
-
-                        break // Stop iterating; this op can't have consequences after its end
                     }
 
                     if (!elMeta.deleted) {
@@ -1089,6 +1088,22 @@ export default class Micromerge {
             index++
         }
 
+        // Peek ahead and see if there are any tombstones that have a nonempty markOpsAfter.
+        // If there are, we want to put this new character after the last such tombstone.
+        // This ensures that if there are non-growing marks which end at this insertion position,
+        // this new character is inserted outside the span and the mark correctly will not grow.
+        let peekIndex = index
+        let latestIndexAfterTombstone: number | undefined
+        while (meta[peekIndex] && meta[peekIndex].deleted) {
+            if (meta[peekIndex].markOpsAfter !== undefined) {
+                latestIndexAfterTombstone = peekIndex + 1
+            }
+            peekIndex++
+        }
+        if (latestIndexAfterTombstone) {
+            index = latestIndexAfterTombstone
+        }
+
         // Insert the new list element at the correct index
         meta.splice(index, 0, {
             elemId: op.opId,
@@ -1111,15 +1126,8 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
-        let existingOps: Array<AddMarkOperation | RemoveMarkOperation> = []
-        for (let i = index; i >= 0; i--) {
-            const metadataAtLocation = meta[i].markOperations
-            if (metadataAtLocation !== undefined) {
-                existingOps = metadataAtLocation.filter(existingOp => existingOp.end !== meta[i].elemId)
-                break
-            }
-        }
-        const marks = opsToMarks(existingOps)
+        // TODO: correctly fill in the marks for this new character based on metadata
+        const marks = {}
 
         return [
             {

@@ -120,52 +120,52 @@ const testConcurrentWrites = (args: {
     // )
 }
 
-const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
-    const metadata: TextWithMetadata = []
-    for (const patch of patches) {
-        if (!isEqual(patch.path, ["text"])) {
-            throw new Error("This implementation only supports a single path: 'text'")
-        }
+// const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
+//     const metadata: TextWithMetadata = []
+//     for (const patch of patches) {
+//         if (!isEqual(patch.path, ["text"])) {
+//             throw new Error("This implementation only supports a single path: 'text'")
+//         }
 
-        switch (patch.action) {
-            case "insert": {
-                patch.values.forEach((character: string, valueIndex: number) => {
-                    metadata.splice(patch.index + valueIndex, 0, {
-                        character,
-                        marks: { ...patch.marks },
-                    })
-                })
+//         switch (patch.action) {
+//             case "insert": {
+//                 patch.values.forEach((character: string, valueIndex: number) => {
+//                     metadata.splice(patch.index + valueIndex, 0, {
+//                         character,
+//                         marks: { ...patch.marks },
+//                     })
+//                 })
 
-                break
-            }
+//                 break
+//             }
 
-            case "delete": {
-                metadata.splice(patch.index, patch.count)
-                break
-            }
+//             case "delete": {
+//                 metadata.splice(patch.index, patch.count)
+//                 break
+//             }
 
-            case "addMark": {
-                for (const index of range(patch.start, patch.end)) {
-                    metadata[index].marks[patch.markType] = { active: true }
-                }
-                break
-            }
+//             case "addMark": {
+//                 for (const index of range(patch.start, patch.end)) {
+//                     metadata[index].marks[patch.markType] = { active: true }
+//                 }
+//                 break
+//             }
 
-            case "removeMark": {
-                for (const index of range(patch.start, patch.end)) {
-                    delete metadata[index].marks[patch.markType]
-                }
-                break
-            }
+//             case "removeMark": {
+//                 for (const index of range(patch.start, patch.end)) {
+//                     delete metadata[index].marks[patch.markType]
+//                 }
+//                 break
+//             }
 
-            default: {
-                unreachable(patch)
-            }
-        }
-    }
+//             default: {
+//                 unreachable(patch)
+//             }
+//         }
+//     }
 
-    return metadata
-}
+//     return metadata
+// }
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
@@ -364,113 +364,356 @@ describe.only("Micromerge", () => {
         })
     })
 
-    it("merges concurrent bold and insertion at the mark boundary", () => {
-        testConcurrentWrites({
-            // In doc1, we format the word "Peritext" as bold
-            inputOps1: [
-                {
-                    action: "addMark",
-                    startIndex: 4,
-                    endIndex: 12,
-                    markType: "strong",
-                },
-            ],
-            // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
-            inputOps2: [
-                { action: "insert", index: 4, values: ["*"] },
-                { action: "insert", index: 13, values: ["*"] },
-            ],
-            // Both sides should end up with asterisks unbolded
-            expectedResult: [
-                { marks: {}, text: "The *" },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: "* editor" },
-            ],
+    describe("span growing behavior on a single actor", () => {
+        it("grows a bold span to the right", () => {
+            // Bold the word Peritext, then add an exclamation point at the end.
+            // The bold span should grow to include the new character.
+            testConcurrentWrites({
+                inputOps1: [],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "strong",
+                    },
+                    {
+                        action: "insert",
+                        index: 12,
+                        values: ["!"],
+                    },
+                ],
+                //
+                expectedResult: [
+                    { marks: {}, text: "The " },
+                    { marks: { strong: { active: true } }, text: "Peritext!" },
+                    { marks: {}, text: " editor" },
+                ],
+            })
+        })
+
+        it("doesn't grow a bold span to the left", () => {
+            // Bold the word Peritext, then add an exclamation point at the beginning.
+            // The bold span should _not_ grow to include the new character.
+            testConcurrentWrites({
+                inputOps1: [],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "strong",
+                    },
+                    {
+                        action: "insert",
+                        index: 4,
+                        values: ["!"],
+                    },
+                ],
+                //
+                expectedResult: [
+                    { marks: {}, text: "The !" },
+                    { marks: { strong: { active: true } }, text: "Peritext" },
+                    { marks: {}, text: " editor" },
+                ],
+            })
+        })
+
+        it("doesn't grow a link to the right", () => {
+            // Mark a link on the word Peritext, then add an exclamation point at the end.
+            // The link should not grow because links don't grow in either direction
+            testConcurrentWrites({
+                inputOps1: [],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "link",
+                        attrs: {
+                            url: "inkandswitch.com",
+                        },
+                    },
+                    {
+                        action: "insert",
+                        index: 12,
+                        values: ["!"],
+                    },
+                ],
+                //
+                expectedResult: [
+                    { marks: {}, text: "The " },
+                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: {}, text: "! editor" },
+                ],
+            })
+        })
+
+        it("doesn't grow a link to the left", () => {
+            // Mark a link on the word Peritext, then add an exclamation point at the beginning.
+            // The link should not grow because links don't grow in either direction.
+            testConcurrentWrites({
+                inputOps1: [],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "link",
+                        attrs: {
+                            url: "inkandswitch.com",
+                        },
+                    },
+                    {
+                        action: "insert",
+                        index: 4,
+                        values: ["!"],
+                    },
+                ],
+                //
+                expectedResult: [
+                    { marks: {}, text: "The !" },
+                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: {}, text: " editor" },
+                ],
+            })
+        })
+
+        it("grows only bold, when bold and link end at the same position", () => {
+            // A bold and link mark end at the same place.
+            // Then we insert a new character at the end of that span.
+            // Only the bold link should grow at the end; the link shouldn't grow.
+            testConcurrentWrites({
+                inputOps1: [],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "link",
+                        attrs: {
+                            url: "inkandswitch.com",
+                        },
+                    },
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "strong",
+                    },
+                    {
+                        action: "insert",
+                        index: 12,
+                        values: ["!"],
+                    },
+                ],
+                //
+                expectedResult: [
+                    { marks: {}, text: "The " },
+                    {
+                        marks: { link: { active: true, url: "inkandswitch.com" }, strong: { active: true } },
+                        text: "Peritext",
+                    },
+                    { marks: { strong: { active: true } }, text: "!" },
+                    { marks: {}, text: " editor" },
+                ],
+            })
+        })
+
+        it("grows adjacent bold and unbold spans correctly", () => {
+            // The user bolds ABCDE, and then unbolds BCD.
+            // Then they insert F after A, and G after D.
+            // The F should be bolded because the bolded A grows.
+            // The G should be not bolded, because the bolded E doesn't grow to the left.
+            testConcurrentWrites({
+                initialText: "ABCDE",
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 0,
+                        endIndex: 5,
+                        markType: "strong",
+                    },
+                    {
+                        action: "removeMark",
+                        startIndex: 1,
+                        endIndex: 4,
+                        markType: "strong",
+                    },
+                    {
+                        action: "insert",
+                        index: 1,
+                        values: ["F"],
+                    },
+                    {
+                        action: "insert",
+                        index: 5,
+                        values: ["G"],
+                    },
+                ],
+                inputOps2: [],
+                // The B should be bold, because the bold on A grows to the right
+                expectedResult: [
+                    { marks: { strong: { active: true } }, text: "AF" },
+                    { marks: {}, text: "BCDG" },
+                    { marks: { strong: { active: true } }, text: "E" },
+                ],
+            })
+        })
+
+        it("handles growth behavior for spans where the boundary is a tombstone", () => {
+            // The user creates a link and then deletes the boundary characters.
+            // When they insert at the end of the link, the new char shouldn't become
+            // part of the link because links don't grow to the right.
+            // However, this requires some special handling--if we just
+            // inserted the new character to the left of tombstones at the position as
+            // Automerge usually does, the new character would become part of the link.
+            testConcurrentWrites({
+                initialText: "ABCDE",
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 1,
+                        endIndex: 4,
+                        markType: "link",
+                        attrs: { url: "inkandswitch.com" },
+                    },
+                    {
+                        action: "delete",
+                        index: 1,
+                        count: 1,
+                    },
+                    {
+                        action: "delete",
+                        index: 2,
+                        count: 1,
+                    },
+                    {
+                        action: "insert",
+                        index: 2,
+                        values: ["F"],
+                    },
+                ],
+                inputOps2: [],
+                // The B should be bold, because the bold on A grows to the right
+                expectedResult: [
+                    { marks: {}, text: "A" },
+                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "C" },
+                    { marks: {}, text: "FE" },
+                ],
+            })
         })
     })
 
-    it("handles insertion where one mark ends and another begins", () => {
-        testConcurrentWrites({
-            // In doc1, we format the word "Peritext" as bold, and " editor" as italic
-            inputOps1: [
-                {
-                    action: "addMark",
-                    startIndex: 4,
-                    endIndex: 12,
-                    markType: "strong",
-                },
-                {
-                    action: "addMark",
-                    startIndex: 12,
-                    endIndex: 19,
-                    markType: "em",
-                },
-            ],
-            // Concurrently, in doc2, we add a footnote after "Peritext"
-            inputOps2: [{ action: "insert", index: 12, values: "[1]".split("") }],
-            // The footnote marker should be neither bold nor italic
-            expectedResult: [
-                { marks: {}, text: "The " },
-                { marks: { strong: { active: true } }, text: "Peritext" },
-                { marks: {}, text: "[1]" },
-                { marks: { em: { active: true } }, text: " editor" },
-            ],
+    describe("span growing behavior with concurrent edits", () => {
+        it("merges concurrent bold and insertion at the mark boundary", () => {
+            testConcurrentWrites({
+                // In doc1, we format the word "Peritext" as bold
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "strong",
+                    },
+                ],
+                // Concurrently, in doc2, we add asterisks before and after the word "Peritext"
+                inputOps2: [
+                    { action: "insert", index: 4, values: ["*"] },
+                    { action: "insert", index: 13, values: ["*"] },
+                ],
+                // The right asterisk should be bolded because bold grows at the end
+                expectedResult: [
+                    { marks: {}, text: "The *" },
+                    { marks: { strong: { active: true } }, text: "Peritext*" },
+                    { marks: {}, text: " editor" },
+                ],
+            })
         })
-    })
 
-    it("handles an insertion at a boundary between bold and unbolded spans", () => {
-        testConcurrentWrites({
-            initialText: "AC",
-            // In doc1, we format "AC" as bold, then unbold "C"
-            inputOps1: [
-                {
-                    action: "addMark",
-                    startIndex: 0,
-                    endIndex: 2,
-                    markType: "strong",
-                },
-                {
-                    action: "removeMark",
-                    startIndex: 1,
-                    endIndex: 2,
-                    markType: "strong",
-                },
-            ],
-            // Concurrently, in doc2, we insert "B" in between
-            inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
-            // The B should be bold
-            expectedResult: [
-                { marks: { strong: { active: true } }, text: "AB" },
-                { marks: {}, text: "C" },
-            ],
+        it("handles insertion where one mark ends and another begins", () => {
+            testConcurrentWrites({
+                // In doc1, we format the word "Peritext" as bold, and " editor" as italic
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "strong",
+                    },
+                    {
+                        action: "addMark",
+                        startIndex: 12,
+                        endIndex: 19,
+                        markType: "em",
+                    },
+                ],
+                // Concurrently, in doc2, we add a footnote after "Peritext"
+                inputOps2: [{ action: "insert", index: 12, values: "[1]".split("") }],
+                // The footnote marker should be bold, because bold grows at the end
+                // and italic doesn't grow at the beginning
+                expectedResult: [
+                    { marks: {}, text: "The " },
+                    { marks: { strong: { active: true } }, text: "Peritext[1]" },
+                    { marks: { em: { active: true } }, text: " editor" },
+                ],
+            })
         })
-    })
 
-    it("handles an insertion at boundary between unbolded and bold spans", () => {
-        testConcurrentWrites({
-            initialText: "AC",
-            // In doc1, we format "AC" as bold, then unbold "A"
-            inputOps1: [
-                {
-                    action: "addMark",
-                    startIndex: 0,
-                    endIndex: 2,
-                    markType: "strong",
-                },
-                {
-                    action: "removeMark",
-                    startIndex: 0,
-                    endIndex: 1,
-                    markType: "strong",
-                },
-            ],
-            // Concurrently, in doc2, we insert "B" in between
-            inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
-            // The B should be bold
-            expectedResult: [
-                { marks: {}, text: "A" },
-                { marks: { strong: { active: true } }, text: "BC" },
-            ],
+        it("handles an insertion at a boundary between bold and unbolded spans", () => {
+            testConcurrentWrites({
+                initialText: "AC",
+                // In doc1, we format "AC" as bold, then unbold "C"
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 0,
+                        endIndex: 2,
+                        markType: "strong",
+                    },
+                    {
+                        action: "removeMark",
+                        startIndex: 1,
+                        endIndex: 2,
+                        markType: "strong",
+                    },
+                ],
+                // Concurrently, in doc2, we insert "B" in between
+                inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
+                // The B should be bold, because the bold on A grows to the right
+                expectedResult: [
+                    { marks: { strong: { active: true } }, text: "AB" },
+                    { marks: {}, text: "C" },
+                ],
+            })
+        })
+
+        it("handles an insertion at boundary between unbolded and bold spans", () => {
+            testConcurrentWrites({
+                initialText: "AC",
+                // In doc1, we format "AC" as bold, then unbold "A"
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 0,
+                        endIndex: 2,
+                        markType: "strong",
+                    },
+                    {
+                        action: "removeMark",
+                        startIndex: 0,
+                        endIndex: 1,
+                        markType: "strong",
+                    },
+                ],
+                // Concurrently, in doc2, we insert "B" in between
+                inputOps2: [{ action: "insert", index: 1, values: ["B"] }],
+                // The B should not be bold, because bold does not grow to the left
+                expectedResult: [
+                    { marks: {}, text: "AB" },
+                    { marks: { strong: { active: true } }, text: "C" },
+                ],
+            })
         })
     })
 
@@ -562,7 +805,6 @@ describe.only("Micromerge", () => {
         // only apply to deleted content.
         testConcurrentWrites({
             inputOps1: [],
-            // In doc2,
             inputOps2: [
                 {
                     action: "addMark",

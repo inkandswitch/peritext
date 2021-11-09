@@ -4,6 +4,7 @@ import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
+import { change } from "./automate"
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -13,10 +14,9 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
     domNode.innerHTML = marks
         .map(
             m =>
-                `• ${m.type.name} ${
-                    Object.keys(m.attrs).length !== 0
-                        ? JSON.stringify(m.attrs)
-                        : ""
+                `• ${m.type.name} ${Object.keys(m.attrs).length !== 0
+                    ? JSON.stringify(m.attrs)
+                    : ""
                 }`,
         )
         .join("<br/>")
@@ -52,13 +52,8 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
 
     // Every 1 second, insert new text into the editor
     setInterval(() => {
-        editors["alice"].view.dispatch(
-            // The insertion index is a little tricky here--
-            // Prosemirror reserves position 0 for the position before our inline span,
-            // so position 1 is the leftmost position in the actual text itself
-            editors["alice"].view.state.tr.insertText("Hello world ", 1),
-        )
-    }, 3000)
+        change(editors["alice"], editors["bob"])
+    }, 300)
 } else {
     throw new Error(`Didn't find expected node in the DOM`)
 }
@@ -87,24 +82,14 @@ if (bobNode && bobEditor && bobChanges) {
     throw new Error(`Didn't find expected node in the DOM`)
 }
 
-// Add a button for connecting/disconnecting the two editors
-let connected = true
-document.querySelector("#toggle-connect")?.addEventListener("click", e => {
-    if (connected) {
-        for (const editor of Object.values(editors)) {
-            editor.queue.drop()
-        }
-        if (e.target instanceof HTMLElement) {
-            e.target.innerText = "🟢 Connect"
-        }
-        connected = false
-    } else {
-        for (const editor of Object.values(editors)) {
-            editor.queue.start()
-        }
-        if (e.target instanceof HTMLElement) {
-            e.target.innerText = "❌ Disconnect"
-        }
-        connected = true
+for (const editor of Object.values(editors)) {
+    editor.queue.drop()
+}
+
+// Add a button for syncing the two editors
+document.querySelector("#sync")?.addEventListener("click", () => {
+    for (const editor of Object.values(editors)) {
+        editor.queue.flush()
     }
 })
+

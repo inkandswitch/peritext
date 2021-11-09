@@ -34,7 +34,7 @@ export class ChangeQueue {
     /**
      * Flush all changes to the publisher. Runs on a timer.
      */
-    private flush = (): void => {
+    flush = (): void => {
         // TODO: Add retry logic to capture failures.
         this.handleFlush(this.changes)
         this.changes = []

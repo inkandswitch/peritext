@@ -1,19 +1,9 @@
 import assert from "assert"
-import Micromerge, {
-    addCharactersToSpans,
-    AddMarkOperation,
-    AddMarkOperationInput,
-    FormatSpanWithText,
-    InputOperation,
-    MarkMapWithoutOpIds,
-    Patch,
-    RemoveMarkOperationInput,
-} from "../src/micromerge"
+import { addCharactersToSpans, FormatSpanWithText, InputOperation, MarkMapWithoutOpIds, Patch } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { generateDocs } from "./generateDocs"
 import { isEqual, sortBy } from "lodash"
-import { MarkType } from "prosemirror-model"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -33,11 +23,28 @@ type TextWithMetadata = Array<{
     marks: MarkMapWithoutOpIds
 }>
 
-
 const range = (start: number, end: number): number[] => {
     return Array(end - start + 1)
         .fill("_")
         .map((_, idx) => start + idx)
+}
+
+const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResult: FormatSpanWithText[]): boolean => {
+    for (const [index, expectedSpan] of expectedResult.entries()) {
+        const actualSpan = actualSpans[index]
+        assert.strictEqual(expectedSpan.text, actualSpan.text)
+
+        for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
+            if (markType === "comment") {
+                assert.deepStrictEqual(
+                    sortBy(markValue, (c: { id: string }) => c.id),
+                    sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
+                )
+            } else {
+                assert.deepStrictEqual(markValue, actualSpan.marks[markType])
+            }
+        }
+    }
 }
 
 /** Concurrently apply a change to two documents,
@@ -54,8 +61,8 @@ const testConcurrentWrites = (args: {
     const { initialText = "The Peritext editor", preOps, inputOps1 = [], inputOps2 = [], expectedResult } = args
 
     const { docs, patches } = generateDocs(initialText)
-    const [ doc1, doc2 ] = docs
-    let [ patchesForDoc1, patchesForDoc2 ] = patches
+    const [doc1, doc2] = docs
+    let [patchesForDoc1, patchesForDoc2] = patches
 
     if (preOps) {
         const { change: change0, patches: patches0 } = doc1.change(preOps.map(op => ({ ...op, path: ["text"] })))
@@ -89,27 +96,11 @@ const testConcurrentWrites = (args: {
     // debug(patchesForDoc1)
     // debug(accumulatePatches(patchesForDoc1))
 
-    const actualSpans = accumulatePatches(patchesForDoc1)
+    assertDocsEqual(accumulatePatches(patchesForDoc1), expectedResult)
 
-    // This tests that the accumulated result of applying all patches is the same as
-    // some expected list of format spans.
-    // The annoying this is we have to check comments order-independent.
-    // TODO: split this equality checker out into a helper function.
-    for (const [index, expectedSpan] of expectedResult.entries()) {
-        const actualSpan = actualSpans[index]
-        assert.strictEqual(expectedSpan.text, actualSpan.text)
-
-        for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
-            if (markType === "comment") {
-                assert.deepStrictEqual(
-                    sortBy(markValue, (c: { id: string }) => c.id),
-                    sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
-                )
-            } else {
-                assert.deepStrictEqual(markValue, actualSpan.marks[markType])
-            }
-        }
-    }
+    // TODO: this totally fails; something to do with incorrect initializing patches
+    // for doc2 when we set up the doc at first
+    // assertDocsEqual(accumulatePatches(patchesForDoc2), expectedResult)
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.
@@ -196,7 +187,7 @@ const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
         const { docs } = generateDocs("abcde")
-        const [ doc1 ] = docs
+        const [doc1] = docs
 
         doc1.change([
             {
@@ -217,11 +208,9 @@ describe.only("Micromerge", () => {
 
     it("records local changes in the deps clock", () => {
         const { docs } = generateDocs("a")
-        const [ doc1, doc2 ] = docs
+        const [doc1, doc2] = docs
 
-        const { change: change2 } = doc2.change([
-            { path: ["text"], action: "insert", index: 1, values: ["b"] },
-        ])
+        const { change: change2 } = doc2.change([{ path: ["text"], action: "insert", index: 1, values: ["b"] }])
 
         // We should be able to successfully apply change2 on doc1 now;
         // its only dependency is change1, which should be recorded in doc1's clock
@@ -861,7 +850,7 @@ describe.only("Micromerge", () => {
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple insertion", () => {
             const { docs } = generateDocs()
-            const [ doc1, doc2 ] = docs
+            const [doc1, doc2] = docs
 
             const inputOps: InputOperation[] = [
                 {
@@ -884,7 +873,7 @@ describe.only("Micromerge", () => {
         // We need to adjust one of the insertion indexes.
         it("produces a patch with adjusted insertion index on concurrent inserts", () => {
             const { docs } = generateDocs()
-            const [ doc1, doc2 ] = docs
+            const [doc1, doc2] = docs
 
             // Doc 1 and Doc 2 start out synchronized.
 
@@ -927,8 +916,8 @@ describe.only("Micromerge", () => {
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple deletion", () => {
             const { docs } = generateDocs()
-            const [ doc1, doc2 ] = docs
-            
+            const [doc1, doc2] = docs
+
             const inputOps: InputOperation[] = [
                 {
                     path: ["text"],
@@ -947,7 +936,7 @@ describe.only("Micromerge", () => {
         // turns into a patch that contains two single-char deletion operations.
         it("turns a multi-char deletion into multiple single char deletions", () => {
             const { docs } = generateDocs()
-            const [ doc1, doc2 ] = docs
+            const [doc1, doc2] = docs
 
             const inputOps: InputOperation[] = [
                 {
@@ -979,8 +968,7 @@ describe.only("Micromerge", () => {
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             doc1.change([
                 // Comment on the word "Peritext"
@@ -1008,7 +996,7 @@ describe.only("Micromerge", () => {
 
         it("correctly flattens two comments from the same user", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
+            const [doc1] = docs
 
             doc1.change([
                 // Comment on "The Peritext"
@@ -1093,8 +1081,7 @@ describe.only("Micromerge", () => {
     describe("links", () => {
         it("returns a single link in the flattened spans", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             doc1.change([
                 // Link on the word "Peritext"
@@ -1202,8 +1189,7 @@ describe.only("Micromerge", () => {
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1216,8 +1202,7 @@ describe.only("Micromerge", () => {
 
         it("increments cursor position when insert happens before cursor", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1240,8 +1225,7 @@ describe.only("Micromerge", () => {
 
         it("does not move cursor position when insert happens after cursor", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1264,8 +1248,7 @@ describe.only("Micromerge", () => {
 
         it("moves cursor left if deletion happens before cursor", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1288,8 +1271,7 @@ describe.only("Micromerge", () => {
 
         it("doesn't move cursor if deletion happens after cursor", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1312,8 +1294,7 @@ describe.only("Micromerge", () => {
 
         it("returns index 0 if everything before the cursor is deleted", () => {
             const { docs } = generateDocs()
-            const [ doc1 ] = docs
-
+            const [doc1] = docs
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)

@@ -1,6 +1,6 @@
 import assert from "assert"
 import crypto from "crypto"
-import Micromerge, { Change } from "../src/micromerge"
+import Micromerge, { ActorId, Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
@@ -138,51 +138,93 @@ function removeChange(doc: Micromerge) {
     return change
 }
 
-const { doc1, doc2 } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-const doc1Queue: Change[] = []
-const doc2Queue: Change[] = []
+const { docs, initialChange } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)
+const docIds = docs.map(d => d.actorId)
+
+type SharedHistory = Record<ActorId, Change[]>
+const queues: SharedHistory = {}
+docIds.forEach(id => queues[id] = [])
+queues["doc0"].push(initialChange)
+
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
 // eslint-disable-next-line no-constant-condition
 let totalChanges = 0
 while (totalChanges++ < 1_000_000) {
-    const randomTarget = (Math.random() < 0.5)
-    const doc = randomTarget ? doc1 : doc2
-    const queue = randomTarget ? doc1Queue : doc2Queue
+    const randomTarget = Math.floor(Math.random() * docs.length)
+    const doc = docs[randomTarget]
+    const queue = queues[docIds[randomTarget]]
 
     const op = opTypes[Math.floor(Math.random() * opTypes.length)];
+
     switch (op) {
         case "insert":
-            // console.log(`I ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(insertChange(doc))
             break
         case "remove":
-            // console.log(`D ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeChange(doc))
             break
         case "addMark":
-            // console.log(`K ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(addMarkChange(doc))
             break
         case "removeMark":
-            // console.log(`R ${randomTarget ? "doc1" : "doc2"}`)
             queue.push(removeMarkChange(doc))
             break
     }
 
     const shouldSync = (Math.random() < 0.2)
     if (shouldSync) {
-        console.log(`M doc1: ${doc1Queue.length} doc2: ${doc2Queue.length}`)
 
-        doc1Queue.forEach(c => doc2.applyChange(c))
-        doc2Queue.forEach(c => doc1.applyChange(c))
-        doc1Queue.length = 0
-        doc2Queue.length = 0 // typical JS "elegance"
+        const left = Math.floor(Math.random() * docs.length)
 
-        console.log(doc1.getTextWithFormatting(["text"]))
+        let right: number
+        do {
+            right = Math.floor(Math.random() * docs.length)
+        } while (left == right)
+
+
+        //console.log('merging', docs[left].actorId, docs[right].actorId)
+        applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
+        applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
+
+        assert.deepStrictEqual(docs[left].clock, docs[right].clock)
         assert.deepStrictEqual(
-            doc1.getTextWithFormatting(["text"]),
-            doc2.getTextWithFormatting(["text"]),
+            docs[left].getTextWithFormatting(["text"]),
+            docs[right].getTextWithFormatting(["text"]),
         )
     }
+}
+
+function applyChanges(document: Micromerge, changes: Change[]) {
+    let iterations = 0
+    while (changes.length > 0) {
+        const change = changes.shift()
+        if (!change) {
+            return
+        }
+        try {
+            document.applyChange(change)
+        }
+        catch {
+            changes.push(change)
+        }
+        if (iterations++ > 10000) {
+            throw "applyChanges did not converge"
+        }
+    }
+}
+
+function getMissingChanges(source: Micromerge, target: Micromerge) {
+    const sourceClock = source.clock
+    const targetClock = target.clock
+    const changes = []
+    for (const [actor, number] of Object.entries(sourceClock)) {
+        if (targetClock[actor] === undefined) {
+            changes.push(...queues[actor].slice(0, number))
+        }
+        if (targetClock[actor] < number) {
+            changes.push(...queues[actor].slice(targetClock[actor], number))            
+        }
+    }
+    return changes
 }

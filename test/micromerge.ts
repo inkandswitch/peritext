@@ -24,7 +24,7 @@ export const debug = (obj: any) => {
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.
- *  This isn't as optimized as the structure we use in the actual codebase,
+ *  This isn't as optimizefd as the structure we use in the actual codebase,
  *  but it lets us straightforwardly test whether the incremental patches that we have
  *  generated have converged on the correct state.
  */
@@ -53,9 +53,9 @@ const testConcurrentWrites = (args: {
 }): void => {
     const { initialText = "The Peritext editor", preOps, inputOps1 = [], inputOps2 = [], expectedResult } = args
 
-    const initialDocs = generateDocs(initialText)
-    const { doc1, doc2 } = initialDocs
-    let { patches1: patchesForDoc1, patches2: patchesForDoc2 } = initialDocs
+    const { docs, patches } = generateDocs(initialText)
+    const [ doc1, doc2 ] = docs
+    let [ patchesForDoc1, patchesForDoc2 ] = patches
 
     if (preOps) {
         const { change: change0, patches: patches0 } = doc1.change(preOps.map(op => ({ ...op, path: ["text"] })))
@@ -195,7 +195,8 @@ const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {
-        const { doc1 } = generateDocs("abcde")
+        const { docs } = generateDocs("abcde")
+        const [ doc1 ] = docs
 
         doc1.change([
             {
@@ -215,8 +216,12 @@ describe.only("Micromerge", () => {
     })
 
     it("records local changes in the deps clock", () => {
-        const { doc1, doc2 } = generateDocs("a")
-        const { change: change2 } = doc2.change([{ path: ["text"], action: "insert", index: 1, values: ["b"] }])
+        const { docs } = generateDocs("a")
+        const [ doc1, doc2 ] = docs
+
+        const { change: change2 } = doc2.change([
+            { path: ["text"], action: "insert", index: 1, values: ["b"] },
+        ])
 
         // We should be able to successfully apply change2 on doc1 now;
         // its only dependency is change1, which should be recorded in doc1's clock
@@ -855,7 +860,8 @@ describe.only("Micromerge", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple insertion", () => {
-            const { doc1, doc2 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1, doc2 ] = docs
 
             const inputOps: InputOperation[] = [
                 {
@@ -877,7 +883,8 @@ describe.only("Micromerge", () => {
         // A simple example is when two peers concurrently insert text.
         // We need to adjust one of the insertion indexes.
         it("produces a patch with adjusted insertion index on concurrent inserts", () => {
-            const { doc1, doc2 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1, doc2 ] = docs
 
             // Doc 1 and Doc 2 start out synchronized.
 
@@ -919,8 +926,9 @@ describe.only("Micromerge", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple deletion", () => {
-            const { doc1, doc2 } = generateDocs()
-
+            const { docs } = generateDocs()
+            const [ doc1, doc2 ] = docs
+            
             const inputOps: InputOperation[] = [
                 {
                     path: ["text"],
@@ -938,7 +946,8 @@ describe.only("Micromerge", () => {
         // between input ops and patches. For example, a multi-char deletion
         // turns into a patch that contains two single-char deletion operations.
         it("turns a multi-char deletion into multiple single char deletions", () => {
-            const { doc1, doc2 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1, doc2 ] = docs
 
             const inputOps: InputOperation[] = [
                 {
@@ -969,7 +978,9 @@ describe.only("Micromerge", () => {
 
     describe("comments", () => {
         it("returns a single comment in the flattened spans", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             doc1.change([
                 // Comment on the word "Peritext"
@@ -995,8 +1006,9 @@ describe.only("Micromerge", () => {
             ])
         })
 
-        it("flattens two comments from the same user", () => {
-            const { doc1 } = generateDocs()
+        it("correctly flattens two comments from the same user", () => {
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
 
             doc1.change([
                 // Comment on "The Peritext"
@@ -1080,7 +1092,9 @@ describe.only("Micromerge", () => {
 
     describe("links", () => {
         it("returns a single link in the flattened spans", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             doc1.change([
                 // Link on the word "Peritext"
@@ -1187,7 +1201,9 @@ describe.only("Micromerge", () => {
 
     describe("cursors", () => {
         it("can resolve a cursor position", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1199,7 +1215,9 @@ describe.only("Micromerge", () => {
         })
 
         it("increments cursor position when insert happens before cursor", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1221,7 +1239,9 @@ describe.only("Micromerge", () => {
         })
 
         it("does not move cursor position when insert happens after cursor", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1243,7 +1263,9 @@ describe.only("Micromerge", () => {
         })
 
         it("moves cursor left if deletion happens before cursor", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1265,7 +1287,9 @@ describe.only("Micromerge", () => {
         })
 
         it("doesn't move cursor if deletion happens after cursor", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)
@@ -1287,7 +1311,9 @@ describe.only("Micromerge", () => {
         })
 
         it("returns index 0 if everything before the cursor is deleted", () => {
-            const { doc1 } = generateDocs()
+            const { docs } = generateDocs()
+            const [ doc1 ] = docs
+
 
             // get a cursor for a path + index
             const cursor = doc1.getCursor(["text"], 5)

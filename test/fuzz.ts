@@ -2,6 +2,7 @@ import assert from "assert"
 import crypto from "crypto"
 import Micromerge, { ActorId, Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
+import util from "util"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
 const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
@@ -138,7 +139,7 @@ function removeChange(doc: Micromerge) {
     return change
 }
 
-const { docs, initialChange } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)
+const { docs, initialChange } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 3)
 const docIds = docs.map(d => d.actorId)
 
 type SharedHistory = Record<ActorId, Change[]>
@@ -148,9 +149,9 @@ queues["doc0"].push(initialChange)
 
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
+
 // eslint-disable-next-line no-constant-condition
-let totalChanges = 0
-while (totalChanges++ < 1_000_000) {
+while (true) {
     const randomTarget = Math.floor(Math.random() * docs.length)
     const doc = docs[randomTarget]
     const queue = queues[docIds[randomTarget]]
@@ -172,9 +173,8 @@ while (totalChanges++ < 1_000_000) {
             break
     }
 
-    const shouldSync = (Math.random() < 0.2)
+    const shouldSync = true; // (Math.random() < 0.2)
     if (shouldSync) {
-
         const left = Math.floor(Math.random() * docs.length)
 
         let right: number
@@ -183,7 +183,12 @@ while (totalChanges++ < 1_000_000) {
         } while (left == right)
 
 
-        //console.log('merging', docs[left].actorId, docs[right].actorId)
+        console.log('merging', docs[left].actorId, docs[right].actorId)
+        console.log(docs[left].getTextWithFormatting(["text"]))
+        console.log(docs[right].getTextWithFormatting(["text"]))
+        console.log(util.inspect(getMissingChanges(docs[left], docs[right]), true, 10))
+        console.log(util.inspect(getMissingChanges(docs[right], docs[left]), true, 10))
+
         applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
         applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
 

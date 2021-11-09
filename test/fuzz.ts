@@ -183,7 +183,7 @@ while (totalChanges++ < 1_000_000) {
         } while (left == right)
 
 
-        console.log('merging', docs[left], docs[right])
+        //console.log('merging', docs[left].actorId, docs[right].actorId)
         applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
         applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
 

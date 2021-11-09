@@ -11,7 +11,8 @@ import Micromerge, {
 } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
-import { isEqual } from "lodash"
+import { isEqual, sortBy } from "lodash"
+import { MarkType } from "prosemirror-model"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -107,8 +108,28 @@ const testConcurrentWrites = (args: {
     // Test that applying patches converges to the same state
     // debug(patchesForDoc1)
     // debug(accumulatePatches(patchesForDoc1))
-    assert.deepStrictEqual(accumulatePatches(patchesForDoc1), expectedResult)
-    assert.deepStrictEqual(accumulatePatches(patchesForDoc2), expectedResult)
+
+    const actualSpans = accumulatePatches(patchesForDoc1)
+
+    // This tests that the accumulated result of applying all patches is the same as
+    // some expected list of format spans.
+    // The annoying this is we have to check comments order-independent.
+    // TODO: split this equality checker out into a helper function.
+    for (const [index, expectedSpan] of expectedResult.entries()) {
+        const actualSpan = actualSpans[index]
+        assert.strictEqual(expectedSpan.text, actualSpan.text)
+
+        for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
+            if (markType === "comment") {
+                assert.deepStrictEqual(
+                    sortBy(markValue, (c: { id: string }) => c.id),
+                    sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
+                )
+            } else {
+                assert.deepStrictEqual(markValue, actualSpan.marks[markType])
+            }
+        }
+    }
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.

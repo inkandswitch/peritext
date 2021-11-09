@@ -18,6 +18,11 @@ export type Patch =
     | AddMarkOperationInput
     | RemoveMarkOperationInput
 
+/** A patch which only has a start index and not an end index yet.
+ *  Used when we're iterating thru metadata sequence and constructing a patch to emit.
+ */
+type PartialPatch = Omit<AddMarkOperationInput | RemoveMarkOperationInput, "endIndex">
+
 type CONTENT_KEY = "text"
 
 export type MarkMapWithoutOpIds = {
@@ -935,6 +940,26 @@ export default class Micromerge {
         return ops
     }
 
+    private constructPartialPatch = (args: {
+        op: AddMarkOperation | RemoveMarkOperation
+        startIndex: number
+    }): PartialPatch => {
+        const { op, startIndex } = args
+
+        let partialPatch: PartialPatch = {
+            action: op.action,
+            markType: op.markType,
+            path: [Micromerge.contentKey],
+            startIndex,
+        }
+
+        if (op.action === "addMark" && (op.markType === "link" || op.markType === "comment")) {
+            partialPatch.attrs = op.attrs
+        }
+
+        return partialPatch
+    }
+
     /**
      * Updates the document state with one of the operations from a change.
      */
@@ -982,10 +1007,7 @@ export default class Micromerge {
                 let opIntersectsItem = false
                 let visibleIndex = 0
 
-                let partialPatch:
-                    | Omit<AddMarkOperationInput, "endIndex">
-                    | Omit<RemoveMarkOperationInput, "endIndex">
-                    | undefined = undefined
+                let partialPatch: PartialPatch | undefined
 
                 for (const [index, elMeta] of metadata.entries()) {
                     // We compute the effects that this op has on the position before and after this character,
@@ -1017,16 +1039,7 @@ export default class Micromerge {
 
                             // If this op has an effect on the final formatting, start emitting a patch
                             if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                                partialPatch = {
-                                    action: op.action,
-                                    markType: op.markType,
-                                    path: [Micromerge.contentKey],
-                                    startIndex: indexForPatch,
-                                }
-
-                                if (op.action === "addMark" && (op.markType === "link" || op.markType === "comment")) {
-                                    partialPatch!.attrs = op.attrs
-                                }
+                                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
                             }
 
                             opIntersectsItem = true
@@ -1070,12 +1083,7 @@ export default class Micromerge {
                             const newOps = new Set([...existingOps, op])
 
                             if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                                partialPatch = {
-                                    action: op.action,
-                                    markType: op.markType,
-                                    path: [Micromerge.contentKey],
-                                    startIndex: indexForPatch,
-                                }
+                                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
                             }
 
                             elMeta[metadataProperty] = newOps

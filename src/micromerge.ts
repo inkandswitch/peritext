@@ -1,5 +1,5 @@
 import uuid from "uuid"
-import { every, isEqual, sortBy } from "lodash"
+import { every, isEqual, partial, sortBy } from "lodash"
 import { inspect } from "util"
 
 import { Marks, markSpec, MarkType } from "./schema"
@@ -413,7 +413,7 @@ export type FormatSpan = {
  *  (The ops can be in arbitrary order and the result is always
  *  the same, because we do op ID comparisons.)
  */
-function opsToMarks(ops: (AddMarkOperation | RemoveMarkOperation)[]): MarkMapWithoutOpIds {
+function opsToMarks(ops: Set<AddMarkOperation | RemoveMarkOperation>): MarkMapWithoutOpIds {
     const markMap: MarkMap = {}
 
     // Construct a mark map which stores op IDs
@@ -487,7 +487,11 @@ function opsToMarks(ops: (AddMarkOperation | RemoveMarkOperation)[]): MarkMapWit
 }
 
 /** Add some characters with given marks to the end of a list of spans */
-function addCharactersToSpans(args: { characters: string[]; marks: MarkMapWithoutOpIds; spans: FormatSpanWithText[] }) {
+export function addCharactersToSpans(args: {
+    characters: string[]
+    marks: MarkMapWithoutOpIds
+    spans: FormatSpanWithText[]
+}) {
     const { characters, marks, spans } = args
     if (characters.length === 0) {
         return
@@ -817,9 +821,9 @@ export default class Micromerge {
             // either on the "before" set of this character, or the "after" of previous character.
             // The "before" of this character takes precedence because it's later in the sequence.
             if (elMeta.markOpsBefore) {
-                newMarks = opsToMarks([...elMeta.markOpsBefore])
+                newMarks = opsToMarks(elMeta.markOpsBefore)
             } else if (index > 0 && metadata[index - 1].markOpsAfter) {
-                newMarks = opsToMarks([...metadata[index - 1].markOpsAfter!])
+                newMarks = opsToMarks(metadata[index - 1].markOpsAfter!)
             }
 
             if (newMarks !== undefined) {
@@ -978,6 +982,11 @@ export default class Micromerge {
                 let opIntersectsItem = false
                 let visibleIndex = 0
 
+                let partialPatch:
+                    | Omit<AddMarkOperationInput, "endIndex">
+                    | Omit<RemoveMarkOperationInput, "endIndex">
+                    | undefined = undefined
+
                 for (const [index, elMeta] of metadata.entries()) {
                     // We compute the effects that this op has on the position before and after this character,
                     // the logic is the same in both cases and we need to consider the before case first.
@@ -988,15 +997,38 @@ export default class Micromerge {
                     ] as const
 
                     for (const { side, metadataProperty } of positions) {
+                        const indexForPatch = side === "before" ? visibleIndex : visibleIndex + 1
+
                         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
+                            let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
+
                             // If we already have a set of mark ops here, just add the new op
                             // Otherwise, we first copy over closest ops from left, then add this new one
                             if (elMeta[metadataProperty] !== undefined) {
-                                elMeta[metadataProperty]!.add(op)
+                                existingOps = elMeta[metadataProperty]!
                             } else {
-                                const existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
-                                elMeta[metadataProperty] = existingOps.add(op)
+                                existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
                             }
+
+                            const newOps = new Set([...existingOps, op])
+
+                            // Store the new set of mark ops on the metadata at this position
+                            elMeta[metadataProperty] = newOps
+
+                            // If this op has an effect on the final formatting, start emitting a patch
+                            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                                partialPatch = {
+                                    action: op.action,
+                                    markType: op.markType,
+                                    path: [Micromerge.contentKey],
+                                    startIndex: indexForPatch,
+                                }
+
+                                if (op.action === "addMark" && (op.markType === "link" || op.markType === "comment")) {
+                                    partialPatch!.attrs = op.attrs
+                                }
+                            }
+
                             opIntersectsItem = true
                         } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
                             // We need to record what mark ops should be active to the right of this position.
@@ -1010,15 +1042,53 @@ export default class Micromerge {
                                 )
                             }
 
+                            if (partialPatch !== undefined) {
+                                const endIndex = indexForPatch
+
+                                // todo: why doesn't this typecheck
+                                patches.push({
+                                    ...partialPatch,
+                                    endIndex,
+                                })
+                                partialPatch = undefined
+                            }
+
                             break // Stop iterating; this op can't have consequences after its end
                         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
-                            elMeta[metadataProperty]!.add(op)
+                            if (partialPatch !== undefined) {
+                                const endIndex = indexForPatch
+
+                                // todo: why doesn't this typecheck
+                                patches.push({
+                                    ...partialPatch,
+                                    endIndex,
+                                })
+                                partialPatch = undefined
+                            }
+
+                            const existingOps = elMeta[metadataProperty]!
+                            const newOps = new Set([...existingOps, op])
+
+                            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                                partialPatch = {
+                                    action: op.action,
+                                    markType: op.markType,
+                                    path: [Micromerge.contentKey],
+                                    startIndex: indexForPatch,
+                                }
+                            }
+
+                            elMeta[metadataProperty] = newOps
                         }
                     }
 
                     if (!elMeta.deleted) {
                         visibleIndex += 1
                     }
+                }
+
+                if (partialPatch) {
+                    patches.push({ ...partialPatch, endIndex: obj.length })
                 }
 
                 return patches
@@ -1126,8 +1196,7 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
-        // TODO: correctly fill in the marks for this new character based on metadata
-        const marks = {}
+        const marks = opsToMarks(this.findClosestMarkOpsToLeft({ metadata: meta, index: index, side: "before" }))
 
         return [
             {

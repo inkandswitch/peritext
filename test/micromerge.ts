@@ -1,5 +1,6 @@
 import assert from "assert"
 import Micromerge, {
+    addCharactersToSpans,
     AddMarkOperation,
     AddMarkOperationInput,
     FormatSpanWithText,
@@ -10,8 +11,9 @@ import Micromerge, {
 } from "../src/micromerge"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
-import { isEqual } from "lodash"
 import { generateDocs } from "./generateDocs"
+import { isEqual, sortBy } from "lodash"
+import { MarkType } from "prosemirror-model"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -30,6 +32,7 @@ type TextWithMetadata = Array<{
     character: string
     marks: MarkMapWithoutOpIds
 }>
+
 
 const range = (start: number, end: number): number[] => {
     return Array(end - start + 1)
@@ -82,60 +85,113 @@ const testConcurrentWrites = (args: {
     assert.deepStrictEqual(doc1.getTextWithFormatting(["text"]), expectedResult)
     assert.deepStrictEqual(doc2.getTextWithFormatting(["text"]), expectedResult)
 
-    // For now, we have commented out this code which tests that patches converge;
-    // we'll add it back once we're ready to emit patches again.
-    // assert.deepStrictEqual(
-    //     accumulatePatches(patchesForDoc1),
-    //     accumulatePatches(patchesForDoc2),
-    // )
+    // Test that applying patches converges to the same state
+    // debug(patchesForDoc1)
+    // debug(accumulatePatches(patchesForDoc1))
+
+    const actualSpans = accumulatePatches(patchesForDoc1)
+
+    // This tests that the accumulated result of applying all patches is the same as
+    // some expected list of format spans.
+    // The annoying this is we have to check comments order-independent.
+    // TODO: split this equality checker out into a helper function.
+    for (const [index, expectedSpan] of expectedResult.entries()) {
+        const actualSpan = actualSpans[index]
+        assert.strictEqual(expectedSpan.text, actualSpan.text)
+
+        for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
+            if (markType === "comment") {
+                assert.deepStrictEqual(
+                    sortBy(markValue, (c: { id: string }) => c.id),
+                    sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
+                )
+            } else {
+                assert.deepStrictEqual(markValue, actualSpan.marks[markType])
+            }
+        }
+    }
 }
 
-// const accumulatePatches = (patches: Patch[]): TextWithMetadata => {
-//     const metadata: TextWithMetadata = []
-//     for (const patch of patches) {
-//         if (!isEqual(patch.path, ["text"])) {
-//             throw new Error("This implementation only supports a single path: 'text'")
-//         }
+/** Define a naive structure that accumulates patches and computes a document state.
+ *  This isn't as optimized as the structure we use in the actual codebase,
+ *  but it lets us straightforwardly test whether the incremental patches that we have
+ *  generated have converged on the correct state.
+ */
+type TextWithMetadata = Array<{
+    character: string
+    marks: MarkMapWithoutOpIds
+}>
 
-//         switch (patch.action) {
-//             case "insert": {
-//                 patch.values.forEach((character: string, valueIndex: number) => {
-//                     metadata.splice(patch.index + valueIndex, 0, {
-//                         character,
-//                         marks: { ...patch.marks },
-//                     })
-//                 })
+/** Accumulates effects of patches into the same structure returned by our batch codepath;
+ *  this lets us test that the result of applying a bunch of patches is what we expect.
+ */
+const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
+    const metadata: TextWithMetadata = []
+    for (const patch of patches) {
+        if (!isEqual(patch.path, ["text"])) {
+            throw new Error("This implementation only supports a single path: 'text'")
+        }
 
-//                 break
-//             }
+        switch (patch.action) {
+            case "insert": {
+                patch.values.forEach((character: string, valueIndex: number) => {
+                    metadata.splice(patch.index + valueIndex, 0, {
+                        character,
+                        marks: { ...patch.marks },
+                    })
+                })
 
-//             case "delete": {
-//                 metadata.splice(patch.index, patch.count)
-//                 break
-//             }
+                break
+            }
 
-//             case "addMark": {
-//                 for (const index of range(patch.start, patch.end)) {
-//                     metadata[index].marks[patch.markType] = { active: true }
-//                 }
-//                 break
-//             }
+            case "delete": {
+                metadata.splice(patch.index, patch.count)
+                break
+            }
 
-//             case "removeMark": {
-//                 for (const index of range(patch.start, patch.end)) {
-//                     delete metadata[index].marks[patch.markType]
-//                 }
-//                 break
-//             }
+            case "addMark": {
+                for (const index of range(patch.startIndex, patch.endIndex - 1)) {
+                    if (patch.markType !== "comment") {
+                        metadata[index].marks[patch.markType] = {
+                            active: true,
+                            ...patch.attrs,
+                        }
+                    } else {
+                        if (metadata[index].marks[patch.markType] === undefined) {
+                            metadata[index].marks[patch.markType] = []
+                        }
 
-//             default: {
-//                 unreachable(patch)
-//             }
-//         }
-//     }
+                        metadata[index].marks[patch.markType]!.push({
+                            ...patch.attrs,
+                        })
+                    }
+                }
+                break
+            }
 
-//     return metadata
-// }
+            case "removeMark": {
+                for (const index of range(patch.startIndex, patch.endIndex - 1)) {
+                    delete metadata[index].marks[patch.markType]
+                }
+                break
+            }
+
+            default: {
+                unreachable(patch)
+            }
+        }
+    }
+
+    // Accumulate the per-character metadata into a normal spans structure
+    // as returned by our batch codepath
+    const spans: FormatSpanWithText[] = []
+
+    for (const meta of metadata) {
+        addCharactersToSpans({ characters: [meta.character], marks: meta.marks, spans })
+    }
+
+    return spans
+}
 
 describe.only("Micromerge", () => {
     it("can insert and delete text", () => {

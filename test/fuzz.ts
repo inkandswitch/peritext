@@ -15,16 +15,16 @@ const commentHistory: string[] = []
 
 function addMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
-    const start = Math.floor(Math.random() * length)
-    const end = start + Math.floor(Math.random() * (length - start))
+    const startIndex = Math.floor(Math.random() * length)
+    const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedStuff: any = {
         path: ["text"],
         action: "addMark",
-        start,
-        end,
+        startIndex,
+        endIndex,
         markType,
     }
 
@@ -59,16 +59,16 @@ function addMarkChange(doc: Micromerge) {
 
 function removeMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
-    const start = Math.floor(Math.random() * length)
-    const end = start + Math.floor(Math.random() * (length - start))
+    const startIndex = Math.floor(Math.random() * length)
+    const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedStuff: any = {
         path: ["text"],
         action: "addMark",
-        start,
-        end,
+        startIndex,
+        endIndex,
         markType,
     }
 

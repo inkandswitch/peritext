@@ -95,12 +95,8 @@ const testConcurrentWrites = (args: {
     // Test that applying patches converges to the same state
     // debug(patchesForDoc1)
     // debug(accumulatePatches(patchesForDoc1))
-
     assertDocsEqual(accumulatePatches(patchesForDoc1), expectedResult)
-
-    // TODO: this totally fails; something to do with incorrect initializing patches
-    // for doc2 when we set up the doc at first
-    // assertDocsEqual(accumulatePatches(patchesForDoc2), expectedResult)
+    assertDocsEqual(accumulatePatches(patchesForDoc2), expectedResult)
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.

@@ -9,13 +9,16 @@ const defaultText = "The Peritext editor"
  *  Useful for creating a baseline upon which to play further changes
  */
 export const generateDocs = (
-    text: string = defaultText, count: number = 2
+    text: string = defaultText,
+    count: number = 2,
 ): {
     docs: Micromerge[]
     patches: Patch[][]
     initialChange: Change
 } => {
-    const docs = new Array(count).fill(null).map((n, i) => { return new Micromerge("doc" + i) })
+    const docs = new Array(count).fill(null).map((n, i) => {
+        return new Micromerge("doc" + i)
+    })
     const patches: Patch[][] = new Array(count).fill(null).map(() => [])
     const textChars = text.split("")
 
@@ -31,8 +34,9 @@ export const generateDocs = (
     ])
     patches[0] = initialPatches
 
-    for (const doc of docs.slice(1)) {
-        doc.applyChange(initialChange)
+    for (const [index, doc] of docs.entries()) {
+        if (index === 0) continue
+        patches[index] = doc.applyChange(initialChange)
     }
     return { docs, patches, initialChange }
 }

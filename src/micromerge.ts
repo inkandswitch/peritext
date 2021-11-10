@@ -1008,10 +1008,15 @@ export default class Micromerge {
                 let visibleIndex = 0
 
                 let partialPatch: PartialPatch | undefined
+                let exitLoop: boolean = false
 
                 for (const [index, elMeta] of metadata.entries()) {
                     // We compute the effects that this op has on the position before and after this character,
                     // the logic is the same in both cases and we need to consider the before case first.
+
+                    if (exitLoop) {
+                        break
+                    }
 
                     const positions = [
                         { side: "before", metadataProperty: "markOpsBefore" },
@@ -1066,7 +1071,8 @@ export default class Micromerge {
                                 partialPatch = undefined
                             }
 
-                            break // Stop iterating; this op can't have consequences after its end
+                            exitLoop = true
+                            break
                         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
                             if (partialPatch !== undefined) {
                                 const endIndex = indexForPatch

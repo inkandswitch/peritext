@@ -731,6 +731,36 @@ describe.only("Micromerge", () => {
                 ],
             })
         })
+
+        it("handles concurrent adjacent formatting ops", () => {
+            testConcurrentWrites({
+                initialText: "ABCDE",
+                // Bold B
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 1,
+                        endIndex: 2,
+                        markType: "strong",
+                    },
+                ],
+                // Bold C
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 2,
+                        endIndex: 3,
+                        markType: "strong",
+                    },
+                ],
+                // BC should be bolded
+                expectedResult: [
+                    { marks: {}, text: "A" },
+                    { marks: { strong: { active: true } }, text: "BC" },
+                    { marks: {}, text: "DE" },
+                ],
+            })
+        })
     })
 
     it("handles an addMark boundary that is a tombstone", () => {

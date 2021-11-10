@@ -103,7 +103,7 @@ function removeMarkChange(doc: Micromerge) {
     }
 }
 
-const MAX_CHARS = 1
+const MAX_CHARS = 10
 function insertChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const index = Math.floor(Math.random() * length)

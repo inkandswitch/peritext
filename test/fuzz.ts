@@ -3,14 +3,21 @@ import crypto from "crypto"
 import Micromerge, { ActorId, Change } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 import util from "util"
+import { isEqual } from "lodash"
+import { debug } from "./micromerge"
+import fs from "fs"
+import path from "path"
+import { v4 as uuid } from "uuid"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
+const markTypes: MarkTypes[] = ["em"] //, "em", "link", "comment"]
 
-const exampleURLs = ["https://inkandswitch.com",
+const exampleURLs = [
+    "https://inkandswitch.com",
     "https://inkandswitch.com/cambria/",
     "https://inkandswitch.com/peritext/",
-    "https://inkandswitch.com/pushpin"]
+    "https://inkandswitch.com/pushpin",
+]
 
 const commentHistory: string[] = []
 
@@ -18,7 +25,7 @@ function addMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const startIndex = Math.floor(Math.random() * length)
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
-    const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
+    const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedStuff: any = {
@@ -31,7 +38,7 @@ function addMarkChange(doc: Micromerge) {
 
     if (markType === "link") {
         // pick one of the four urls we use to encourage adjacent matching spans
-        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
+        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)]
         const { change } = doc.change([
             {
                 ...sharedStuff,
@@ -39,10 +46,9 @@ function addMarkChange(doc: Micromerge) {
             },
         ])
         return change
-    }
-    else if (markType === "comment") {
-        // make a new comment ID and remember it so we can try removing it later 
-        const id = "comment-" + crypto.randomBytes(2).toString('hex')
+    } else if (markType === "comment") {
+        // make a new comment ID and remember it so we can try removing it later
+        const id = "comment-" + crypto.randomBytes(2).toString("hex")
         commentHistory.push(id)
         const { change } = doc.change([
             {
@@ -51,8 +57,7 @@ function addMarkChange(doc: Micromerge) {
             },
         ])
         return change
-    }
-    else {
+    } else {
         const { change } = doc.change([sharedStuff])
         return change
     }
@@ -62,7 +67,7 @@ function removeMarkChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const startIndex = Math.floor(Math.random() * length)
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
-    const markType = markTypes[Math.floor(Math.random() * markTypes.length)];
+    const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedStuff: any = {
@@ -74,18 +79,17 @@ function removeMarkChange(doc: Micromerge) {
     }
 
     if (markType === "link") {
-        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)];
+        const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)]
         const { change } = doc.change([
             {
                 ...sharedStuff,
-                attrs: { url } // do we need a URL?
+                attrs: { url }, // do we need a URL?
             },
         ])
         return change
-    }
-    else if (markType === "comment") {
+    } else if (markType === "comment") {
         // note to gklitt: we should probably enumerate the existing comments, right now it just grows
-        const id = commentHistory[Math.floor(Math.random() * commentHistory.length)];
+        const id = commentHistory[Math.floor(Math.random() * commentHistory.length)]
         const { change } = doc.change([
             {
                 ...sharedStuff,
@@ -93,20 +97,18 @@ function removeMarkChange(doc: Micromerge) {
             },
         ])
         return change
-    }
-    else {
+    } else {
         const { change } = doc.change([sharedStuff])
         return change
     }
-
 }
 
-const MAX_CHARS = 10
+const MAX_CHARS = 1
 function insertChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const index = Math.floor(Math.random() * length)
     const numChars = Math.floor(Math.random() * MAX_CHARS)
-    const values = crypto.randomBytes(numChars).toString('hex').split('');
+    const values = crypto.randomBytes(numChars).toString("hex").split("")
 
     const { change } = doc.change([
         {
@@ -133,30 +135,32 @@ function removeChange(doc: Micromerge) {
             path: ["text"],
             action: "delete",
             index,
-            count
+            count,
         },
     ])
     return change
 }
 
-const { docs, initialChange } = generateDocs("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 3)
+const { docs, initialChange } = generateDocs("ABCDE", 3)
 const docIds = docs.map(d => d.actorId)
 
 type SharedHistory = Record<ActorId, Change[]>
 const queues: SharedHistory = {}
-docIds.forEach(id => queues[id] = [])
+docIds.forEach(id => (queues[id] = []))
 queues["doc0"].push(initialChange)
 
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
-
 // eslint-disable-next-line no-constant-condition
+
+let allChanges = []
+
 while (true) {
     const randomTarget = Math.floor(Math.random() * docs.length)
     const doc = docs[randomTarget]
     const queue = queues[docIds[randomTarget]]
 
-    const op = opTypes[Math.floor(Math.random() * opTypes.length)];
+    const op = opTypes[Math.floor(Math.random() * opTypes.length)]
 
     switch (op) {
         case "insert":
@@ -173,7 +177,7 @@ while (true) {
             break
     }
 
-    const shouldSync = true; // (Math.random() < 0.2)
+    const shouldSync = true // (Math.random() < 0.2)
     if (shouldSync) {
         const left = Math.floor(Math.random() * docs.length)
 
@@ -182,21 +186,33 @@ while (true) {
             right = Math.floor(Math.random() * docs.length)
         } while (left == right)
 
-
-        console.log('merging', docs[left].actorId, docs[right].actorId)
-        console.log(docs[left].getTextWithFormatting(["text"]))
-        console.log(docs[right].getTextWithFormatting(["text"]))
-        console.log(util.inspect(getMissingChanges(docs[left], docs[right]), true, 10))
-        console.log(util.inspect(getMissingChanges(docs[right], docs[left]), true, 10))
+        // console.log("merging", docs[left].actorId, docs[right].actorId)
+        // console.log(util.inspect(getMissingChanges(docs[left], docs[right]), true, 10))
+        // console.log(util.inspect(getMissingChanges(docs[right], docs[left]), true, 10))
 
         applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
         applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
 
+        const leftText = docs[left].getTextWithFormatting(["text"])
+        const rightText = docs[right].getTextWithFormatting(["text"])
+
+        if (!isEqual(leftText, rightText)) {
+            const filename = `../traces/fail-${uuid()}.json`
+            fs.writeFileSync(
+                path.resolve(__dirname, filename),
+                JSON.stringify({
+                    queues,
+                    leftDoc: docs[left].actorId,
+                    rightDoc: docs[right].actorId,
+                    leftText,
+                    rightText,
+                }),
+            )
+            console.log(`wrote failed trace to ${filename}`)
+        }
+
         assert.deepStrictEqual(docs[left].clock, docs[right].clock)
-        assert.deepStrictEqual(
-            docs[left].getTextWithFormatting(["text"]),
-            docs[right].getTextWithFormatting(["text"]),
-        )
+        assert.deepStrictEqual(leftText, rightText)
     }
 }
 
@@ -208,9 +224,9 @@ function applyChanges(document: Micromerge, changes: Change[]) {
             return
         }
         try {
+            // console.log("applying", document.actorId, change)
             document.applyChange(change)
-        }
-        catch {
+        } catch {
             changes.push(change)
         }
         if (iterations++ > 10000) {
@@ -228,7 +244,7 @@ function getMissingChanges(source: Micromerge, target: Micromerge) {
             changes.push(...queues[actor].slice(0, number))
         }
         if (targetClock[actor] < number) {
-            changes.push(...queues[actor].slice(targetClock[actor], number))            
+            changes.push(...queues[actor].slice(targetClock[actor], number))
         }
     }
     return changes

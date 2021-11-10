@@ -10,7 +10,7 @@ const textChars = defaultText.split("")
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debug = (obj: any) => {
-    console.log(inspect(obj, false, 4))
+    console.log(inspect(obj, false, 6))
 }
 
 /** Define a naive structure that accumulates patches and computes a document state.

@@ -1,0 +1,3769 @@
+{
+  "queues": {
+    "doc0": [
+      {
+        "actor": "doc0",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc0",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "3@doc0",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "4@doc0",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "5@doc0",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 2,
+        "deps": {
+          "doc0": 1,
+          "doc2": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "a"
+          },
+          {
+            "opId": "8@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "7@doc0",
+            "insert": true,
+            "value": "f"
+          },
+          {
+            "opId": "9@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "8@doc0",
+            "insert": true,
+            "value": "4"
+          },
+          {
+            "opId": "10@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "9@doc0",
+            "insert": true,
+            "value": "8"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 3,
+        "deps": {
+          "doc0": 2,
+          "doc2": 2,
+          "doc1": 1
+        },
+        "startOp": 12,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 4,
+        "deps": {
+          "doc0": 3,
+          "doc2": 5,
+          "doc1": 2
+        },
+        "startOp": 19,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 5,
+        "deps": {
+          "doc0": 4,
+          "doc2": 5,
+          "doc1": 2
+        },
+        "startOp": 19,
+        "ops": [
+          {
+            "opId": "19@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 6,
+        "deps": {
+          "doc0": 5,
+          "doc2": 5,
+          "doc1": 3
+        },
+        "startOp": 20,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 7,
+        "deps": {
+          "doc0": 6,
+          "doc2": 6,
+          "doc1": 3
+        },
+        "startOp": 22,
+        "ops": [
+          {
+            "opId": "22@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 8,
+        "deps": {
+          "doc0": 7,
+          "doc2": 10,
+          "doc1": 7
+        },
+        "startOp": 27,
+        "ops": [
+          {
+            "opId": "27@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 9,
+        "deps": {
+          "doc0": 8,
+          "doc2": 12,
+          "doc1": 8
+        },
+        "startOp": 29,
+        "ops": [
+          {
+            "opId": "29@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 10,
+        "deps": {
+          "doc0": 9,
+          "doc2": 12,
+          "doc1": 8
+        },
+        "startOp": 30,
+        "ops": [
+          {
+            "opId": "30@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 11,
+        "deps": {
+          "doc0": 10,
+          "doc2": 12,
+          "doc1": 9
+        },
+        "startOp": 31,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 12,
+        "deps": {
+          "doc0": 11,
+          "doc2": 13,
+          "doc1": 9
+        },
+        "startOp": 31,
+        "ops": [
+          {
+            "opId": "31@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 13,
+        "deps": {
+          "doc0": 12,
+          "doc2": 13,
+          "doc1": 9
+        },
+        "startOp": 32,
+        "ops": [
+          {
+            "opId": "32@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 14,
+        "deps": {
+          "doc0": 13,
+          "doc2": 13,
+          "doc1": 9
+        },
+        "startOp": 33,
+        "ops": [
+          {
+            "opId": "33@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "1"
+          },
+          {
+            "opId": "34@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "33@doc0",
+            "insert": true,
+            "value": "6"
+          },
+          {
+            "opId": "35@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "34@doc0",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "36@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "35@doc0",
+            "insert": true,
+            "value": "8"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 15,
+        "deps": {
+          "doc0": 14,
+          "doc2": 13,
+          "doc1": 10
+        },
+        "startOp": 37,
+        "ops": [
+          {
+            "opId": "37@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 16,
+        "deps": {
+          "doc0": 15,
+          "doc2": 13,
+          "doc1": 10
+        },
+        "startOp": 38,
+        "ops": [
+          {
+            "opId": "38@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 17,
+        "deps": {
+          "doc0": 16,
+          "doc2": 14,
+          "doc1": 11
+        },
+        "startOp": 40,
+        "ops": [
+          {
+            "opId": "40@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "35@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 18,
+        "deps": {
+          "doc0": 17,
+          "doc2": 14,
+          "doc1": 11
+        },
+        "startOp": 41,
+        "ops": [
+          {
+            "opId": "41@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "34@doc0",
+            "insert": true,
+            "value": "7"
+          },
+          {
+            "opId": "42@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "41@doc0",
+            "insert": true,
+            "value": "6"
+          },
+          {
+            "opId": "43@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "42@doc0",
+            "insert": true,
+            "value": "4"
+          },
+          {
+            "opId": "44@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "43@doc0",
+            "insert": true,
+            "value": "a"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 19,
+        "deps": {
+          "doc0": 18,
+          "doc2": 14,
+          "doc1": 11
+        },
+        "startOp": 45,
+        "ops": [
+          {
+            "opId": "45@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "36@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 20,
+        "deps": {
+          "doc0": 19,
+          "doc2": 18,
+          "doc1": 11
+        },
+        "startOp": 48,
+        "ops": [
+          {
+            "opId": "48@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "36@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 21,
+        "deps": {
+          "doc0": 20,
+          "doc2": 19,
+          "doc1": 12
+        },
+        "startOp": 49,
+        "ops": [
+          {
+            "opId": "49@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "34@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "41@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 22,
+        "deps": {
+          "doc0": 21,
+          "doc2": 22,
+          "doc1": 12
+        },
+        "startOp": 52,
+        "ops": [
+          {
+            "opId": "52@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "42@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 23,
+        "deps": {
+          "doc0": 22,
+          "doc2": 22,
+          "doc1": 12
+        },
+        "startOp": 53,
+        "ops": [
+          {
+            "opId": "53@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "33@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 24,
+        "deps": {
+          "doc0": 23,
+          "doc2": 23,
+          "doc1": 13
+        },
+        "startOp": 57,
+        "ops": [
+          {
+            "opId": "57@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "54@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 25,
+        "deps": {
+          "doc0": 24,
+          "doc2": 23,
+          "doc1": 13
+        },
+        "startOp": 58,
+        "ops": [
+          {
+            "opId": "58@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "41@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 26,
+        "deps": {
+          "doc0": 25,
+          "doc2": 23,
+          "doc1": 13
+        },
+        "startOp": 59,
+        "ops": [
+          {
+            "opId": "59@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "41@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 27,
+        "deps": {
+          "doc0": 26,
+          "doc2": 27,
+          "doc1": 14
+        },
+        "startOp": 63,
+        "ops": [
+          {
+            "opId": "63@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "34@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 28,
+        "deps": {
+          "doc0": 27,
+          "doc2": 28,
+          "doc1": 15
+        },
+        "startOp": 67,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 29,
+        "deps": {
+          "doc0": 28,
+          "doc2": 29,
+          "doc1": 15
+        },
+        "startOp": 68,
+        "ops": [
+          {
+            "opId": "68@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 30,
+        "deps": {
+          "doc0": 29,
+          "doc2": 29,
+          "doc1": 15
+        },
+        "startOp": 69,
+        "ops": [
+          {
+            "opId": "69@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 31,
+        "deps": {
+          "doc0": 30,
+          "doc2": 29,
+          "doc1": 16
+        },
+        "startOp": 71,
+        "ops": [
+          {
+            "opId": "71@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 32,
+        "deps": {
+          "doc0": 31,
+          "doc2": 29,
+          "doc1": 16
+        },
+        "startOp": 72,
+        "ops": [
+          {
+            "opId": "72@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "65@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 33,
+        "deps": {
+          "doc0": 32,
+          "doc2": 30,
+          "doc1": 16
+        },
+        "startOp": 73,
+        "ops": [
+          {
+            "opId": "73@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 34,
+        "deps": {
+          "doc0": 33,
+          "doc2": 30,
+          "doc1": 16
+        },
+        "startOp": 74,
+        "ops": [
+          {
+            "opId": "74@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "66@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 35,
+        "deps": {
+          "doc0": 34,
+          "doc2": 30,
+          "doc1": 16
+        },
+        "startOp": 75,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 36,
+        "deps": {
+          "doc0": 35,
+          "doc2": 32,
+          "doc1": 16
+        },
+        "startOp": 77,
+        "ops": [
+          {
+            "opId": "77@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 37,
+        "deps": {
+          "doc0": 36,
+          "doc2": 32,
+          "doc1": 19
+        },
+        "startOp": 79,
+        "ops": [
+          {
+            "opId": "79@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 38,
+        "deps": {
+          "doc0": 37,
+          "doc2": 33,
+          "doc1": 19
+        },
+        "startOp": 80,
+        "ops": [
+          {
+            "opId": "80@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 39,
+        "deps": {
+          "doc0": 38,
+          "doc2": 33,
+          "doc1": 19
+        },
+        "startOp": 81,
+        "ops": [
+          {
+            "opId": "81@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 40,
+        "deps": {
+          "doc0": 39,
+          "doc2": 34,
+          "doc1": 19
+        },
+        "startOp": 83,
+        "ops": [
+          {
+            "opId": "83@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "4"
+          },
+          {
+            "opId": "84@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "83@doc0",
+            "insert": true,
+            "value": "a"
+          },
+          {
+            "opId": "85@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "84@doc0",
+            "insert": true,
+            "value": "4"
+          },
+          {
+            "opId": "86@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "85@doc0",
+            "insert": true,
+            "value": "7"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 41,
+        "deps": {
+          "doc0": 40,
+          "doc2": 38,
+          "doc1": 20
+        },
+        "startOp": 87,
+        "ops": [
+          {
+            "opId": "87@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "84@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 42,
+        "deps": {
+          "doc0": 41,
+          "doc2": 39,
+          "doc1": 20
+        },
+        "startOp": 88,
+        "ops": [
+          {
+            "opId": "88@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "84@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "86@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 43,
+        "deps": {
+          "doc0": 42,
+          "doc2": 39,
+          "doc1": 20
+        },
+        "startOp": 89,
+        "ops": [
+          {
+            "opId": "89@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "84@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "86@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 44,
+        "deps": {
+          "doc0": 43,
+          "doc2": 39,
+          "doc1": 21
+        },
+        "startOp": 90,
+        "ops": [
+          {
+            "opId": "90@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "89@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "84@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 45,
+        "deps": {
+          "doc0": 44,
+          "doc2": 40,
+          "doc1": 21
+        },
+        "startOp": 91,
+        "ops": [
+          {
+            "opId": "91@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "89@doc1"
+          },
+          {
+            "opId": "92@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "83@doc0"
+          },
+          {
+            "opId": "93@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "84@doc0"
+          },
+          {
+            "opId": "94@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "85@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 46,
+        "deps": {
+          "doc0": 45,
+          "doc2": 40,
+          "doc1": 21
+        },
+        "startOp": 95,
+        "ops": [
+          {
+            "opId": "95@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "88@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 47,
+        "deps": {
+          "doc0": 46,
+          "doc2": 40,
+          "doc1": 23
+        },
+        "startOp": 96,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 48,
+        "deps": {
+          "doc0": 47,
+          "doc2": 44,
+          "doc1": 33
+        },
+        "startOp": 114,
+        "ops": [
+          {
+            "opId": "114@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "105@doc1"
+          },
+          {
+            "opId": "115@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "97@doc1"
+          },
+          {
+            "opId": "116@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "98@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 49,
+        "deps": {
+          "doc0": 48,
+          "doc2": 45,
+          "doc1": 33
+        },
+        "startOp": 117,
+        "ops": [
+          {
+            "opId": "117@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "110@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 50,
+        "deps": {
+          "doc0": 49,
+          "doc2": 47,
+          "doc1": 35
+        },
+        "startOp": 119,
+        "ops": [
+          {
+            "opId": "119@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "20@doc2"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 51,
+        "deps": {
+          "doc0": 50,
+          "doc2": 47,
+          "doc1": 37
+        },
+        "startOp": 124,
+        "ops": []
+      },
+      {
+        "actor": "doc0",
+        "seq": 52,
+        "deps": {
+          "doc0": 51,
+          "doc2": 47,
+          "doc1": 38
+        },
+        "startOp": 126,
+        "ops": [
+          {
+            "opId": "126@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "124@doc1"
+          },
+          {
+            "opId": "127@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "125@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 53,
+        "deps": {
+          "doc0": 52,
+          "doc2": 48,
+          "doc1": 40
+        },
+        "startOp": 129,
+        "ops": [
+          {
+            "opId": "129@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "110@doc2",
+            "insert": true,
+            "value": "a"
+          },
+          {
+            "opId": "130@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "129@doc0",
+            "insert": true,
+            "value": "8"
+          },
+          {
+            "opId": "131@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "130@doc0",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "132@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "131@doc0",
+            "insert": true,
+            "value": "b"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 54,
+        "deps": {
+          "doc0": 53,
+          "doc2": 49,
+          "doc1": 42
+        },
+        "startOp": 134,
+        "ops": [
+          {
+            "opId": "134@doc0",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "132@doc0"
+          }
+        ]
+      }
+    ],
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {
+          "doc0": 1,
+          "doc2": 1
+        },
+        "startOp": 7,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 2,
+        "deps": {
+          "doc0": 3,
+          "doc2": 4,
+          "doc1": 1
+        },
+        "startOp": 19,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 3,
+        "deps": {
+          "doc0": 3,
+          "doc2": 5,
+          "doc1": 2
+        },
+        "startOp": 19,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 4,
+        "deps": {
+          "doc0": 7,
+          "doc2": 8,
+          "doc1": 3
+        },
+        "startOp": 24,
+        "ops": [
+          {
+            "opId": "24@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 5,
+        "deps": {
+          "doc0": 7,
+          "doc2": 9,
+          "doc1": 4
+        },
+        "startOp": 25,
+        "ops": [
+          {
+            "opId": "25@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 6,
+        "deps": {
+          "doc0": 7,
+          "doc2": 9,
+          "doc1": 5
+        },
+        "startOp": 26,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 7,
+        "deps": {
+          "doc0": 7,
+          "doc2": 10,
+          "doc1": 6
+        },
+        "startOp": 26,
+        "ops": [
+          {
+            "opId": "26@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 8,
+        "deps": {
+          "doc0": 7,
+          "doc2": 10,
+          "doc1": 7
+        },
+        "startOp": 27,
+        "ops": [
+          {
+            "opId": "27@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 9,
+        "deps": {
+          "doc0": 8,
+          "doc2": 10,
+          "doc1": 8
+        },
+        "startOp": 28,
+        "ops": [
+          {
+            "opId": "28@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 10,
+        "deps": {
+          "doc0": 12,
+          "doc2": 13,
+          "doc1": 9
+        },
+        "startOp": 32,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 11,
+        "deps": {
+          "doc0": 16,
+          "doc2": 14,
+          "doc1": 10
+        },
+        "startOp": 40,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 12,
+        "deps": {
+          "doc0": 19,
+          "doc2": 16,
+          "doc1": 11
+        },
+        "startOp": 46,
+        "ops": [
+          {
+            "opId": "46@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "42@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "43@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 13,
+        "deps": {
+          "doc0": 22,
+          "doc2": 22,
+          "doc1": 12
+        },
+        "startOp": 53,
+        "ops": [
+          {
+            "opId": "53@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "9"
+          },
+          {
+            "opId": "54@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "53@doc1",
+            "insert": true,
+            "value": "7"
+          },
+          {
+            "opId": "55@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "54@doc1",
+            "insert": true,
+            "value": "1"
+          },
+          {
+            "opId": "56@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "55@doc1",
+            "insert": true,
+            "value": "2"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 14,
+        "deps": {
+          "doc0": 26,
+          "doc2": 27,
+          "doc1": 13
+        },
+        "startOp": 61,
+        "ops": [
+          {
+            "opId": "61@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "53@doc1"
+          },
+          {
+            "opId": "62@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "55@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 15,
+        "deps": {
+          "doc0": 26,
+          "doc2": 27,
+          "doc1": 14
+        },
+        "startOp": 63,
+        "ops": [
+          {
+            "opId": "63@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "7"
+          },
+          {
+            "opId": "64@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "63@doc1",
+            "insert": true,
+            "value": "f"
+          },
+          {
+            "opId": "65@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "64@doc1",
+            "insert": true,
+            "value": "9"
+          },
+          {
+            "opId": "66@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "65@doc1",
+            "insert": true,
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 16,
+        "deps": {
+          "doc0": 30,
+          "doc2": 29,
+          "doc1": 15
+        },
+        "startOp": 70,
+        "ops": [
+          {
+            "opId": "70@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "65@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 17,
+        "deps": {
+          "doc0": 35,
+          "doc2": 32,
+          "doc1": 16
+        },
+        "startOp": 77,
+        "ops": [
+          {
+            "opId": "77@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 18,
+        "deps": {
+          "doc0": 35,
+          "doc2": 32,
+          "doc1": 17
+        },
+        "startOp": 78,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 19,
+        "deps": {
+          "doc0": 36,
+          "doc2": 32,
+          "doc1": 18
+        },
+        "startOp": 78,
+        "ops": [
+          {
+            "opId": "78@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 20,
+        "deps": {
+          "doc0": 39,
+          "doc2": 37,
+          "doc1": 19
+        },
+        "startOp": 85,
+        "ops": [
+          {
+            "opId": "85@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 21,
+        "deps": {
+          "doc0": 40,
+          "doc2": 39,
+          "doc1": 20
+        },
+        "startOp": 88,
+        "ops": [
+          {
+            "opId": "88@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "2"
+          },
+          {
+            "opId": "89@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "88@doc1",
+            "insert": true,
+            "value": "3"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 22,
+        "deps": {
+          "doc0": 43,
+          "doc2": 39,
+          "doc1": 21
+        },
+        "startOp": 90,
+        "ops": [
+          {
+            "opId": "90@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "88@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "85@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 23,
+        "deps": {
+          "doc0": 43,
+          "doc2": 39,
+          "doc1": 22
+        },
+        "startOp": 91,
+        "ops": [
+          {
+            "opId": "91@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "85@doc0"
+          },
+          {
+            "opId": "92@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "86@doc0"
+          },
+          {
+            "opId": "93@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "63@doc1"
+          },
+          {
+            "opId": "94@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "64@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 24,
+        "deps": {
+          "doc0": 47,
+          "doc2": 40,
+          "doc1": 23
+        },
+        "startOp": 96,
+        "ops": [
+          {
+            "opId": "96@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "88@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 25,
+        "deps": {
+          "doc0": 47,
+          "doc2": 40,
+          "doc1": 24
+        },
+        "startOp": 97,
+        "ops": [
+          {
+            "opId": "97@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "3"
+          },
+          {
+            "opId": "98@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "97@doc1",
+            "insert": true,
+            "value": "f"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 26,
+        "deps": {
+          "doc0": 47,
+          "doc2": 40,
+          "doc1": 25
+        },
+        "startOp": 99,
+        "ops": [
+          {
+            "opId": "99@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 27,
+        "deps": {
+          "doc0": 47,
+          "doc2": 40,
+          "doc1": 26
+        },
+        "startOp": 100,
+        "ops": [
+          {
+            "opId": "100@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 28,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 27
+        },
+        "startOp": 101,
+        "ops": [
+          {
+            "opId": "101@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "97@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "98@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 29,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 28
+        },
+        "startOp": 102,
+        "ops": [
+          {
+            "opId": "102@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "c"
+          },
+          {
+            "opId": "103@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "102@doc1",
+            "insert": true,
+            "value": "9"
+          },
+          {
+            "opId": "104@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "103@doc1",
+            "insert": true,
+            "value": "8"
+          },
+          {
+            "opId": "105@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "104@doc1",
+            "insert": true,
+            "value": "7"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 30,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 29
+        },
+        "startOp": 106,
+        "ops": [
+          {
+            "opId": "106@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "103@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "105@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 31,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 30
+        },
+        "startOp": 107,
+        "ops": [
+          {
+            "opId": "107@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "97@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 32,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 31
+        },
+        "startOp": 108,
+        "ops": [
+          {
+            "opId": "108@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "105@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 33,
+        "deps": {
+          "doc0": 47,
+          "doc2": 42,
+          "doc1": 32
+        },
+        "startOp": 109,
+        "ops": [
+          {
+            "opId": "109@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "103@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 34,
+        "deps": {
+          "doc0": 48,
+          "doc2": 45,
+          "doc1": 33
+        },
+        "startOp": 117,
+        "ops": [
+          {
+            "opId": "117@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "113@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 35,
+        "deps": {
+          "doc0": 49,
+          "doc2": 45,
+          "doc1": 34
+        },
+        "startOp": 118,
+        "ops": [
+          {
+            "opId": "118@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "113@doc2"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 36,
+        "deps": {
+          "doc0": 50,
+          "doc2": 47,
+          "doc1": 35
+        },
+        "startOp": 120,
+        "ops": [
+          {
+            "opId": "120@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "112@doc2"
+          },
+          {
+            "opId": "121@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "103@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 37,
+        "deps": {
+          "doc0": 50,
+          "doc2": 47,
+          "doc1": 36
+        },
+        "startOp": 122,
+        "ops": [
+          {
+            "opId": "122@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "111@doc2",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "123@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "122@doc1",
+            "insert": true,
+            "value": "5"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 38,
+        "deps": {
+          "doc0": 50,
+          "doc2": 47,
+          "doc1": 37
+        },
+        "startOp": 124,
+        "ops": [
+          {
+            "opId": "124@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "102@doc1",
+            "insert": true,
+            "value": "1"
+          },
+          {
+            "opId": "125@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "124@doc1",
+            "insert": true,
+            "value": "7"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 39,
+        "deps": {
+          "doc0": 51,
+          "doc2": 47,
+          "doc1": 38
+        },
+        "startOp": 126,
+        "ops": [
+          {
+            "opId": "126@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "123@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 40,
+        "deps": {
+          "doc0": 51,
+          "doc2": 47,
+          "doc1": 39
+        },
+        "startOp": 127,
+        "ops": [
+          {
+            "opId": "127@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "124@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "104@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 41,
+        "deps": {
+          "doc0": 52,
+          "doc2": 48,
+          "doc1": 40
+        },
+        "startOp": 129,
+        "ops": [
+          {
+            "opId": "129@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "122@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "104@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 42,
+        "deps": {
+          "doc0": 53,
+          "doc2": 49,
+          "doc1": 41
+        },
+        "startOp": 133,
+        "ops": [
+          {
+            "opId": "133@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "122@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 43,
+        "deps": {
+          "doc0": 54,
+          "doc2": 49,
+          "doc1": 42
+        },
+        "startOp": 135,
+        "ops": [
+          {
+            "opId": "135@doc1",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "104@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 44,
+        "deps": {
+          "doc0": 54,
+          "doc2": 56,
+          "doc1": 43
+        },
+        "startOp": 146,
+        "ops": [
+          {
+            "opId": "146@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "2"
+          },
+          {
+            "opId": "147@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "146@doc1",
+            "insert": true,
+            "value": "f"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 45,
+        "deps": {
+          "doc0": 54,
+          "doc2": 56,
+          "doc1": 44
+        },
+        "startOp": 148,
+        "ops": [
+          {
+            "opId": "148@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "102@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 46,
+        "deps": {
+          "doc0": 54,
+          "doc2": 58,
+          "doc1": 45
+        },
+        "startOp": 149,
+        "ops": [
+          {
+            "opId": "149@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "146@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "147@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 47,
+        "deps": {
+          "doc0": 54,
+          "doc2": 58,
+          "doc1": 46
+        },
+        "startOp": 150,
+        "ops": [
+          {
+            "opId": "150@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "0"
+          },
+          {
+            "opId": "151@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "150@doc1",
+            "insert": true,
+            "value": "d"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 48,
+        "deps": {
+          "doc0": 54,
+          "doc2": 58,
+          "doc1": 47
+        },
+        "startOp": 152,
+        "ops": [
+          {
+            "opId": "152@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "151@doc1",
+            "insert": true,
+            "value": "b"
+          },
+          {
+            "opId": "153@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "152@doc1",
+            "insert": true,
+            "value": "1"
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 2,
+        "deps": {
+          "doc0": 2,
+          "doc2": 1
+        },
+        "startOp": 11,
+        "ops": [
+          {
+            "opId": "11@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "5@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 3,
+        "deps": {
+          "doc0": 2,
+          "doc2": 2
+        },
+        "startOp": 12,
+        "ops": [
+          {
+            "opId": "12@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "7@doc0"
+          },
+          {
+            "opId": "13@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "8@doc0"
+          },
+          {
+            "opId": "14@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "9@doc0"
+          },
+          {
+            "opId": "15@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "10@doc0"
+          },
+          {
+            "opId": "16@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "3@doc0"
+          },
+          {
+            "opId": "17@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "4@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 4,
+        "deps": {
+          "doc0": 2,
+          "doc2": 3
+        },
+        "startOp": 18,
+        "ops": [
+          {
+            "opId": "18@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "6@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 5,
+        "deps": {
+          "doc0": 3,
+          "doc2": 4,
+          "doc1": 1
+        },
+        "startOp": 19,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 6,
+        "deps": {
+          "doc0": 5,
+          "doc2": 5,
+          "doc1": 3
+        },
+        "startOp": 20,
+        "ops": [
+          {
+            "opId": "20@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "5"
+          },
+          {
+            "opId": "21@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "20@doc2",
+            "insert": true,
+            "value": "6"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 7,
+        "deps": {
+          "doc0": 6,
+          "doc2": 6,
+          "doc1": 3
+        },
+        "startOp": 22,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 8,
+        "deps": {
+          "doc0": 7,
+          "doc2": 7,
+          "doc1": 3
+        },
+        "startOp": 23,
+        "ops": [
+          {
+            "opId": "23@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 9,
+        "deps": {
+          "doc0": 7,
+          "doc2": 8,
+          "doc1": 3
+        },
+        "startOp": 24,
+        "ops": [
+          {
+            "opId": "24@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 10,
+        "deps": {
+          "doc0": 7,
+          "doc2": 9,
+          "doc1": 4
+        },
+        "startOp": 25,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 11,
+        "deps": {
+          "doc0": 8,
+          "doc2": 10,
+          "doc1": 8
+        },
+        "startOp": 28,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 12,
+        "deps": {
+          "doc0": 8,
+          "doc2": 11,
+          "doc1": 8
+        },
+        "startOp": 28,
+        "ops": [
+          {
+            "opId": "28@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "2@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 13,
+        "deps": {
+          "doc0": 8,
+          "doc2": 12,
+          "doc1": 9
+        },
+        "startOp": 29,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 14,
+        "deps": {
+          "doc0": 16,
+          "doc2": 13,
+          "doc1": 10
+        },
+        "startOp": 39,
+        "ops": [
+          {
+            "opId": "39@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "36@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "21@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 15,
+        "deps": {
+          "doc0": 16,
+          "doc2": 14,
+          "doc1": 10
+        },
+        "startOp": 40,
+        "ops": [
+          {
+            "opId": "40@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "33@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 16,
+        "deps": {
+          "doc0": 16,
+          "doc2": 15,
+          "doc1": 10
+        },
+        "startOp": 41,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 17,
+        "deps": {
+          "doc0": 19,
+          "doc2": 16,
+          "doc1": 11
+        },
+        "startOp": 46,
+        "ops": [
+          {
+            "opId": "46@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "21@doc2"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 18,
+        "deps": {
+          "doc0": 19,
+          "doc2": 17,
+          "doc1": 11
+        },
+        "startOp": 47,
+        "ops": [
+          {
+            "opId": "47@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "33@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "41@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 19,
+        "deps": {
+          "doc0": 19,
+          "doc2": 18,
+          "doc1": 11
+        },
+        "startOp": 48,
+        "ops": [
+          {
+            "opId": "48@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "42@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "43@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 20,
+        "deps": {
+          "doc0": 20,
+          "doc2": 19,
+          "doc1": 12
+        },
+        "startOp": 49,
+        "ops": [
+          {
+            "opId": "49@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "43@doc0"
+          },
+          {
+            "opId": "50@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "44@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 21,
+        "deps": {
+          "doc0": 21,
+          "doc2": 20,
+          "doc1": 12
+        },
+        "startOp": 51,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 22,
+        "deps": {
+          "doc0": 21,
+          "doc2": 21,
+          "doc1": 12
+        },
+        "startOp": 51,
+        "ops": [
+          {
+            "opId": "51@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "34@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "41@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 23,
+        "deps": {
+          "doc0": 22,
+          "doc2": 22,
+          "doc1": 12
+        },
+        "startOp": 53,
+        "ops": [
+          {
+            "opId": "53@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "34@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "41@doc0"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 24,
+        "deps": {
+          "doc0": 23,
+          "doc2": 23,
+          "doc1": 12
+        },
+        "startOp": 54,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 25,
+        "deps": {
+          "doc0": 26,
+          "doc2": 24,
+          "doc1": 13
+        },
+        "startOp": 60,
+        "ops": [
+          {
+            "opId": "60@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "34@doc0"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 26,
+        "deps": {
+          "doc0": 26,
+          "doc2": 25,
+          "doc1": 13
+        },
+        "startOp": 61,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 27,
+        "deps": {
+          "doc0": 26,
+          "doc2": 26,
+          "doc1": 13
+        },
+        "startOp": 61,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 28,
+        "deps": {
+          "doc0": 26,
+          "doc2": 27,
+          "doc1": 14
+        },
+        "startOp": 63,
+        "ops": [
+          {
+            "opId": "63@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "56@doc1"
+          },
+          {
+            "opId": "64@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "34@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 29,
+        "deps": {
+          "doc0": 27,
+          "doc2": 28,
+          "doc1": 15
+        },
+        "startOp": 67,
+        "ops": [
+          {
+            "opId": "67@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "66@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 30,
+        "deps": {
+          "doc0": 30,
+          "doc2": 29,
+          "doc1": 15
+        },
+        "startOp": 70,
+        "ops": [
+          {
+            "opId": "70@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "65@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "66@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 31,
+        "deps": {
+          "doc0": 35,
+          "doc2": 30,
+          "doc1": 16
+        },
+        "startOp": 75,
+        "ops": [
+          {
+            "opId": "75@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "66@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 32,
+        "deps": {
+          "doc0": 35,
+          "doc2": 31,
+          "doc1": 16
+        },
+        "startOp": 76,
+        "ops": [
+          {
+            "opId": "76@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "66@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 33,
+        "deps": {
+          "doc0": 35,
+          "doc2": 32,
+          "doc1": 17
+        },
+        "startOp": 78,
+        "ops": [
+          {
+            "opId": "78@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 34,
+        "deps": {
+          "doc0": 39,
+          "doc2": 33,
+          "doc1": 19
+        },
+        "startOp": 82,
+        "ops": [
+          {
+            "opId": "82@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 35,
+        "deps": {
+          "doc0": 39,
+          "doc2": 34,
+          "doc1": 19
+        },
+        "startOp": 83,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 36,
+        "deps": {
+          "doc0": 39,
+          "doc2": 35,
+          "doc1": 19
+        },
+        "startOp": 83,
+        "ops": [
+          {
+            "opId": "83@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 37,
+        "deps": {
+          "doc0": 39,
+          "doc2": 36,
+          "doc1": 19
+        },
+        "startOp": 84,
+        "ops": [
+          {
+            "opId": "84@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "63@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 38,
+        "deps": {
+          "doc0": 39,
+          "doc2": 37,
+          "doc1": 20
+        },
+        "startOp": 86,
+        "ops": [
+          {
+            "opId": "86@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 39,
+        "deps": {
+          "doc0": 40,
+          "doc2": 38,
+          "doc1": 20
+        },
+        "startOp": 87,
+        "ops": [
+          {
+            "opId": "87@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "83@doc0"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "64@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 40,
+        "deps": {
+          "doc0": 44,
+          "doc2": 39,
+          "doc1": 21
+        },
+        "startOp": 91,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 41,
+        "deps": {
+          "doc0": 47,
+          "doc2": 40,
+          "doc1": 25
+        },
+        "startOp": 99,
+        "ops": [
+          {
+            "opId": "99@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "97@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 42,
+        "deps": {
+          "doc0": 47,
+          "doc2": 41,
+          "doc1": 28
+        },
+        "startOp": 102,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 43,
+        "deps": {
+          "doc0": 47,
+          "doc2": 42,
+          "doc1": 33
+        },
+        "startOp": 110,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 44,
+        "deps": {
+          "doc0": 47,
+          "doc2": 43,
+          "doc1": 33
+        },
+        "startOp": 110,
+        "ops": [
+          {
+            "opId": "110@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "102@doc1",
+            "insert": true,
+            "value": "c"
+          },
+          {
+            "opId": "111@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "110@doc2",
+            "insert": true,
+            "value": "5"
+          },
+          {
+            "opId": "112@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "111@doc2",
+            "insert": true,
+            "value": "2"
+          },
+          {
+            "opId": "113@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "112@doc2",
+            "insert": true,
+            "value": "a"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 45,
+        "deps": {
+          "doc0": 47,
+          "doc2": 44,
+          "doc1": 33
+        },
+        "startOp": 114,
+        "ops": [
+          {
+            "opId": "114@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "98@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 46,
+        "deps": {
+          "doc0": 48,
+          "doc2": 45,
+          "doc1": 34
+        },
+        "startOp": 118,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 47,
+        "deps": {
+          "doc0": 48,
+          "doc2": 46,
+          "doc1": 34
+        },
+        "startOp": 118,
+        "ops": [
+          {
+            "opId": "118@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "111@doc2"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "20@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 48,
+        "deps": {
+          "doc0": 52,
+          "doc2": 47,
+          "doc1": 38
+        },
+        "startOp": 128,
+        "ops": [
+          {
+            "opId": "128@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "102@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 49,
+        "deps": {
+          "doc0": 52,
+          "doc2": 48,
+          "doc1": 40
+        },
+        "startOp": 129,
+        "ops": [
+          {
+            "opId": "129@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "122@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "104@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 50,
+        "deps": {
+          "doc0": 53,
+          "doc2": 49,
+          "doc1": 42
+        },
+        "startOp": 134,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 51,
+        "deps": {
+          "doc0": 54,
+          "doc2": 50,
+          "doc1": 43
+        },
+        "startOp": 136,
+        "ops": [
+          {
+            "opId": "136@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "129@doc0"
+          },
+          {
+            "opId": "137@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "130@doc0"
+          },
+          {
+            "opId": "138@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "131@doc0"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 52,
+        "deps": {
+          "doc0": 54,
+          "doc2": 51,
+          "doc1": 43
+        },
+        "startOp": 139,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 53,
+        "deps": {
+          "doc0": 54,
+          "doc2": 52,
+          "doc1": 43
+        },
+        "startOp": 139,
+        "ops": [
+          {
+            "opId": "139@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "122@doc1"
+            },
+            "end": {
+              "type": "endOfText"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 54,
+        "deps": {
+          "doc0": 54,
+          "doc2": 53,
+          "doc1": 43
+        },
+        "startOp": 140,
+        "ops": [
+          {
+            "opId": "140@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "102@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "122@doc1"
+            },
+            "markType": "em"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 55,
+        "deps": {
+          "doc0": 54,
+          "doc2": 54,
+          "doc1": 43
+        },
+        "startOp": 141,
+        "ops": [
+          {
+            "opId": "141@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "8"
+          },
+          {
+            "opId": "142@doc2",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "141@doc2",
+            "insert": true,
+            "value": "2"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 56,
+        "deps": {
+          "doc0": 54,
+          "doc2": 55,
+          "doc1": 43
+        },
+        "startOp": 143,
+        "ops": [
+          {
+            "opId": "143@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "110@doc2"
+          },
+          {
+            "opId": "144@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "111@doc2"
+          },
+          {
+            "opId": "145@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "122@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 57,
+        "deps": {
+          "doc0": 54,
+          "doc2": 56,
+          "doc1": 43
+        },
+        "startOp": 146,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 58,
+        "deps": {
+          "doc0": 54,
+          "doc2": 57,
+          "doc1": 43
+        },
+        "startOp": 146,
+        "ops": [
+          {
+            "opId": "146@doc2",
+            "action": "del",
+            "obj": "1@doc0",
+            "elemId": "102@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 59,
+        "deps": {
+          "doc0": 54,
+          "doc2": 58,
+          "doc1": 45
+        },
+        "startOp": 149,
+        "ops": [
+          {
+            "opId": "149@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "146@doc1"
+            },
+            "end": {
+              "type": "before",
+              "elemId": "141@doc2"
+            },
+            "markType": "em"
+          }
+        ]
+      }
+    ]
+  },
+  "leftDoc": "doc2",
+  "rightDoc": "doc1",
+  "leftText": [
+    {
+      "text": "0db1",
+      "marks": {}
+    },
+    {
+      "text": "2f82",
+      "marks": {
+        "em": {
+          "active": true
+        }
+      }
+    }
+  ],
+  "rightText": [
+    {
+      "text": "0db1",
+      "marks": {}
+    },
+    {
+      "text": "2f",
+      "marks": {
+        "em": {
+          "active": true
+        }
+      }
+    },
+    {
+      "text": "82",
+      "marks": {}
+    }
+  ]
+}

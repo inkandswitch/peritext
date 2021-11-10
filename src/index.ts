@@ -12,13 +12,7 @@ const editors: { [key: string]: Editor } = {}
 
 const renderMarks = (domNode: Element, marks: Mark[]): void => {
     domNode.innerHTML = marks
-        .map(
-            m =>
-                `• ${m.type.name} ${Object.keys(m.attrs).length !== 0
-                    ? JSON.stringify(m.attrs)
-                    : ""
-                }`,
-        )
+        .map(m => `• ${m.type.name} ${Object.keys(m.attrs).length !== 0 ? JSON.stringify(m.attrs) : ""}`)
         .join("<br/>")
 }
 
@@ -51,9 +45,9 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
     })
 
     // Every 1 second, insert new text into the editor
-    setInterval(() => {
-        change(editors["alice"], editors["bob"])
-    }, 300)
+    // setInterval(() => {
+    //     change(editors["alice"], editors["bob"])
+    // }, 300)
 } else {
     throw new Error(`Didn't find expected node in the DOM`)
 }
@@ -92,4 +86,3 @@ document.querySelector("#sync")?.addEventListener("click", () => {
         editor.queue.flush()
     }
 })
-

@@ -2,11 +2,7 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge, {
-    MarkMapWithoutOpIds,
-    OperationPath,
-    Patch,
-} from "./micromerge"
+import Micromerge, { MarkMapWithoutOpIds, OperationPath, Patch } from "./micromerge"
 import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, Fragment, Mark } from "prosemirror-model"
@@ -42,10 +38,7 @@ export type RootDoc = {
 // and has the given type and attributes.
 // (The structure/usage of this is similar to the toggleMark command factory
 // built in to prosemirror)
-function addMark<M extends MarkType>(args: {
-    markType: M
-    makeAttrs: () => Omit<MarkValue[M], "opId" | "active">
-}) {
+function addMark<M extends MarkType>(args: { markType: M; makeAttrs: () => Omit<MarkValue[M], "opId" | "active"> }) {
     const { markType, makeAttrs } = args
     const command: Command<DocSchema> = (
         state: EditorState,
@@ -90,9 +83,7 @@ export type Editor = {
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert "${op.value}" after char ID <strong>${String(
-            op.elemId,
-        )}</strong>`
+        return `insert "${op.value}" after char ID <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
         return `delete <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
@@ -123,8 +114,8 @@ export const initializeDocs = (docs: Micromerge[]): void => {
             path: [Micromerge.contentKey],
             action: "addMark",
             markType: "strong",
-            start: 12,
-            end: 20,
+            startIndex: 12,
+            endIndex: 21,
         },
     ])
     for (const doc of docs.slice(1)) {
@@ -139,24 +130,16 @@ export const initializeDocs = (docs: Micromerge[]): void => {
  *  @param patch - the Micromerge Patch to incorporate
  *  @returns a Transaction that includes additional steps representing the patch
  *    */
-const applyPatchToTransaction = (
-    transaction: Transaction,
-    patch: Patch,
-): Transaction => {
+const applyPatchToTransaction = (transaction: Transaction, patch: Patch): Transaction => {
     console.log("applying patch", patch)
     switch (patch.action) {
         case "insert": {
-            const index = patch.index + 1 // path is in plaintext string; account for paragraph node
+            const index = prosemirrorPosFromContentPos(patch.index)
             return transaction.replace(
                 index,
                 index,
                 new Slice(
-                    Fragment.from(
-                        schema.text(
-                            patch.values[0],
-                            getProsemirrorMarksForMarkMap(patch.marks),
-                        ),
-                    ),
+                    Fragment.from(schema.text(patch.values[0], getProsemirrorMarksForMarkMap(patch.marks))),
                     0,
                     0,
                 ),
@@ -164,25 +147,21 @@ const applyPatchToTransaction = (
         }
 
         case "delete": {
-            const index = patch.index + 1 // path is in plaintext string; account for paragraph node
+            const index = prosemirrorPosFromContentPos(patch.index)
             return transaction.replace(index, index + patch.count, Slice.empty)
         }
 
         case "addMark": {
             return transaction.addMark(
-                patch.start + 1,
-                patch.end +
-                    1 /* Adjust for ProseMirror paragraph offset */ +
-                    1 /* Our end is inclusive, their end is exclusive */,
+                prosemirrorPosFromContentPos(patch.startIndex),
+                prosemirrorPosFromContentPos(patch.endIndex),
                 schema.mark(patch.markType, patch.attrs),
             )
         }
         case "removeMark": {
             return transaction.removeMark(
-                patch.start + 1,
-                patch.end +
-                    1 /* Adjust for ProseMirror paragraph offset */ +
-                    1 /* Our end is inclusive, their end is exclusive */,
+                prosemirrorPosFromContentPos(patch.startIndex),
+                prosemirrorPosFromContentPos(patch.endIndex),
                 schema.mark(patch.markType, patch.attrs),
             )
         }
@@ -206,8 +185,7 @@ export function createEditor(args: {
         direct: boolean,
     ) => boolean
 }): Editor {
-    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } =
-        args
+    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -229,30 +207,23 @@ export function createEditor(args: {
             .map(step => {
                 let stepText = ""
                 if (step instanceof ReplaceStep) {
-                    const stepContent = step.slice.content.textBetween(
-                        0,
-                        step.slice.content.size,
-                    )
+                    const stepContent = step.slice.content.textBetween(0, step.slice.content.size)
                     if (step.slice.size === 0) {
                         if (step.to - 1 === step.from) {
                             // single character deletion
                             stepText = `delete at index <strong>${step.from}</strong>`
                         } else {
-                            stepText = `delete from index <strong>${
-                                step.from
-                            }</strong> to <strong>${step.to - 1}</strong>`
+                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${
+                                step.to - 1
+                            }</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${
-                            step.from
-                        }</strong> ${
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${
                             step.slice.content.firstChild?.marks?.length &&
                             step.slice.content.firstChild?.marks?.length > 0
                                 ? `with marks `
                                 : ``
-                        } ${step.slice.content.firstChild?.marks
-                            .map(m => m.type.name)
-                            .join(", ")}`
+                        } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
@@ -340,12 +311,9 @@ export function createEditor(args: {
                 for (const patch of patches) {
                     transaction = applyPatchToTransaction(transaction, patch)
                 }
-                console.log(
-                    "applying incremental transaction for local update",
-                    {
-                        steps: transaction.steps,
-                    },
-                )
+                console.log("applying incremental transaction for local update", {
+                    steps: transaction.steps,
+                })
                 state = state.apply(transaction)
                 outputDebugForChange(change, transaction)
 
@@ -391,9 +359,16 @@ function contentPosFromProsemirrorPos(position: number) {
     return position - 1
 }
 
-function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(
-    markMap: T,
-): Mark[] {
+/** Given an index in the text CRDT, convert to an index in the Prosemirror editor.
+ *  The Prosemirror editor has a paragraph node which we ignore because we only handle inline;
+ *  the beginning of the paragraph takes up one position in the Prosemirror indexing scheme.
+ *  This means we have to add 1 to CRDT indexes to get correct Prosemirror indexes.
+ */
+function prosemirrorPosFromContentPos(position: number) {
+    return position + 1
+}
+
+function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(markMap: T): Mark[] {
     const marks = []
     for (const markType of ALL_MARKS) {
         const markValue = markMap[markType]
@@ -414,10 +389,7 @@ function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(
 }
 
 // Given a micromerge doc representation, produce a prosemirror doc.
-export function prosemirrorDocFromCRDT(args: {
-    schema: DocSchema
-    spans: FormatSpanWithText[]
-}): Node {
+export function prosemirrorDocFromCRDT(args: { schema: DocSchema; spans: FormatSpanWithText[] }): Node {
     const { schema, spans } = args
 
     // Prosemirror doesn't allow for empty text nodes;
@@ -431,10 +403,7 @@ export function prosemirrorDocFromCRDT(args: {
             "paragraph",
             undefined,
             spans.map(span => {
-                return schema.text(
-                    span.text,
-                    getProsemirrorMarksForMarkMap(span.marks),
-                )
+                return schema.text(span.text, getProsemirrorMarksForMarkMap(span.marks))
             }),
         ),
     ])
@@ -445,10 +414,10 @@ export function prosemirrorDocFromCRDT(args: {
 // Given a CRDT Doc and a Prosemirror Transaction, update the micromerge doc.
 // Note: need to derive a PM doc from the new CRDT doc later!
 // TODO: why don't we need to update the selection when we do insertions?
-export function applyTransaction(args: {
-    doc: Micromerge
-    txn: Transaction<DocSchema>
-}): { change: Change | null; patches: Patch[] } {
+export function applyTransaction(args: { doc: Micromerge; txn: Transaction<DocSchema> }): {
+    change: Change | null
+    patches: Patch[]
+} {
     const { doc, txn } = args
     const operations: Array<InputOperation> = []
 
@@ -467,10 +436,7 @@ export function applyTransaction(args: {
                     })
                 }
 
-                const insertedContent = step.slice.content.textBetween(
-                    0,
-                    step.slice.content.size,
-                )
+                const insertedContent = step.slice.content.textBetween(0, step.slice.content.size)
 
                 operations.push({
                     path: [Micromerge.contentKey],
@@ -492,30 +458,20 @@ export function applyTransaction(args: {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            const start = contentPosFromProsemirrorPos(step.from)
-            // The end of a prosemirror addMark step refers to the index _after_ the end,
-            // but in the CRDT we use the index of the last character in the range.
-            // TODO: define a helper that converts a whole Prosemirror range into a
-            // CRDT range, not just a single position at a time.
-            const end = contentPosFromProsemirrorPos(step.to - 1)
-
             const partialOp: {
                 action: "addMark"
                 path: OperationPath
-                start: number
-                end: number
+                startIndex: number
+                endIndex: number
             } = {
                 action: "addMark",
                 path: [Micromerge.contentKey],
-                start,
-                end,
+                startIndex: contentPosFromProsemirrorPos(step.from),
+                endIndex: contentPosFromProsemirrorPos(step.to),
             }
 
             if (step.mark.type.name === "comment") {
-                if (
-                    !step.mark.attrs ||
-                    typeof step.mark.attrs.id !== "string"
-                ) {
+                if (!step.mark.attrs || typeof step.mark.attrs.id !== "string") {
                     throw new Error("Expected comment mark to have id attrs")
                 }
                 operations.push({
@@ -524,10 +480,7 @@ export function applyTransaction(args: {
                     attrs: step.mark.attrs as { id: string },
                 })
             } else if (step.mark.type.name === "link") {
-                if (
-                    !step.mark.attrs ||
-                    typeof step.mark.attrs.url !== "string"
-                ) {
+                if (!step.mark.attrs || typeof step.mark.attrs.url !== "string") {
                     throw new Error("Expected link mark to have url attrs")
                 }
                 operations.push({
@@ -546,26 +499,20 @@ export function applyTransaction(args: {
                 throw new Error(`Invalid mark type: ${step.mark.type.name}`)
             }
 
-            const start = contentPosFromProsemirrorPos(step.from)
-            const end = contentPosFromProsemirrorPos(step.to - 1)
-
             const partialOp: {
                 action: "removeMark"
                 path: OperationPath
-                start: number
-                end: number
+                startIndex: number
+                endIndex: number
             } = {
                 action: "removeMark",
                 path: [Micromerge.contentKey],
-                start,
-                end,
+                startIndex: contentPosFromProsemirrorPos(step.from),
+                endIndex: contentPosFromProsemirrorPos(step.to),
             }
 
             if (step.mark.type.name === "comment") {
-                if (
-                    !step.mark.attrs ||
-                    typeof step.mark.attrs.id !== "string"
-                ) {
+                if (!step.mark.attrs || typeof step.mark.attrs.id !== "string") {
                     throw new Error("Expected comment mark to have id attrs")
                 }
                 operations.push({

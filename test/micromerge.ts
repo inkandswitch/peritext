@@ -1210,6 +1210,45 @@ describe.only("Micromerge", () => {
                 ],
             })
         })
+
+        it("converges when two concurrent links end at the same place", () => {
+            testConcurrentWrites({
+                inputOps1: [
+                    {
+                        action: "addMark",
+                        startIndex: 12,
+                        endIndex: 12,
+                        markType: "link",
+                        attrs: { url: "https://inkandswitch.com" },
+                    },
+                ],
+                inputOps2: [
+                    {
+                        action: "addMark",
+                        startIndex: 4,
+                        endIndex: 12,
+                        markType: "link",
+                        attrs: { url: "https://google.com" },
+                    },
+                ],
+                expectedResult: [
+                    {
+                        marks: {},
+                        text: "The ",
+                    },
+                    {
+                        marks: {
+                            link: { active: true, url: "https://google.com" },
+                        },
+                        text: "Peritext",
+                    },
+                    {
+                        marks: {},
+                        text: " editor",
+                    },
+                ],
+            })
+        })
     })
 
     describe("cursors", () => {

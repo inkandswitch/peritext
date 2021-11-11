@@ -1,0 +1,231 @@
+{
+  "queues": {
+    "doc0": [
+      {
+        "actor": "doc0",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc0",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "3@doc0",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "4@doc0",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "5@doc0",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 2,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc0",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "6@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/pushpin"
+            }
+          }
+        ]
+      }
+    ],
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "d"
+          },
+          {
+            "opId": "8@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "7@doc1",
+            "insert": true,
+            "value": "c"
+          },
+          {
+            "opId": "9@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "8@doc1",
+            "insert": true,
+            "value": "d"
+          },
+          {
+            "opId": "10@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "9@doc1",
+            "insert": true,
+            "value": "7"
+          },
+          {
+            "opId": "11@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "10@doc1",
+            "insert": true,
+            "value": "5"
+          },
+          {
+            "opId": "12@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "11@doc1",
+            "insert": true,
+            "value": "3"
+          },
+          {
+            "opId": "13@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "12@doc1",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "14@doc1",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "13@doc1",
+            "insert": true,
+            "value": "a"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 2,
+        "deps": {
+          "doc0": 1,
+          "doc1": 1
+        },
+        "startOp": 15,
+        "ops": [
+          {
+            "opId": "15@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "8@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com"
+            }
+          }
+        ]
+      }
+    ],
+    "doc2": []
+  },
+  "leftDoc": "doc0",
+  "rightDoc": "doc2",
+  "leftText": [
+    {
+      "text": "Ad",
+      "marks": {}
+    },
+    {
+      "text": "cd753eaBCDE",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com"
+        }
+      }
+    }
+  ],
+  "rightText": [
+    {
+      "text": "Ad",
+      "marks": {}
+    },
+    {
+      "text": "cd753eaBCD",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com"
+        }
+      }
+    },
+    {
+      "text": "E",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com/pushpin"
+        }
+      }
+    }
+  ]
+}

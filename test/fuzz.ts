@@ -10,7 +10,7 @@ import path from "path"
 import { v4 as uuid } from "uuid"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
+const markTypes: MarkTypes[] = ["link"] //, "em", "link", "comment"]
 
 const exampleURLs = [
     "https://inkandswitch.com",

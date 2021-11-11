@@ -7,16 +7,17 @@ import { v4 as uuid } from "uuid"
 import Micromerge, { ActorId, Change, Patch } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
+import util from 'util'
 
 function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x);
 }
 
 type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
-const opTypes: OpTypes[] = ["insert" ] // , "remove", "addMark", "removeMark"]
+const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["comment"]
+const markTypes: MarkTypes[] = ["strong"]
 
 const exampleURLs = [
     "https://inkandswitch.com",
@@ -103,7 +104,7 @@ function removeMarkChange(doc: Micromerge) {
     }
 }
 
-const MAX_CHARS = 1
+const MAX_CHARS = 25
 function insertChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const index = Math.floor(Math.random() * length)
@@ -198,11 +199,8 @@ while (true) {
         const leftText = docs[left].getTextWithFormatting(["text"])
         const rightText = docs[right].getTextWithFormatting(["text"])
 
-        console.log(leftText)
-        console.log(accumulatePatches(allPatches[left]))
-
-        // assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
-        // assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
+        assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
+        assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
     
         if (!isEqual(leftText, rightText)) {
             const filename = `../traces/fail-${uuid()}.json`

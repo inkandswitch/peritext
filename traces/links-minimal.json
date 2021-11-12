@@ -1,0 +1,624 @@
+{
+  "queues": {
+    "doc0": [
+      {
+        "actor": "doc0",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc0",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "3@doc0",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "4@doc0",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "5@doc0",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc0",
+        "seq": 2,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "4@doc0",
+            "insert": true,
+            "value": "9"
+          },
+          {
+            "opId": "8@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "7@doc0",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "9@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "8@doc0",
+            "insert": true,
+            "value": "e"
+          },
+          {
+            "opId": "10@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "9@doc0",
+            "insert": true,
+            "value": "0"
+          },
+          {
+            "opId": "11@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "10@doc0",
+            "insert": true,
+            "value": "9"
+          },
+          {
+            "opId": "12@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "11@doc0",
+            "insert": true,
+            "value": "1"
+          },
+          {
+            "opId": "13@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "12@doc0",
+            "insert": true,
+            "value": "5"
+          },
+          {
+            "opId": "14@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "13@doc0",
+            "insert": true,
+            "value": "0"
+          }
+        ]
+      }
+    ],
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "6@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/cambria/"
+            }
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/pushpin"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "left": {
+    "doc": "doc2",
+    "text": [
+      {
+        "text": "ABC9ee09150D",
+        "marks": {
+          "link": {
+            "active": true,
+            "url": "https://inkandswitch.com/pushpin"
+          }
+        }
+      },
+      {
+        "text": "E",
+        "marks": {
+          "link": {
+            "active": true,
+            "url": "https://inkandswitch.com/cambria/"
+          }
+        }
+      }
+    ],
+    "meta": {
+      "1@doc0": [
+        {
+          "elemId": "2@doc0",
+          "valueId": "2@doc0",
+          "deleted": false,
+          "markOpsBefore": {}
+        },
+        {
+          "elemId": "3@doc0",
+          "valueId": "3@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "4@doc0",
+          "valueId": "4@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "7@doc0",
+          "valueId": "7@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "8@doc0",
+          "valueId": "8@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "9@doc0",
+          "valueId": "9@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "10@doc0",
+          "valueId": "10@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "11@doc0",
+          "valueId": "11@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "12@doc0",
+          "valueId": "12@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "13@doc0",
+          "valueId": "13@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "14@doc0",
+          "valueId": "14@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "5@doc0",
+          "valueId": "5@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "6@doc0",
+          "valueId": "6@doc0",
+          "deleted": false,
+          "markOpsAfter": {},
+          "markOpsBefore": {}
+        }
+      ]
+    }
+  },
+  "right": {
+    "doc": "doc1",
+    "text": [
+      {
+        "text": "ABC9ee09150DE",
+        "marks": {
+          "link": {
+            "active": true,
+            "url": "https://inkandswitch.com/pushpin"
+          }
+        }
+      }
+    ],
+    "meta": {
+      "1@doc0": [
+        {
+          "elemId": "2@doc0",
+          "valueId": "2@doc0",
+          "deleted": false,
+          "markOpsBefore": {}
+        },
+        {
+          "elemId": "3@doc0",
+          "valueId": "3@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "4@doc0",
+          "valueId": "4@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "7@doc0",
+          "valueId": "7@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "8@doc0",
+          "valueId": "8@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "9@doc0",
+          "valueId": "9@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "10@doc0",
+          "valueId": "10@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "11@doc0",
+          "valueId": "11@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "12@doc0",
+          "valueId": "12@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "13@doc0",
+          "valueId": "13@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "14@doc0",
+          "valueId": "14@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "5@doc0",
+          "valueId": "5@doc0",
+          "deleted": false
+        },
+        {
+          "elemId": "6@doc0",
+          "valueId": "6@doc0",
+          "deleted": false,
+          "markOpsBefore": {},
+          "markOpsAfter": {}
+        }
+      ]
+    }
+  },
+  "syncs": [
+    {
+      "left": "doc1",
+      "right": "doc2",
+      "missingLeft": [],
+      "missingRight": []
+    },
+    {
+      "left": "doc2",
+      "right": "doc0",
+      "missingLeft": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/pushpin"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc0",
+          "seq": 2,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "4@doc0",
+              "insert": true,
+              "value": "9"
+            },
+            {
+              "opId": "8@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "7@doc0",
+              "insert": true,
+              "value": "e"
+            },
+            {
+              "opId": "9@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "8@doc0",
+              "insert": true,
+              "value": "e"
+            },
+            {
+              "opId": "10@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "9@doc0",
+              "insert": true,
+              "value": "0"
+            },
+            {
+              "opId": "11@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "10@doc0",
+              "insert": true,
+              "value": "9"
+            },
+            {
+              "opId": "12@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "11@doc0",
+              "insert": true,
+              "value": "1"
+            },
+            {
+              "opId": "13@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "12@doc0",
+              "insert": true,
+              "value": "5"
+            },
+            {
+              "opId": "14@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "13@doc0",
+              "insert": true,
+              "value": "0"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc2",
+      "right": "doc1",
+      "missingLeft": [
+        {
+          "actor": "doc0",
+          "seq": 2,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "4@doc0",
+              "insert": true,
+              "value": "9"
+            },
+            {
+              "opId": "8@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "7@doc0",
+              "insert": true,
+              "value": "e"
+            },
+            {
+              "opId": "9@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "8@doc0",
+              "insert": true,
+              "value": "e"
+            },
+            {
+              "opId": "10@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "9@doc0",
+              "insert": true,
+              "value": "0"
+            },
+            {
+              "opId": "11@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "10@doc0",
+              "insert": true,
+              "value": "9"
+            },
+            {
+              "opId": "12@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "11@doc0",
+              "insert": true,
+              "value": "1"
+            },
+            {
+              "opId": "13@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "12@doc0",
+              "insert": true,
+              "value": "5"
+            },
+            {
+              "opId": "14@doc0",
+              "action": "set",
+              "obj": "1@doc0",
+              "elemId": "13@doc0",
+              "insert": true,
+              "value": "0"
+            }
+          ]
+        },
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/pushpin"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc1",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc1",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/cambria/"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

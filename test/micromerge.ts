@@ -1216,7 +1216,7 @@ describe.only("Micromerge", () => {
                 inputOps1: [
                     {
                         action: "addMark",
-                        startIndex: 12,
+                        startIndex: 11,
                         endIndex: 12,
                         markType: "link",
                         attrs: { url: "https://inkandswitch.com" },

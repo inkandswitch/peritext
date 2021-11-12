@@ -10,7 +10,7 @@ import path from "path"
 import { v4 as uuid } from "uuid"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["em"] //, "em", "link", "comment"]
+const markTypes: MarkTypes[] = ["link"] //, "em", "link", "comment"]
 
 const exampleURLs = [
     "https://inkandswitch.com",
@@ -147,13 +147,14 @@ const docIds = docs.map(d => d.actorId)
 type SharedHistory = Record<ActorId, Change[]>
 const queues: SharedHistory = {}
 docIds.forEach(id => (queues[id] = []))
-queues["doc0"].push(initialChange)
+queues["doc1"].push(initialChange)
 
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
 // eslint-disable-next-line no-constant-condition
 
-let allChanges = []
+// let allChanges = []
+let syncs = []
 
 while (true) {
     const randomTarget = Math.floor(Math.random() * docs.length)
@@ -187,6 +188,12 @@ while (true) {
         } while (left == right)
 
         // console.log("merging", docs[left].actorId, docs[right].actorId)
+        syncs.push({
+            left: docs[left].actorId,
+            right: docs[right].actorId,
+            missingLeft: getMissingChanges(docs[left], docs[right]),
+            missingRight: getMissingChanges(docs[right], docs[left]),
+        })
         // console.log(util.inspect(getMissingChanges(docs[left], docs[right]), true, 10))
         // console.log(util.inspect(getMissingChanges(docs[right], docs[left]), true, 10))
 
@@ -202,10 +209,17 @@ while (true) {
                 path.resolve(__dirname, filename),
                 JSON.stringify({
                     queues,
-                    leftDoc: docs[left].actorId,
-                    rightDoc: docs[right].actorId,
-                    leftText,
-                    rightText,
+                    left: {
+                        doc: docs[left].actorId,
+                        text: leftText,
+                        meta: docs[left].metadata,
+                    },
+                    right: {
+                        doc: docs[right].actorId,
+                        text: rightText,
+                        meta: docs[right].metadata,
+                    },
+                    syncs,
                 }),
             )
             console.log(`wrote failed trace to ${filename}`)

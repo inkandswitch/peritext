@@ -923,7 +923,7 @@ export default class Micromerge {
 
         // Iterate through all characters to the left of the initial one;
         // first look after each character, then before it.
-        for (let i = index; i >= 0; i--) {
+        for (let i = index - 1; i >= 0; i--) {
             const metadataAfter = metadata[i].markOpsAfter
             if (metadataAfter !== undefined) {
                 ops = new Set(metadataAfter)

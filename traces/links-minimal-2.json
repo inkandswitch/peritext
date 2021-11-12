@@ -1,0 +1,289 @@
+{
+  "queues": {
+    "doc0": [
+      {
+        "actor": "doc0",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc0",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "2@doc0",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "3@doc0",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "4@doc0",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc0",
+            "action": "set",
+            "obj": "1@doc0",
+            "elemId": "5@doc0",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      }
+    ],
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc1",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "6@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/pushpin"
+            }
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc0": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "5@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/cambria/"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 2,
+        "deps": {
+          "doc0": 1,
+          "doc2": 1
+        },
+        "startOp": 8,
+        "ops": [
+          {
+            "opId": "8@doc2",
+            "action": "addMark",
+            "obj": "1@doc0",
+            "start": {
+              "type": "before",
+              "elemId": "3@doc0"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "4@doc0"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "https://inkandswitch.com/pushpin"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "leftDoc": "doc1",
+  "rightDoc": "doc0",
+  "leftText": [
+    {
+      "text": "ABC",
+      "marks": {}
+    },
+    {
+      "text": "DE",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com/cambria/"
+        }
+      }
+    }
+  ],
+  "rightText": [
+    {
+      "text": "ABC",
+      "marks": {}
+    },
+    {
+      "text": "D",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com/cambria/"
+        }
+      }
+    },
+    {
+      "text": "E",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "https://inkandswitch.com/pushpin"
+        }
+      }
+    }
+  ],
+  "syncs": [
+    {
+      "left": "doc0",
+      "right": "doc1",
+      "missingLeft": [],
+      "missingRight": []
+    },
+    {
+      "left": "doc0",
+      "right": "doc2",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "5@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/cambria/"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc1",
+      "right": "doc0",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc1",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/pushpin"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc0": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "addMark",
+              "obj": "1@doc0",
+              "start": {
+                "type": "before",
+                "elemId": "5@doc0"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc0"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "https://inkandswitch.com/cambria/"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,7 +1,5 @@
 import uuid from "uuid"
-import { every, isEqual, partial, sortBy } from "lodash"
-import { inspect } from "util"
-
+import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
 
 const CHILDREN = Symbol("children")
@@ -27,8 +25,8 @@ type CONTENT_KEY = "text"
 
 export type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-        ? Array<WithoutOpId<MarkValue[K]>>
-        : WithoutOpId<MarkValue[K]>
+    ? Array<WithoutOpId<MarkValue[K]>>
+    : WithoutOpId<MarkValue[K]>
 }
 
 type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
@@ -153,10 +151,10 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 export type AddMarkOperationInput = Values<
     {
         [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-            ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-            : AddMarkOperationInputBase<M> & {
-                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-              }
+        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+        : AddMarkOperationInputBase<M> & {
+            attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+        }
     }
 >
 
@@ -176,19 +174,19 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
 
 export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"strong"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"em"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: Omit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: Omit<MarkValue["comment"], "opId">
+    })
     | (RemoveMarkOperationInputBase<"link"> & {
-          /** Data attributes for the mark. */
-          attrs?: undefined
-      })
+        /** Data attributes for the mark. */
+        attrs?: undefined
+    })
 
 export type InputOperation =
     | MakeListOperationInput
@@ -284,10 +282,10 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
 export type AddMarkOperation = Values<
     {
         [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-            ? AddMarkOperationBase<M> & { attrs?: undefined }
-            : AddMarkOperationBase<M> & {
-                  attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-              }
+        ? AddMarkOperationBase<M> & { attrs?: undefined }
+        : AddMarkOperationBase<M> & {
+            attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+        }
     }
 >
 
@@ -305,9 +303,9 @@ type RemoveMarkOperation =
     | RemoveMarkOperationBase<"strong">
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: DistributiveOmit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: DistributiveOmit<MarkValue["comment"], "opId">
+    })
     | RemoveMarkOperationBase<"link">
 
 export type Operation =
@@ -366,14 +364,14 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
 type BooleanMarkValue =
     | {
-          active: true
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-      }
+        active: true
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+    }
     | {
-          active: false
-          opId: OperationId
-      }
+        active: false
+        opId: OperationId
+    }
 
 type IdMarkValue = {
     id: string
@@ -383,16 +381,16 @@ type IdMarkValue = {
 
 type LinkMarkValue =
     | {
-          url: string
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-          active: true
-      }
+        url: string
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+        active: true
+    }
     | {
-          url?: undefined
-          opId: OperationId
-          active: false
-      }
+        url?: undefined
+        opId: OperationId
+        active: false
+    }
 
 export type MarkValue = Assert<
     {
@@ -496,7 +494,7 @@ export function addCharactersToSpans(args: {
     characters: string[]
     marks: MarkMapWithoutOpIds
     spans: FormatSpanWithText[]
-}) {
+}): void {
     const { characters, marks, spans } = args
     if (characters.length === 0) {
         return
@@ -946,7 +944,7 @@ export default class Micromerge {
     }): PartialPatch => {
         const { op, startIndex } = args
 
-        let partialPatch: PartialPatch = {
+        const partialPatch: PartialPatch = {
             action: op.action,
             markType: op.markType,
             path: [Micromerge.contentKey],
@@ -1063,11 +1061,11 @@ export default class Micromerge {
                             if (partialPatch !== undefined) {
                                 const endIndex = indexForPatch
 
-                                // todo: why doesn't this typecheck
-                                patches.push({
+                                const patch: Patch = {
                                     ...partialPatch,
                                     endIndex,
-                                })
+                                }
+                                patches.push(patch)
                                 partialPatch = undefined
                             }
 
@@ -1077,11 +1075,11 @@ export default class Micromerge {
                             if (partialPatch !== undefined) {
                                 const endIndex = indexForPatch
 
-                                // todo: why doesn't this typecheck
-                                patches.push({
+                                const patch = {
                                     ...partialPatch,
                                     endIndex,
-                                })
+                                } as Patch
+                                patches.push(patch)
                                 partialPatch = undefined
                             }
 

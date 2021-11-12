@@ -1,13 +1,12 @@
 import assert from "assert"
 import crypto from "crypto"
-import Micromerge, { ActorId, Change } from "../src/micromerge"
-import { generateDocs } from "./generateDocs"
-import util from "util"
 import { isEqual } from "lodash"
-import { debug } from "./micromerge"
 import fs from "fs"
 import path from "path"
 import { v4 as uuid } from "uuid"
+import { getMissingChanges, applyChanges } from "./merge"
+import Micromerge, { ActorId, Change } from "../src/micromerge"
+import { generateDocs } from "./generateDocs"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
 const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
@@ -17,7 +16,7 @@ const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 const commentHistory: string[] = []
 
 function addMarkChange(doc: Micromerge) {
-    const length = (doc.root.text as any[]).length
+    const length = (doc.root.text as Json[]).length
     const startIndex = Math.floor(Math.random() * length)
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
@@ -140,17 +139,14 @@ const { docs, initialChange } = generateDocs("ABCDE", 3)
 const docIds = docs.map(d => d.actorId)
 
 type SharedHistory = Record<ActorId, Change[]>
-const queues: SharedHistory = {}
+export const queues: SharedHistory = {}
 docIds.forEach(id => (queues[id] = []))
 queues["doc1"].push(initialChange)
 
 const opTypes = ["insert", "remove", "addMark", "removeMark"]
 
+const syncs = []
 // eslint-disable-next-line no-constant-condition
-
-// let allChanges = []
-let syncs = []
-
 while (true) {
     const randomTarget = Math.floor(Math.random() * docs.length)
     const doc = docs[randomTarget]
@@ -237,36 +233,4 @@ while (true) {
     }
 }
 
-function applyChanges(document: Micromerge, changes: Change[]) {
-    let iterations = 0
-    while (changes.length > 0) {
-        const change = changes.shift()
-        if (!change) {
-            return
-        }
-        try {
-            // console.log("applying", document.actorId, change)
-            document.applyChange(change)
-        } catch {
-            changes.push(change)
-        }
-        if (iterations++ > 10000) {
-            throw "applyChanges did not converge"
-        }
-    }
-}
 
-function getMissingChanges(source: Micromerge, target: Micromerge) {
-    const sourceClock = source.clock
-    const targetClock = target.clock
-    const changes = []
-    for (const [actor, number] of Object.entries(sourceClock)) {
-        if (targetClock[actor] === undefined) {
-            changes.push(...queues[actor].slice(0, number))
-        }
-        if (targetClock[actor] < number) {
-            changes.push(...queues[actor].slice(targetClock[actor], number))
-        }
-    }
-    return changes
-}

@@ -1172,22 +1172,6 @@ export default class Micromerge {
             index++
         }
 
-        // Peek ahead and see if there are any tombstones that have a nonempty markOpsAfter.
-        // If there are, we want to put this new character after the last such tombstone.
-        // This ensures that if there are non-growing marks which end at this insertion position,
-        // this new character is inserted outside the span and the mark correctly will not grow.
-        let peekIndex = index
-        let latestIndexAfterTombstone: number | undefined
-        while (meta[peekIndex] && meta[peekIndex].deleted) {
-            if (meta[peekIndex].markOpsAfter !== undefined) {
-                latestIndexAfterTombstone = peekIndex + 1
-            }
-            peekIndex++
-        }
-        if (latestIndexAfterTombstone) {
-            index = latestIndexAfterTombstone
-        }
-
         // Insert the new list element at the correct index
         meta.splice(index, 0, {
             elemId: op.opId,

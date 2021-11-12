@@ -10,14 +10,9 @@ import path from "path"
 import { v4 as uuid } from "uuid"
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["link"] //, "em", "link", "comment"]
+const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
 
-const exampleURLs = [
-    "https://inkandswitch.com",
-    "https://inkandswitch.com/cambria/",
-    "https://inkandswitch.com/peritext/",
-    "https://inkandswitch.com/pushpin",
-]
+const exampleURLs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(letter => `${letter}.com`)
 
 const commentHistory: string[] = []
 
@@ -103,7 +98,7 @@ function removeMarkChange(doc: Micromerge) {
     }
 }
 
-const MAX_CHARS = 10
+const MAX_CHARS = 2
 function insertChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     const index = Math.floor(Math.random() * length)
@@ -212,12 +207,24 @@ while (true) {
                     left: {
                         doc: docs[left].actorId,
                         text: leftText,
-                        meta: docs[left].metadata,
+                        // @ts-ignore -- reach into private metadata, it's fine
+                        meta: docs[left].metadata["1@doc1"].map(item => ({
+                            ...item,
+                            // show mark op sets as arrays in JSON
+                            markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                            markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                        })),
                     },
                     right: {
                         doc: docs[right].actorId,
                         text: rightText,
-                        meta: docs[right].metadata,
+                        // @ts-ignore -- reach into private metadata, it's fine
+                        meta: docs[right].metadata["1@doc1"].map(item => ({
+                            ...item,
+                            // show mark op sets as arrays in JSON
+                            markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                            markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                        })),
                     },
                     syncs,
                 }),

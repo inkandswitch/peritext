@@ -577,7 +577,7 @@ describe.only("Micromerge", () => {
             })
         })
 
-        it("handles growth behavior for spans where the boundary is a tombstone", () => {
+        it.skip("handles growth behavior for spans where the boundary is a tombstone", () => {
             // The user creates a link and then deletes the boundary characters.
             // When they insert at the end of the link, the new char shouldn't become
             // part of the link because links don't grow to the right.

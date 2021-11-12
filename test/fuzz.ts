@@ -12,7 +12,7 @@ import { v4 as uuid } from "uuid"
 type MarkTypes = "strong" | "em" | "link" | "comment"
 const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
 
-const exampleURLs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(letter => `${letter}.com`)
+const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 
 const commentHistory: string[] = []
 

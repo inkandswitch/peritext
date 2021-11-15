@@ -1,23 +1,27 @@
-import Micromerge, { Change } from "../src/micromerge";
+import Micromerge, { Change, Patch } from "../src/micromerge";
 import { queues } from "./fuzz";
 
-export function applyChanges(document: Micromerge, changes: Change[]): void {
-    let iterations = 0;
+export function applyChanges(document: Micromerge, changes: Change[]): Patch[] {
+    let iterations = 0
+    const patches = []
     while (changes.length > 0) {
-        const change = changes.shift();
+        const change = changes.shift()
         if (!change) {
-            return;
+            return patches
         }
         try {
             // console.log("applying", document.actorId, change)
-            document.applyChange(change);
+            const newPatches = document.applyChange(change)
+            patches.push(...newPatches)
+
         } catch {
-            changes.push(change);
+            changes.push(change)
         }
         if (iterations++ > 10000) {
-            throw "applyChanges did not converge";
+            throw "applyChanges did not converge"
         }
     }
+    return patches
 }
 
 export function getMissingChanges(source: Micromerge, target: Micromerge): Change[] {

@@ -5,11 +5,19 @@ import fs from "fs"
 import path from "path"
 import { v4 as uuid } from "uuid"
 import { getMissingChanges, applyChanges } from "./merge"
-import Micromerge, { ActorId, Change } from "../src/micromerge"
+import Micromerge, { ActorId, Change, Patch } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
+import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
+
+function assertUnreachable(x: never): never {
+    throw new Error("Didn't expect to get here" + x);
+}
+
+type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
+const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
+const markTypes: MarkTypes[] = ["strong"]
 
 const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 
@@ -33,27 +41,24 @@ function addMarkChange(doc: Micromerge) {
     if (markType === "link") {
         // pick one of the four urls we use to encourage adjacent matching spans
         const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)]
-        const { change } = doc.change([
+        return doc.change([
             {
                 ...sharedStuff,
                 attrs: { url },
             },
         ])
-        return change
     } else if (markType === "comment") {
         // make a new comment ID and remember it so we can try removing it later
         const id = "comment-" + crypto.randomBytes(2).toString("hex")
         commentHistory.push(id)
-        const { change } = doc.change([
+        return doc.change([
             {
                 ...sharedStuff,
                 attrs: { id },
             },
         ])
-        return change
     } else {
-        const { change } = doc.change([sharedStuff])
-        return change
+        return doc.change([sharedStuff])
     }
 }
 
@@ -74,26 +79,23 @@ function removeMarkChange(doc: Micromerge) {
 
     if (markType === "link") {
         const url = exampleURLs[Math.floor(Math.random() * exampleURLs.length)]
-        const { change } = doc.change([
+        return doc.change([
             {
                 ...sharedStuff,
                 attrs: { url }, // do we need a URL?
             },
         ])
-        return change
     } else if (markType === "comment") {
         // note to gklitt: we should probably enumerate the existing comments, right now it just grows
         const id = commentHistory[Math.floor(Math.random() * commentHistory.length)]
-        const { change } = doc.change([
+        return doc.change([
             {
                 ...sharedStuff,
                 attrs: { id },
             },
         ])
-        return change
     } else {
-        const { change } = doc.change([sharedStuff])
-        return change
+        return doc.change([sharedStuff])
     }
 }
 
@@ -104,7 +106,7 @@ function insertChange(doc: Micromerge) {
     const numChars = Math.floor(Math.random() * MAX_CHARS)
     const values = crypto.randomBytes(numChars).toString("hex").split("")
 
-    const { change } = doc.change([
+    return doc.change([
         {
             path: ["text"],
             action: "insert",
@@ -112,8 +114,6 @@ function insertChange(doc: Micromerge) {
             values,
         },
     ])
-    // pvh is not a huge fan of the mutable interface
-    return change
 }
 
 function removeChange(doc: Micromerge) {
@@ -124,7 +124,7 @@ function removeChange(doc: Micromerge) {
 
     // console.log(`l ${length} i ${index} c ${count}`)
 
-    const { change } = doc.change([
+    const { change, patches } = doc.change([
         {
             path: ["text"],
             action: "delete",
@@ -132,10 +132,25 @@ function removeChange(doc: Micromerge) {
             count,
         },
     ])
-    return change
+    return { change, patches }
 }
 
-const { docs, initialChange } = generateDocs("ABCDE", 3)
+function handleOp(op: OpTypes, doc: Micromerge): { change: Change, patches: Patch[] } {
+    switch (op) {
+        case "insert":
+            return insertChange(doc)
+        case "remove":
+            return removeChange(doc)
+        case "addMark":
+            return addMarkChange(doc)
+        case "removeMark":
+            return removeMarkChange(doc)
+        default:
+            assertUnreachable(op)
+    }
+}
+
+const { docs, patches: allPatches, initialChange } = generateDocs("ABCDE", 3)
 const docIds = docs.map(d => d.actorId)
 
 type SharedHistory = Record<ActorId, Change[]>
@@ -143,31 +158,20 @@ export const queues: SharedHistory = {}
 docIds.forEach(id => (queues[id] = []))
 queues["doc1"].push(initialChange)
 
-const opTypes = ["insert", "remove", "addMark", "removeMark"]
-
 const syncs = []
 // eslint-disable-next-line no-constant-condition
 while (true) {
     const randomTarget = Math.floor(Math.random() * docs.length)
     const doc = docs[randomTarget]
     const queue = queues[docIds[randomTarget]]
+    const patchList = allPatches[randomTarget]
 
     const op = opTypes[Math.floor(Math.random() * opTypes.length)]
 
-    switch (op) {
-        case "insert":
-            queue.push(insertChange(doc))
-            break
-        case "remove":
-            queue.push(removeChange(doc))
-            break
-        case "addMark":
-            queue.push(addMarkChange(doc))
-            break
-        case "removeMark":
-            queue.push(removeMarkChange(doc))
-            break
-    }
+    const { change, patches } = handleOp(op, doc)
+    queue.push(change)
+    patchList.push(...patches)
+
 
     const shouldSync = true // (Math.random() < 0.2)
     if (shouldSync) {
@@ -188,11 +192,17 @@ while (true) {
         // console.log(util.inspect(getMissingChanges(docs[left], docs[right]), true, 10))
         // console.log(util.inspect(getMissingChanges(docs[right], docs[left]), true, 10))
 
-        applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
-        applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
+        const rightPatches = applyChanges(docs[right], getMissingChanges(docs[left], docs[right]))
+        const leftPatches = applyChanges(docs[left], getMissingChanges(docs[right], docs[left]))
+
+        allPatches[right].push(...rightPatches)
+        allPatches[left].push(...leftPatches)
 
         const leftText = docs[left].getTextWithFormatting(["text"])
         const rightText = docs[right].getTextWithFormatting(["text"])
+
+        assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
+        assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
 
         if (!isEqual(leftText, rightText)) {
             const filename = `../traces/fail-${uuid()}.json`
@@ -232,5 +242,4 @@ while (true) {
         assert.deepStrictEqual(leftText, rightText)
     }
 }
-
 

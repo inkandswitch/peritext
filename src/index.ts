@@ -4,7 +4,6 @@ import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
-import { change } from "./automate"
 import { Transaction } from "prosemirror-state"
 
 const publisher = new Publisher<Array<Change>>()

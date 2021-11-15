@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import uuid from "uuid"
 import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"

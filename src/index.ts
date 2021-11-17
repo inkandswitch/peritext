@@ -27,6 +27,9 @@ const initializeEditor = (name: string) => {
     }
 
     const doc = new Micromerge(name)
+    // note: technically this could cause problems because we're recreating 
+    //       the document on each side with no shared history and not syncing, so
+    //       it might just be luck / compensating bugs that makes this work
     const { change } = doc.change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
     ])
@@ -58,6 +61,7 @@ const initializeDemo = () => {
     const names = ["alice", "bob"]
     const editors = names.reduce((editors: Editors, name: string) => ({ ...editors, [name]: initializeEditor(name) }), {})
 
+    // disable live sync & use manual calls to flush()
     for (const editor of Object.values(editors)) {
         editor.queue.drop()
     }

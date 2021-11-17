@@ -1,9 +1,9 @@
 import { Editors } from "."
-import { TraceSpec } from "../test/micromerge"
+import { TraceSpec, PathlessInputOperation } from "../test/micromerge"
 import { applyPatchToTransaction } from "./bridge"
 import { InputOperation } from "./micromerge"
 
-type TraceEvent = (InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }
+type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & { delay?: number }
 type Trace = TraceEvent[]
 
 /** Specify concurrent edits on two editors, which sync at the end */
@@ -14,8 +14,8 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
 
     const trace: Trace = []
 
-    trace.push({ editorId: "alice", path: [], action: "makeList", key: "text" })
-    trace.push({ action: "sync" })
+    trace.push({ editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 })
+    trace.push({ action: "sync", delay: 0 })
     trace.push({
         editorId: "alice",
         path: ["text"],
@@ -25,11 +25,27 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
     })
     trace.push({ action: "sync" })
 
-    traceSpec.inputOps1.map(o => trace.push({ editorId: "alice", path: ["text"], ...o }))
-    traceSpec.inputOps2.map(o => trace.push({ editorId: "bob", path: ["text"], ...o }))
+    traceSpec.inputOps1.forEach(o => trace.push(...simulateTypingForInputOp("alice", o)))
+    traceSpec.inputOps2.forEach(o => trace.push(...simulateTypingForInputOp("bob", o)))
     trace.push({ action: "sync" })
 
+    console.log(trace)
     return trace
+}
+
+const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): TraceEvent[] => {
+    if ("values" in o) {
+        return o.values.map((v, i) => ({
+            ...o,
+            editorId: name,
+            path: ["text"],
+            delay: 200,
+            values: [v],
+            index: o.index + i
+        }))
+    }
+
+    return [{ ...o, editorId: name, path: ["text"] }]
 }
 
 export const trace = makeTrace({
@@ -75,6 +91,7 @@ const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
 export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
     for (const event of trace) {
         executeTraceEvent(event, editors)
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const delay = event.delay || 1000
+        await new Promise(resolve => setTimeout(resolve, delay));
     }
 }

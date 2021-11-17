@@ -29,11 +29,12 @@ export const range = (start: number, end: number): number[] => {
         .map((_, idx) => start + idx)
 }
 
+export type PathlessInputOperation = DistributiveOmit<InputOperation, "path">
 export type TraceSpec = {
     initialText?: string
-    preOps?: DistributiveOmit<InputOperation, "path">[]
-    inputOps1?: DistributiveOmit<InputOperation, "path">[]
-    inputOps2?: DistributiveOmit<InputOperation, "path">[]
+    preOps?: PathlessInputOperation[]
+    inputOps1?: PathlessInputOperation[]
+    inputOps2?: PathlessInputOperation[]
     expectedResult: FormatSpanWithText[]
 }
 

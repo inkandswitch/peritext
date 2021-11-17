@@ -21,7 +21,7 @@ export type Patch =
 /** A patch which only has a start index and not an end index yet.
  *  Used when we're iterating thru metadata sequence and constructing a patch to emit.
  */
-type PartialPatch = Omit<AddMarkOperationInput | RemoveMarkOperationInput, "endIndex">
+type PartialPatch = DistributiveOmit<AddMarkOperationInput | RemoveMarkOperationInput, "endIndex">
 
 type CONTENT_KEY = "text"
 

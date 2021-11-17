@@ -8,8 +8,8 @@ import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const debug = (obj: any) => {
+// eslint-disable-next-line 
+export const debug = (obj: any): void => {
     console.log(inspect(obj, false, 6))
 }
 

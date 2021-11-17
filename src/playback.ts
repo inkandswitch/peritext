@@ -88,6 +88,7 @@ const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
 
 
 export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
+    // eslint-disable-next-line no-constant-condition
     while (true) {
         for (const event of trace) {
             const delay = event.delay || 1000

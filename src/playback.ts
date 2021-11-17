@@ -2,7 +2,7 @@ import { TraceSpec } from "../test/micromerge"
 import { applyPatchToTransaction, Editor } from "./bridge"
 import { InputOperation } from "./micromerge"
 
-type TraceEvent = (InputOperation & { editorId: string }) | { action: "sync" }
+type TraceEvent = (InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }
 type Trace = TraceEvent[]
 
 /** Specify concurrent edits on two editors, which sync at the end */
@@ -42,28 +42,33 @@ export const trace = makeTrace({
     expectedResult: [{ marks: {}, text: "abracadabra" }],
 })
 
-export const playTrace = (trace: Trace, editor1: Editor, editor2: Editor): void => {
-    console.log('playing Trace')
-    for (const event of trace) {
-        switch (event.action) {
-            case "sync": {
-                console.log('sync')
-                editor1.queue.flush()
-                editor2.queue.flush()
-                break
-            }
-            default: {
-                const editor = (event.editorId === "alice") ? editor1 : editor2
-                const { change, patches } = editor.doc.change([event])
-                let transaction = editor.view.state.tr
-                for (const patch of patches) {
-                    transaction = applyPatchToTransaction(transaction, patch)
-                }
-                // lol
-                editor.view.state = editor.view.state.apply(transaction)
-                editor.view.updateState(editor.view.state)
-                editor.queue.enqueue(change)
-            }
+const executeTraceEvent = (event: TraceEvent, editor1: Editor, editor2: Editor): void {
+    switch (event.action) {
+        case "sync": {
+            console.log('sync')
+            editor1.queue.flush()
+            editor2.queue.flush()
+            break
         }
+        default: {
+            const editor = (event.editorId === "alice") ? editor1 : editor2
+            const { change, patches } = editor.doc.change([event])
+            let transaction = editor.view.state.tr
+            for (const patch of patches) {
+                transaction = applyPatchToTransaction(transaction, patch)
+            }
+            // lol
+            editor.view.state = editor.view.state.apply(transaction)
+            editor.view.updateState(editor.view.state)
+            editor.queue.enqueue(change)
+        }
+    }
+}
+
+
+export const playTrace = async (trace: Trace, editor1: Editor, editor2: Editor): void => {
+    for (const event of trace) {
+        executeTraceEvent(event, editor1, editor2)
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
 }

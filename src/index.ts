@@ -4,7 +4,7 @@ import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
-import { change } from "./automate"
+import { playTrace, trace } from "./playback"
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -86,3 +86,5 @@ document.querySelector("#sync")?.addEventListener("click", () => {
         editor.queue.flush()
     }
 })
+
+playTrace(trace, editors["alice"], editors["bob"])

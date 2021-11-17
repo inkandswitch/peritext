@@ -29,17 +29,19 @@ export const range = (start: number, end: number): number[] => {
         .map((_, idx) => start + idx)
 }
 
-/** Concurrently apply a change to two documents,
- *  then sync them and see if we converge to the expected result.
- *  This tests both the "batch" codepath as well as the result after
- *  incrementally applying the patches generated on both sides. */
-const testConcurrentWrites = (args: {
+export type TraceSpec = {
     initialText?: string
     preOps?: DistributiveOmit<InputOperation, "path">[]
     inputOps1?: DistributiveOmit<InputOperation, "path">[]
     inputOps2?: DistributiveOmit<InputOperation, "path">[]
     expectedResult: FormatSpanWithText[]
-}): void => {
+}
+
+/** Concurrently apply a change to two documents,
+ *  then sync them and see if we converge to the expected result.
+ *  This tests both the "batch" codepath as well as the result after
+ *  incrementally applying the patches generated on both sides. */
+const testConcurrentWrites = (args: TraceSpec): void => {
     const { initialText = "The Peritext editor", preOps, inputOps1 = [], inputOps2 = [], expectedResult } = args
 
     const { docs, patches } = generateDocs(initialText)

@@ -12,6 +12,7 @@ const HEAD = Symbol("_head")
  *  to update a document.
  */
 export type Patch =
+    | MakeListOperationInput
     | (InsertOperationInput & { marks: MarkMapWithoutOpIds })
     | DeleteOperationInput
     | AddMarkOperationInput
@@ -1128,7 +1129,12 @@ export default class Micromerge {
                 metadata[op.key] = op.opId
                 if (op.action === "del") {
                     delete obj[op.key]
-                } else if (op.action === "makeList" || op.action === "makeMap") {
+                } else if (op.action === "makeList") {
+                    obj[op.key] = this.objects[op.opId]
+                    metadata[CHILDREN][op.key] = op.opId
+                    return [{ ...op, path: ["text"] }]
+                } else if (op.action === "makeMap") {
+                    // BUG: this does not return a patch which means maps are not cleared on reinitialization 
                     obj[op.key] = this.objects[op.opId]
                     metadata[CHILDREN][op.key] = op.opId
                 } else if (op.action === "set") {
@@ -1141,6 +1147,7 @@ export default class Micromerge {
 
         // If we've reached this point, that means we haven't yet implemented
         // the logic to return a correct patch for applying this particular op.
+        console.log(op)
         return []
     }
 

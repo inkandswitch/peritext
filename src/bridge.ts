@@ -151,6 +151,9 @@ export const applyPatchToTransaction = (transaction: Transaction, patch: Patch):
                 schema.mark(patch.markType, patch.attrs),
             )
         }
+        case "makeList": {
+            return transaction.delete(0, transaction.doc.content.size)
+        }
     }
     unreachable(patch)
 }

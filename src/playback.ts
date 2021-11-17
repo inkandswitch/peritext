@@ -29,7 +29,6 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
     traceSpec.inputOps2.forEach(o => trace.push(...simulateTypingForInputOp("bob", o)))
     trace.push({ action: "sync" })
 
-    console.log(trace)
     return trace
 }
 
@@ -89,9 +88,11 @@ const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
 
 
 export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
-    for (const event of trace) {
-        executeTraceEvent(event, editors)
-        const delay = event.delay || 1000
-        await new Promise(resolve => setTimeout(resolve, delay));
+    while (true) {
+        for (const event of trace) {
+            const delay = event.delay || 1000
+            await new Promise(resolve => setTimeout(resolve, delay));
+            executeTraceEvent(event, editors)
+        }
     }
 }

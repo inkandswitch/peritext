@@ -101,22 +101,8 @@ function describeOp(op: InternalOperation): string {
  *  tries to initialize the basic structure of the document.
  */
 export const initializeDocs = (docs: Micromerge[]): void => {
-    const initialValue = "This is the Peritext editor"
     const { change: initialChange } = docs[0].change([
         { path: [], action: "makeList", key: Micromerge.contentKey },
-        {
-            path: [Micromerge.contentKey],
-            action: "insert",
-            index: 0,
-            values: initialValue.split(""),
-        },
-        {
-            path: [Micromerge.contentKey],
-            action: "addMark",
-            markType: "strong",
-            startIndex: 12,
-            endIndex: 21,
-        },
     ])
     for (const doc of docs.slice(1)) {
         doc.applyChange(initialChange)
@@ -218,9 +204,9 @@ export function createEditor(args: {
                         }
                     } else if (step.from === step.to) {
                         stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${step.slice.content.firstChild?.marks?.length &&
-                                step.slice.content.firstChild?.marks?.length > 0
-                                ? `with marks `
-                                : ``
+                            step.slice.content.firstChild?.marks?.length > 0
+                            ? `with marks `
+                            : ``
                             } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`

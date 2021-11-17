@@ -1,5 +1,6 @@
+import { Editors } from "."
 import { TraceSpec } from "../test/micromerge"
-import { applyPatchToTransaction, Editor } from "./bridge"
+import { applyPatchToTransaction } from "./bridge"
 import { InputOperation } from "./micromerge"
 
 type TraceEvent = (InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }
@@ -14,6 +15,7 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
     const trace: Trace = []
 
     trace.push({ editorId: "alice", path: [], action: "makeList", key: "text" })
+    trace.push({ action: "sync" })
     trace.push({
         editorId: "alice",
         path: ["text"],
@@ -42,16 +44,20 @@ export const trace = makeTrace({
     expectedResult: [{ marks: {}, text: "abracadabra" }],
 })
 
-const executeTraceEvent = (event: TraceEvent, editor1: Editor, editor2: Editor): void {
+const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
     switch (event.action) {
         case "sync": {
-            console.log('sync')
-            editor1.queue.flush()
-            editor2.queue.flush()
+            Object.values(editors).forEach(e => e.queue.flush())
+            break
+        }
+        case "restart": {
             break
         }
         default: {
-            const editor = (event.editorId === "alice") ? editor1 : editor2
+            const editor = editors[event.editorId]
+            console.log(editors)
+            if (!editor) { throw new Error("Encountered a trace event for a missing editor") }
+
             const { change, patches } = editor.doc.change([event])
             let transaction = editor.view.state.tr
             for (const patch of patches) {
@@ -66,9 +72,9 @@ const executeTraceEvent = (event: TraceEvent, editor1: Editor, editor2: Editor):
 }
 
 
-export const playTrace = async (trace: Trace, editor1: Editor, editor2: Editor): void => {
+export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
     for (const event of trace) {
-        executeTraceEvent(event, editor1, editor2)
+        executeTraceEvent(event, editors)
         await new Promise(resolve => setTimeout(resolve, 1000));
     }
 }

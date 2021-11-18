@@ -1,18 +1,5 @@
 import { Trace, TraceEvent } from "./playback";
 
-//             1         2        3
-//   0123456789012345678901234578901234567
-
-const formatting = [
-    'Bold formatting can overlap with italic.\n',
-    'Links conflict when they overlap.\n',
-    'Comments can co-exist.\n',
-]
-const expansion = [
-    'Bold formatting expands for new text.\n',
-    'But links retain their size when text comes later.'
-]
-
 export const simulateTypingForInputOp = (o: TraceEvent): TraceEvent[] => {
     if (o.action === "insert") {
         return o.values.map((v, i) => ({
@@ -26,7 +13,7 @@ export const simulateTypingForInputOp = (o: TraceEvent): TraceEvent[] => {
     return [o]
 }
 
-export const trace: Trace = [
+const initialDemo: Trace = [
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
     ...simulateTypingForInputOp({
         editorId: "alice", path: ["text"], action: "insert",
@@ -50,6 +37,16 @@ export const trace: Trace = [
         markType: "strong",
     },
     { action: "sync", delay: 0 },
+]
+
+//             1         2        3
+//   0123456789012345678901234578901234567
+const formatting = [
+    'Bold formatting can overlap with italic.\n',
+    'Links conflict when they overlap.\n',
+    'Comments can co-exist.\n',
+]
+const formattingDemo: Trace = [
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
     { action: "sync", delay: 0 },
 
@@ -148,7 +145,16 @@ export const trace: Trace = [
     { action: "sync", delay: 0 },
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
     { action: "sync", delay: 0 },
+]
 
+
+//             1         2        3
+//   0123456789012345678901234578901234567
+const expansion = [
+    'Bold formatting expands for new text.\n',
+    'But links retain their size when text comes later.'
+]
+const expansionDemo: Trace = [
     //            1         2        3
     //  0123456789012345678901234578901234567
     // 'Bold formatting expands for new text.\n',
@@ -196,5 +202,10 @@ export const trace: Trace = [
     { action: "sync", delay: 0 },
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 2000 },
     { action: "sync", delay: 0 },
+]
 
+export const trace: Trace = [
+    ...initialDemo,
+    ...formattingDemo,
+    ...expansionDemo,
 ]

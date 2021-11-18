@@ -101,9 +101,7 @@ function describeOp(op: InternalOperation): string {
  *  tries to initialize the basic structure of the document.
  */
 export const initializeDocs = (docs: Micromerge[]): void => {
-    const { change: initialChange } = docs[0].change([
-        { path: [], action: "makeList", key: Micromerge.contentKey },
-    ])
+    const { change: initialChange } = docs[0].change([{ path: [], action: "makeList", key: Micromerge.contentKey }])
     for (const doc of docs.slice(1)) {
         doc.applyChange(initialChange)
     }
@@ -202,15 +200,17 @@ export function createEditor(args: {
                             // single character deletion
                             stepText = `delete at index <strong>${step.from}</strong>`
                         } else {
-                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${step.to - 1
-                                }</strong>`
+                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${
+                                step.to - 1
+                            }</strong>`
                         }
                     } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${step.slice.content.firstChild?.marks?.length &&
+                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${
+                            step.slice.content.firstChild?.marks?.length &&
                             step.slice.content.firstChild?.marks?.length > 0
-                            ? `with marks `
-                            : ``
-                            } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
+                                ? `with marks `
+                                : ``
+                        } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
                     } else {
                         stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
                     }
@@ -283,6 +283,7 @@ export function createEditor(args: {
         // Order of marks specified by schema.
         state,
         handleClickOn,
+        // editable: () => false,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state

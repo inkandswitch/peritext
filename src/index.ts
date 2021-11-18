@@ -27,13 +27,10 @@ const initializeEditor = (name: string) => {
     }
 
     const doc = new Micromerge(name)
-    // note: technically this could cause problems because we're recreating 
+    // note: technically this could cause problems because we're recreating
     //       the document on each side with no shared history and not syncing, so
     //       it might just be luck / compensating bugs that makes this work
-    const { change } = doc.change([
-        { path: [], action: "makeList", key: Micromerge.contentKey },
-    ])
-
+    const { change } = doc.change([{ path: [], action: "makeList", key: Micromerge.contentKey }])
 
     const editor = createEditor({
         actorId: name,
@@ -57,16 +54,29 @@ const initializeEditor = (name: string) => {
     return editor
 }
 
+// This handler gets called 500ms before the sync happens.
+// If we keep the sync icon visible for ~700ms it feels good.
+const displaySyncEvent = () => {
+    const syncElement = document.querySelector(".sync-indicator") as HTMLElement
+    syncElement!.style.visibility = "visible"
+    setTimeout(() => {
+        syncElement!.style.visibility = "hidden"
+    }, 700)
+}
+
 const initializeDemo = () => {
     const names = ["alice", "bob"]
-    const editors = names.reduce((editors: Editors, name: string) => ({ ...editors, [name]: initializeEditor(name) }), {})
+    const editors = names.reduce(
+        (editors: Editors, name: string) => ({ ...editors, [name]: initializeEditor(name) }),
+        {},
+    )
 
     // disable live sync & use manual calls to flush()
     for (const editor of Object.values(editors)) {
         editor.queue.drop()
     }
 
-    playTrace(trace, editors)
+    playTrace(trace, editors, displaySyncEvent)
 }
 
 initializeDemo()

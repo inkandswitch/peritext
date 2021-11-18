@@ -61,9 +61,14 @@ export const trace = makeTrace({
     expectedResult: [{ marks: {}, text: "abracadabra" }],
 })
 
-const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
+const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): void => {
     switch (event.action) {
         case "sync": {
+            // Call the sync event handler, then wait before actually syncing.
+            // This makes the sync indicator seem more realistic because it
+            // starts activating before the sync completes.
+            handleSyncEvent()
+            await new Promise(resolve => setTimeout(resolve, 500))
             Object.values(editors).forEach(e => e.queue.flush())
             break
         }
@@ -89,13 +94,13 @@ const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
     }
 }
 
-export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
+export const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     // eslint-disable-next-line no-constant-condition
     while (true) {
         for (const event of trace) {
             const delay = event.delay || 1000
             await new Promise(resolve => setTimeout(resolve, delay))
-            executeTraceEvent(event, editors)
+            executeTraceEvent(event, editors, handleSyncEvent)
         }
     }
 }

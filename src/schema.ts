@@ -93,6 +93,16 @@ export const markSpec = {
             ] as const
         },
     },
+    highlightChange: {
+        toDOM() {
+            return [
+                "span",
+                {
+                    "data-highlight-change": "true",
+                },
+            ] as const
+        },
+    },
 } as const
 
 export type Marks = typeof markSpec

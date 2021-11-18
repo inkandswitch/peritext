@@ -1,8 +1,53 @@
-/* Peritext figure ------------- */
-
-body {
-    font-family: sans-serif;
+blockquote > p {
+    margin: 0;
 }
+
+.alice,
+.bob {
+    display: inline-block;
+    vertical-align: top;
+    width: 37%;
+    padding: 0;
+}
+
+.alice > p,
+.bob > p {
+    font-style: italic;
+    margin-bottom: 0.2em;
+}
+
+/* Style shamelessly copied from Notion */
+.comment {
+    background: rgba(255, 212, 0, 0.14);
+    border-bottom: 2px solid rgb(255, 212, 0);
+    padding-bottom: 2px;
+    position: relative;
+}
+
+.overlap {
+    background: rgba(255, 212, 0, 0.56);
+}
+
+.comment .popup {
+    font-size: 80%;
+    position: absolute;
+    background: rgba(255, 212, 0, 0.14);
+    top: 2rem;
+    left: 2rem;
+    white-space: nowrap;
+    padding: 2px 6px;
+}
+
+.comment .line {
+    position: absolute;
+    top: 1.4rem;
+    width: 2rem;
+    height: 2rem;
+    border-left: 2px solid rgb(255, 212, 0);
+    border-bottom: 2px solid rgb(255, 212, 0);
+}
+
+/* Peritext figure ------------- */
 
 .peritext-demo {
     width: 100%;
@@ -14,7 +59,7 @@ body {
     background-color: #ddd;
     flex: 1 0 0;
     min-width: 300px;
-    height: 200px;
+    height: 250px;
     background: #f2f2f2;
     border: 1px solid #c4c4c4;
     box-sizing: border-box;
@@ -61,25 +106,72 @@ body {
     border-top: solid 5px #00c2ff;
 }
 
-.peritext-demo .sync-indicator {
+.peritext-demo .sync-container {
     width: 50px;
     margin: 20px;
     margin-top: 70px;
     height: 100px;
     box-sizing: border-box;
-    visibility: hidden;
+}
+
+.peritext-demo .sync-indicator {
+    display: none;
+    color: #999;
+    font-family: sans-serif;
+    font-size: 12px;
+    animation: fadeIn 200ms;
 }
 
 .peritext-demo .changes {
     display: flex;
     flex-wrap: wrap;
+    height: 60px;
+    overflow: hidden;
+    margin-top: 10px;
+    position: relative;
+    left: 0px;
+}
+
+@keyframes slideLeft {
+    from {
+        left: 0px;
+        opacity: 100%;
+    }
+
+    to {
+        left: 500px;
+        opacity: 30%;
+    }
+}
+
+@keyframes slideRight {
+    from {
+        left: 0px;
+        opacity: 100%;
+    }
+
+    to {
+        left: -500px;
+        opacity: 30%;
+    }
+}
+
+.peritext-demo #alice .syncing {
+    animation-duration: 1s;
+    animation-name: slideLeft;
+}
+
+.peritext-demo #bob .syncing {
+    animation-duration: 1s;
+    animation-name: slideRight;
 }
 
 .peritext-demo .changes .op {
+    height: 20px;
     padding: 2px 5px;
     border-radius: 5px;
     font-family: sans-serif;
-    margin: 5px;
+    margin: 3px;
     color: white;
     animation: fadeIn 200ms;
 }
@@ -98,48 +190,4 @@ body {
 }
 .peritext-demo #bob .changes .op {
     background-color: #00c2ff;
-}
-
-/* CSS spinner from https://projects.lukehaas.me/css-loaders/ */
-
-.loader,
-.loader:after {
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-}
-.loader {
-    margin: 20px auto;
-    font-size: 10px;
-    position: relative;
-    text-indent: -9999em;
-    border-top: 0.8em solid rgba(255, 255, 255, 0.2);
-    border-right: 0.8em solid rgba(255, 255, 255, 0.2);
-    border-bottom: 0.8em solid rgba(255, 255, 255, 0.2);
-    border-left: 0.8em solid #999;
-    -webkit-transform: translateZ(0);
-    -ms-transform: translateZ(0);
-    transform: translateZ(0);
-    -webkit-animation: load8 500ms infinite linear;
-    animation: load8 500ms infinite linear;
-}
-@-webkit-keyframes load8 {
-    0% {
-        -webkit-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
-    100% {
-        -webkit-transform: rotate(360deg);
-        transform: rotate(360deg);
-    }
-}
-@keyframes load8 {
-    0% {
-        -webkit-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
-    100% {
-        -webkit-transform: rotate(360deg);
-        transform: rotate(360deg);
-    }
 }

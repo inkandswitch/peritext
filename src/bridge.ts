@@ -179,13 +179,12 @@ export function createEditor(args: {
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
-            changesNode.innerHTML = ""
         },
     })
     queue.start()
 
     const outputDebugForChange = (change: Change) => {
-        console.log("output debug!", change.ops[0])
+        // console.log("output debug!", change.ops[0])
         const opsDivs = change.ops.map((op: InternalOperation) => `<div class="op">${describeOp(op)}</div>`)
 
         for (const divHtml of opsDivs) {

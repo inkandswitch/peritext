@@ -3,13 +3,13 @@ import { TraceSpec, PathlessInputOperation } from "../test/micromerge"
 import { applyPatchToTransaction } from "./bridge"
 import { InputOperation } from "./micromerge"
 
-type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & {
+export type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & {
     delay?: number
 }
-type Trace = TraceEvent[]
+export type Trace = TraceEvent[]
 
 /** Specify concurrent edits on two editors, which sync at the end */
-const makeTrace = (traceSpec: TraceSpec): Trace => {
+const testToTrace = (traceSpec: TraceSpec): Trace => {
     if (!traceSpec.initialText || !traceSpec.inputOps1 || !traceSpec.inputOps2) {
         throw new Error(`Expected full trace spec`)
     }
@@ -34,7 +34,7 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
     return trace
 }
 
-const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): TraceEvent[] => {
+export const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): TraceEvent[] => {
     if (o.action === "insert") {
         return o.values.map((v, i) => ({
             ...o,
@@ -49,7 +49,7 @@ const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): Trac
     return [{ ...o, editorId: name, path: ["text"] }]
 }
 
-export const trace = makeTrace({
+export const trace = testToTrace({
     initialText: "The Peritext editor",
     inputOps1: [
         {
@@ -82,15 +82,16 @@ console.log({ trace })
 const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     switch (event.action) {
         case "sync": {
+            const demiDelay = (event.delay) ? event.delay / 2 : 500
             // Call the sync event handler, then wait before actually syncing.
             // This makes the sync indicator seem more realistic because it
             // starts activating before the sync completes.
             handleSyncEvent()
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await new Promise(resolve => setTimeout(resolve, demiDelay))
             Object.values(editors).forEach(e => e.queue.flush())
 
             // Wait after the sync happens, to let the user see the results
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await new Promise(resolve => setTimeout(resolve, demiDelay))
             break
         }
         case "restart": {
@@ -120,7 +121,7 @@ export const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent:
     while (true) {
         for (const event of trace) {
             console.log({ event })
-            const delay = event.delay || 1000
+            const delay = event.delay || 100
             await new Promise(resolve => setTimeout(resolve, delay))
             await executeTraceEvent(event, editors, handleSyncEvent)
         }

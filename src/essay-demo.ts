@@ -4,7 +4,8 @@ import type { Change, Operation } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
-import { playTrace, trace } from "./playback"
+import { playTrace } from "./playback"
+import { trace } from "./essay-demo-script"
 
 export type Editors = { [key: string]: Editor }
 

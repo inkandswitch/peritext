@@ -4,6 +4,7 @@
     "description": "",
     "scripts": {
         "start": "parcel ./index.html",
+        "start-essay-demo": "parcel ./essay-demo.html",
         "build": "parcel build ./index.html --public-url=./",
         "typecheck": "tsc --noEmit --watch",
         "prettier": "prettier --write ./index.html *.json ./src/**/* ./test/**/*",

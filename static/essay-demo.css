@@ -1,0 +1,145 @@
+/* Peritext figure ------------- */
+
+body {
+    font-family: sans-serif;
+}
+
+.peritext-demo {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.peritext-demo .editor-container {
+    background-color: #ddd;
+    flex: 1 0 0;
+    min-width: 300px;
+    height: 200px;
+    background: #f2f2f2;
+    border: 1px solid #c4c4c4;
+    box-sizing: border-box;
+    border-radius: 5px;
+    padding: 20px 10px;
+    margin: 20px 0;
+}
+
+.peritext-demo .editor {
+    border: solid thin #000;
+    border-radius: 5px;
+    min-height: 60px;
+    background: #fff;
+    padding: 5px;
+}
+
+.peritext-demo .buttons {
+    height: 30px;
+    margin-bottom: 5px;
+    display: flex;
+}
+
+.peritext-demo .button {
+    width: 20px;
+    margin: 5px;
+    padding-right: 5px;
+    border-right: solid thin #bbb;
+    user-select: none;
+}
+
+.peritext-demo .button:last-child {
+    border-right: none;
+}
+
+.peritext-demo .button.link {
+    margin-top: 1px;
+}
+
+.peritext-demo #alice {
+    border-top: solid 5px #e08b8b;
+}
+
+.peritext-demo #bob {
+    border-top: solid 5px #00c2ff;
+}
+
+.peritext-demo .sync-indicator {
+    width: 50px;
+    margin: 20px;
+    margin-top: 70px;
+    height: 100px;
+    box-sizing: border-box;
+    visibility: hidden;
+}
+
+.peritext-demo .changes {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.peritext-demo .changes .op {
+    padding: 2px 5px;
+    border-radius: 5px;
+    font-family: sans-serif;
+    margin: 5px;
+    color: white;
+    animation: fadeIn 200ms;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.peritext-demo #alice .changes .op {
+    background-color: #e08b8b;
+}
+.peritext-demo #bob .changes .op {
+    background-color: #00c2ff;
+}
+
+/* CSS spinner from https://projects.lukehaas.me/css-loaders/ */
+
+.loader,
+.loader:after {
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+.loader {
+    margin: 20px auto;
+    font-size: 10px;
+    position: relative;
+    text-indent: -9999em;
+    border-top: 0.8em solid rgba(255, 255, 255, 0.2);
+    border-right: 0.8em solid rgba(255, 255, 255, 0.2);
+    border-bottom: 0.8em solid rgba(255, 255, 255, 0.2);
+    border-left: 0.8em solid #999;
+    -webkit-transform: translateZ(0);
+    -ms-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-animation: load8 500ms infinite linear;
+    animation: load8 500ms infinite linear;
+}
+@-webkit-keyframes load8 {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(360deg);
+        transform: rotate(360deg);
+    }
+}
+@keyframes load8 {
+    0% {
+        -webkit-transform: rotate(0deg);
+        transform: rotate(0deg);
+    }
+    100% {
+        -webkit-transform: rotate(360deg);
+        transform: rotate(360deg);
+    }
+}

@@ -3,7 +3,9 @@ import { TraceSpec, PathlessInputOperation } from "../test/micromerge"
 import { applyPatchToTransaction } from "./bridge"
 import { InputOperation } from "./micromerge"
 
-type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & { delay?: number }
+type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & {
+    delay?: number
+}
 type Trace = TraceEvent[]
 
 /** Specify concurrent edits on two editors, which sync at the end */
@@ -40,7 +42,7 @@ const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): Trac
             path: ["text"],
             delay: 200,
             values: [v],
-            index: o.index + i
+            index: o.index + i,
         }))
     }
 
@@ -70,29 +72,29 @@ const executeTraceEvent = (event: TraceEvent, editors: Editors): void => {
         }
         default: {
             const editor = editors[event.editorId]
-            console.log(editors)
-            if (!editor) { throw new Error("Encountered a trace event for a missing editor") }
+            if (!editor) {
+                throw new Error("Encountered a trace event for a missing editor")
+            }
 
             const { change, patches } = editor.doc.change([event])
             let transaction = editor.view.state.tr
             for (const patch of patches) {
                 transaction = applyPatchToTransaction(transaction, patch)
             }
-            // lol
             editor.view.state = editor.view.state.apply(transaction)
             editor.view.updateState(editor.view.state)
             editor.queue.enqueue(change)
+            editor.outputDebugForChange(change)
         }
     }
 }
-
 
 export const playTrace = async (trace: Trace, editors: Editors): Promise<void> => {
     // eslint-disable-next-line no-constant-condition
     while (true) {
         for (const event of trace) {
             const delay = event.delay || 1000
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise(resolve => setTimeout(resolve, delay))
             executeTraceEvent(event, editors)
         }
     }

@@ -77,19 +77,20 @@ export type Editor = {
     doc: Micromerge
     view: EditorView
     queue: ChangeQueue
+    outputDebugForChange: (change: Change) => void
 }
 
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert "${op.value}" after char ID <strong>${String(op.elemId)}</strong>`
+        return `insert <strong>"${op.value}"</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
         return `delete <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
-        return `add mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+        return `add mark <strong>${op.markType}</strong>`
     } else if (op.action === "removeMark") {
-        return `remove mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+        return `remove mark <strong>${op.markType}</strong>`
     } else {
         return op.action
     }
@@ -115,7 +116,7 @@ export const initializeDocs = (docs: Micromerge[]): void => {
  *  @returns a Transaction that includes additional steps representing the patch
  *    */
 export const applyPatchToTransaction = (transaction: Transaction, patch: Patch): Transaction => {
-    console.log("applying patch", patch)
+    // console.log("applying patch", patch)
     switch (patch.action) {
         case "insert": {
             const index = prosemirrorPosFromContentPos(patch.index)
@@ -176,63 +177,18 @@ export function createEditor(args: {
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
+            changesNode.innerHTML = ""
         },
     })
     queue.start()
 
-    const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
-        const opsHtml = change.ops
-            .map(
-                (op: InternalOperation) =>
-                    `<div class="change-description"><span class="de-emphasize">Micromerge:</span> ${describeOp(
-                        op,
-                    )}</div>`,
-            )
-            .join("")
+    const outputDebugForChange = (change: Change) => {
+        console.log("output debug!", change.ops[0])
+        const opsDivs = change.ops.map((op: InternalOperation) => `<div class="op">${describeOp(op)}</div>`)
 
-        const stepsHtml = txn.steps
-            .map(step => {
-                let stepText = ""
-                if (step instanceof ReplaceStep) {
-                    const stepContent = step.slice.content.textBetween(0, step.slice.content.size)
-                    if (step.slice.size === 0) {
-                        if (step.to - 1 === step.from) {
-                            // single character deletion
-                            stepText = `delete at index <strong>${step.from}</strong>`
-                        } else {
-                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${
-                                step.to - 1
-                            }</strong>`
-                        }
-                    } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${
-                            step.slice.content.firstChild?.marks?.length &&
-                            step.slice.content.firstChild?.marks?.length > 0
-                                ? `with marks `
-                                : ``
-                        } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
-                    } else {
-                        stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
-                    }
-                } else if (step instanceof AddMarkStep) {
-                    stepText = `add mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
-                } else if (step instanceof RemoveMarkStep) {
-                    stepText = `remove mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
-                } else {
-                    stepText = `unknown step type: ${step.toJSON().type}`
-                }
-
-                return `<div class="prosemirror-step"><span class="de-emphasize">Prosemirror:</span> ${stepText}</div>`
-            })
-            .join("")
-
-        changesNode.insertAdjacentHTML(
-            "beforeend",
-            `<div class="change from-${change.actor}">
-                <div class="ops">${opsHtml}</div>
-                <div class="prosemirror-steps">${stepsHtml}</div>
-            </div>`,
-        )
+        for (const divHtml of opsDivs) {
+            changesNode.insertAdjacentHTML("beforeend", divHtml)
+        }
         changesNode.scrollTop = changesNode.scrollHeight
     }
 
@@ -253,11 +209,11 @@ export function createEditor(args: {
             for (const patch of patches) {
                 transaction = applyPatchToTransaction(transaction, patch)
             }
-            console.log("applying incremental transaction for remote update", {
-                steps: transaction.steps,
-            })
+            // console.log("applying incremental transaction for remote update", {
+            //     steps: transaction.steps,
+            // })
             state = state.apply(transaction)
-            outputDebugForChange(change, transaction)
+            // outputDebugForChange(change, transaction)
         }
 
         view.updateState(state)
@@ -287,7 +243,7 @@ export function createEditor(args: {
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
-            console.group("dispatch", txn.steps[0])
+            console.group("dispatchtxn", txn.steps[0])
             console.log("input txn", txn)
 
             // Apply a corresponding change to the Micromerge document.
@@ -299,11 +255,11 @@ export function createEditor(args: {
                 for (const patch of patches) {
                     transaction = applyPatchToTransaction(transaction, patch)
                 }
-                console.log("applying incremental transaction for local update", {
-                    steps: transaction.steps,
-                })
+                // console.log("applying incremental transaction for local update", {
+                //     steps: transaction.steps,
+                // })
                 state = state.apply(transaction)
-                outputDebugForChange(change, transaction)
+                outputDebugForChange(change)
 
                 // Broadcast the change to remote peers
                 queue.enqueue(change)
@@ -332,7 +288,7 @@ export function createEditor(args: {
         },
     })
 
-    return { doc, view, queue }
+    return { doc, view, queue, outputDebugForChange }
 }
 
 /**

@@ -35,12 +35,12 @@ const makeTrace = (traceSpec: TraceSpec): Trace => {
 }
 
 const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): TraceEvent[] => {
-    if ("values" in o) {
+    if (o.action === "insert") {
         return o.values.map((v, i) => ({
             ...o,
             editorId: name,
             path: ["text"],
-            delay: 200,
+            delay: 50,
             values: [v],
             index: o.index + i,
         }))
@@ -50,26 +50,47 @@ const simulateTypingForInputOp = (name: string, o: PathlessInputOperation): Trac
 }
 
 export const trace = makeTrace({
-    initialText: "abrxabra",
-    // doc1: delete the 'x', then insert 'ca' to form 'abracabra'
+    initialText: "The Peritext editor",
     inputOps1: [
-        { action: "delete", index: 3, count: 1 },
-        { action: "insert", index: 4, values: ["c", "a"] },
+        {
+            action: "addMark",
+            startIndex: 0,
+            endIndex: 12,
+            markType: "strong",
+        },
     ],
-    // doc2: insert 'da' to form 'abrxadabra'
-    inputOps2: [{ action: "insert", index: 5, values: ["d", "a"] }],
-    expectedResult: [{ marks: {}, text: "abracadabra" }],
+    inputOps2: [
+        {
+            action: "addMark",
+            startIndex: 4,
+            endIndex: 19,
+            markType: "em",
+        },
+    ],
+    expectedResult: [
+        { marks: { strong: { active: true } }, text: "The " },
+        {
+            marks: { strong: { active: true }, em: { active: true } },
+            text: "Peritext",
+        },
+        { marks: { em: { active: true } }, text: " editor" },
+    ],
 })
 
-const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): void => {
+console.log({ trace })
+
+const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     switch (event.action) {
         case "sync": {
             // Call the sync event handler, then wait before actually syncing.
             // This makes the sync indicator seem more realistic because it
             // starts activating before the sync completes.
             handleSyncEvent()
-            await new Promise(resolve => setTimeout(resolve, 500))
+            await new Promise(resolve => setTimeout(resolve, 1000))
             Object.values(editors).forEach(e => e.queue.flush())
+
+            // Wait after the sync happens, to let the user see the results
+            await new Promise(resolve => setTimeout(resolve, 1000))
             break
         }
         case "restart": {
@@ -98,9 +119,10 @@ export const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent:
     // eslint-disable-next-line no-constant-condition
     while (true) {
         for (const event of trace) {
+            console.log({ event })
             const delay = event.delay || 1000
             await new Promise(resolve => setTimeout(resolve, delay))
-            executeTraceEvent(event, editors, handleSyncEvent)
+            await executeTraceEvent(event, editors, handleSyncEvent)
         }
     }
 }

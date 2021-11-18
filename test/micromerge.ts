@@ -8,7 +8,7 @@ import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
-// eslint-disable-next-line 
+// eslint-disable-next-line
 export const debug = (obj: any): void => {
     console.log(inspect(obj, false, 6))
 }
@@ -181,6 +181,41 @@ describe.only("Micromerge", () => {
                     text: "Peritext",
                 },
                 { marks: { em: { active: true } }, text: " editor" },
+            ],
+        })
+    })
+
+    it("merges insert at end of doc and italic to end of doc", () => {
+        testConcurrentWrites({
+            initialText: "The Peritext editor",
+            inputOps1: [
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 12,
+                    markType: "strong",
+                },
+                {
+                    action: "insert",
+                    index: 19,
+                    values: [" is great!"],
+                },
+            ],
+            inputOps2: [
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 19,
+                    markType: "em",
+                },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
+                {
+                    marks: { strong: { active: true }, em: { active: true } },
+                    text: "Peritext",
+                },
+                { marks: { em: { active: true } }, text: " editor is great!" },
             ],
         })
     })

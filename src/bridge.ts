@@ -91,6 +91,8 @@ function describeOp(op: InternalOperation): string {
         return `add mark <strong>${op.markType}</strong>`
     } else if (op.action === "removeMark") {
         return `remove mark <strong>${op.markType}</strong>`
+    } else if (op.action === "makeList") {
+        return `reset`
     } else {
         return op.action
     }

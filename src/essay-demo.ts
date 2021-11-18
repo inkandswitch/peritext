@@ -63,13 +63,13 @@ const initializeEditor = (name: string) => {
 }
 
 // This handler gets called 500ms before the sync happens.
-// If we keep the sync icon visible for ~700ms it feels good.
+// If we keep the sync icon visible for ~1000ms it feels good.
 const displaySyncEvent = () => {
     const syncElement = document.querySelector(".sync-indicator") as HTMLElement
     syncElement!.style.visibility = "visible"
     setTimeout(() => {
         syncElement!.style.visibility = "hidden"
-    }, 700)
+    }, 1000)
 }
 
 const initializeDemo = () => {

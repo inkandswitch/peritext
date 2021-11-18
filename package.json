@@ -2,10 +2,9 @@
     "name": "peritext",
     "version": "0.0.0",
     "description": "",
-    "main": "index.js",
     "scripts": {
         "start": "parcel ./index.html",
-        "build": "parcel build ./index.html --public-url='./'",
+        "build": "parcel build ./index.html --public-url=./",
         "typecheck": "tsc --noEmit --watch",
         "prettier": "prettier --write ./index.html *.json ./src/**/* ./test/**/*",
         "check-prettier": "prettier --check ./index.html *.json ./src/**/* ./test/**/*",
@@ -22,6 +21,7 @@
         "@typescript-eslint/eslint-plugin": "^4.0.1",
         "@typescript-eslint/parser": "^4.0.1",
         "eslint": "^7.8.1",
+        "parcel": "^2.0.0-nightly.916",
         "parcel-bundler": "^1.12.4",
         "prettier": "^2.2.1",
         "typescript": "^4.3.2"
@@ -44,6 +44,7 @@
         "prosemirror-model": "1.14.1",
         "prosemirror-schema-list": "1.1.4",
         "prosemirror-state": "1.3.4",
+        "prosemirror-transform": "^1.3.3",
         "prosemirror-view": "1.18.7",
         "shuffle-seed": "^1.1.6",
         "ts-mocha": "^8.0.0",

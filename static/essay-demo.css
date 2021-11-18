@@ -191,3 +191,20 @@ blockquote > p {
 .peritext-demo #bob .changes .op {
     background-color: #00c2ff;
 }
+
+span.highlight-flash {
+    background: rgba(255, 247, 135, 1);
+}
+
+@keyframes unhighlightGradual {
+    0% {
+        background: rgba(255, 247, 135, 1);
+    }
+    100% {
+        background: rgba(255, 247, 135, 0);
+    }
+}
+
+span.unhighlight {
+    animation: unhighlightGradual 1000ms ease-out;
+}

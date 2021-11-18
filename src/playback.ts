@@ -106,7 +106,8 @@ const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSync
             const { change, patches } = editor.doc.change([event])
             let transaction = editor.view.state.tr
             for (const patch of patches) {
-                transaction = applyPatchToTransaction(transaction, patch)
+                const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
+                transaction = newTxn
             }
             editor.view.state = editor.view.state.apply(transaction)
             editor.view.updateState(editor.view.state)

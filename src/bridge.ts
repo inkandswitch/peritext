@@ -115,45 +115,71 @@ export const initializeDocs = (docs: Micromerge[]): void => {
  *
  *  @param transaction - the original transaction to extend
  *  @param patch - the Micromerge Patch to incorporate
- *  @returns a Transaction that includes additional steps representing the patch
+ *  @returns
+ *      transaction: a Transaction that includes additional steps representing the patch
+ *      startPos: the Prosemirror position where the patch's effects start
+ *      endPos: the Prosemirror position where the patch's effects end
  *    */
-export const applyPatchToTransaction = (transaction: Transaction, patch: Patch): Transaction => {
+export const applyPatchToTransaction = (
+    transaction: Transaction,
+    patch: Patch,
+): { transaction: Transaction; startPos: number; endPos: number } => {
     // console.log("applying patch", patch)
     switch (patch.action) {
         case "insert": {
             const index = prosemirrorPosFromContentPos(patch.index)
-            return transaction.replace(
-                index,
-                index,
-                new Slice(
-                    Fragment.from(schema.text(patch.values[0], getProsemirrorMarksForMarkMap(patch.marks))),
-                    0,
-                    0,
+            return {
+                transaction: transaction.replace(
+                    index,
+                    index,
+                    new Slice(
+                        Fragment.from(schema.text(patch.values[0], getProsemirrorMarksForMarkMap(patch.marks))),
+                        0,
+                        0,
+                    ),
                 ),
-            )
+                startPos: index,
+                endPos: index + 1,
+            }
         }
 
         case "delete": {
             const index = prosemirrorPosFromContentPos(patch.index)
-            return transaction.replace(index, index + patch.count, Slice.empty)
+            return {
+                transaction: transaction.replace(index, index + patch.count, Slice.empty),
+                startPos: index,
+                endPos: index,
+            }
         }
 
         case "addMark": {
-            return transaction.addMark(
-                prosemirrorPosFromContentPos(patch.startIndex),
-                prosemirrorPosFromContentPos(patch.endIndex),
-                schema.mark(patch.markType, patch.attrs),
-            )
+            return {
+                transaction: transaction.addMark(
+                    prosemirrorPosFromContentPos(patch.startIndex),
+                    prosemirrorPosFromContentPos(patch.endIndex),
+                    schema.mark(patch.markType, patch.attrs),
+                ),
+                startPos: prosemirrorPosFromContentPos(patch.startIndex),
+                endPos: prosemirrorPosFromContentPos(patch.endIndex),
+            }
         }
         case "removeMark": {
-            return transaction.removeMark(
-                prosemirrorPosFromContentPos(patch.startIndex),
-                prosemirrorPosFromContentPos(patch.endIndex),
-                schema.mark(patch.markType, patch.attrs),
-            )
+            return {
+                transaction: transaction.removeMark(
+                    prosemirrorPosFromContentPos(patch.startIndex),
+                    prosemirrorPosFromContentPos(patch.endIndex),
+                    schema.mark(patch.markType, patch.attrs),
+                ),
+                startPos: prosemirrorPosFromContentPos(patch.startIndex),
+                endPos: prosemirrorPosFromContentPos(patch.endIndex),
+            }
         }
         case "makeList": {
-            return transaction.delete(0, transaction.doc.content.size)
+            return {
+                transaction: transaction.delete(0, transaction.doc.content.size),
+                startPos: 0,
+                endPos: 0,
+            }
         }
     }
     unreachable(patch)
@@ -184,7 +210,6 @@ export function createEditor(args: {
     queue.start()
 
     const outputDebugForChange = (change: Change) => {
-        // console.log("output debug!", change.ops[0])
         const opsDivs = change.ops.map((op: InternalOperation) => `<div class="op">${describeOp(op)}</div>`)
 
         for (const divHtml of opsDivs) {
@@ -208,7 +233,25 @@ export function createEditor(args: {
             let transaction = state.tr
             const patches = doc.applyChange(change)
             for (const patch of patches) {
-                transaction = applyPatchToTransaction(transaction, patch)
+                const { transaction: newTransaction, startPos, endPos } = applyPatchToTransaction(transaction, patch)
+                console.log("highlighting", { startPos, endPos })
+                transaction = newTransaction.addMark(startPos, endPos, schema.mark("highlightChange"))
+
+                setTimeout(() => {
+                    view.state = view.state.apply(
+                        view.state.tr
+                            .removeMark(startPos, endPos, schema.mark("highlightChange"))
+                            .addMark(startPos, endPos, schema.mark("unhighlightChange")),
+                    )
+                    view.updateState(view.state)
+
+                    setTimeout(() => {
+                        view.state = view.state.apply(
+                            view.state.tr.removeMark(startPos, endPos, schema.mark("unhighlightChange")),
+                        )
+                        view.updateState(view.state)
+                    }, 1000)
+                }, 10)
             }
             // console.log("applying incremental transaction for remote update", {
             //     steps: transaction.steps,
@@ -254,7 +297,8 @@ export function createEditor(args: {
             if (change) {
                 let transaction = state.tr
                 for (const patch of patches) {
-                    transaction = applyPatchToTransaction(transaction, patch)
+                    const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
+                    transaction = newTxn
                 }
                 // console.log("applying incremental transaction for local update", {
                 //     steps: transaction.steps,

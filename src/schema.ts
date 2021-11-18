@@ -98,9 +98,19 @@ export const markSpec = {
             return [
                 "span",
                 {
-                    "data-highlight-change": "true",
+                    class: "highlight-flash",
                 },
             ] as const
+        },
+    },
+    unhighlightChange: {
+        toDOM() {
+            return [
+                "span",
+                {
+                    class: "unhighlight",
+                },
+            ]
         },
     },
 } as const

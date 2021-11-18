@@ -9,8 +9,8 @@ To run:
 
 ## To output interactive demo for the essay
 
-`npx parcel build src/index.ts`
+`npx parcel build src/essay-demo.ts`
 
 Copy the resulting file to the essay repo:
 
-`cp ./dist/index.js <Insert Essays Repo Path>/content/peritext/static/peritext-demo.js`
+`cp ./dist/essay-demo.js <Insert Essays Repo Path>/content/peritext/static/peritext-demo.js`

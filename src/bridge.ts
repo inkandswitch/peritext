@@ -283,7 +283,7 @@ export function createEditor(args: {
         // Order of marks specified by schema.
         state,
         handleClickOn,
-        // editable: () => false,
+        editable: () => false,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state

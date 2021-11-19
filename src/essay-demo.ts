@@ -76,11 +76,12 @@ const initializeDemo = () => {
     const traceGen = endlessLoop(trace)
 
     const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
-        // eslint-disable-next-line no-constant-condition
+        if (!playing) { return }
+
         const event = traceGen.next().value
-        executeTraceEvent(event, editors, handleSyncEvent)
+        await executeTraceEvent(event, editors, handleSyncEvent)
         const delay = event.delay || 1000
-        if (playing) setTimeout(() => playTrace(trace, editors, handleSyncEvent), delay)
+        setTimeout(() => playTrace(trace, editors, handleSyncEvent), delay)
     }
 
     const playPause = () => {

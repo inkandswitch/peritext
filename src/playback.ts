@@ -77,19 +77,19 @@ export const trace = testToTrace({
     ],
 })
 
+const SYNC_ANIMATION_SPEED = 1000
 export const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     switch (event.action) {
         case "sync": {
-            const demiDelay = event.delay ? event.delay / 2 : 500
             // Call the sync event handler, then wait before actually syncing.
             // This makes the sync indicator seem more realistic because it
             // starts activating before the sync completes.
             handleSyncEvent()
-            await new Promise(resolve => setTimeout(resolve, demiDelay))
+            await new Promise(resolve => setTimeout(resolve, SYNC_ANIMATION_SPEED))
             Object.values(editors).forEach(e => e.queue.flush())
 
             // Wait after the sync happens, to let the user see the results
-            await new Promise(resolve => setTimeout(resolve, demiDelay))
+            await new Promise(resolve => setTimeout(resolve, event.delay || 1000))
             break
         }
         case "restart": {

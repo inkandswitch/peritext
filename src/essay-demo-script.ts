@@ -13,8 +13,12 @@ export const simulateTypingForInputOp = (o: TraceEvent): TraceEvent[] => {
     return [o]
 }
 
-const initialDemo: Trace = [
+const clearEditors: Trace = [
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
+    { action: "sync", delay: 0 },
+]
+
+const initialDemo: Trace = [
     ...simulateTypingForInputOp({
         editorId: "alice",
         path: ["text"],
@@ -39,7 +43,7 @@ const initialDemo: Trace = [
         endIndex: 28,
         markType: "strong",
     },
-    { action: "sync", delay: 0 },
+    { action: "sync", delay: 1000 },
 ]
 
 //             1         2        3
@@ -50,9 +54,6 @@ const formatting = [
     "Comments can co-exist.",
 ]
 const formattingDemo: Trace = [
-    { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
-    { action: "sync", delay: 0 },
-
     //            1         2        3
     //  0123456789012345678901234578901234567890
     // 'Bold formatting can overlap with italic.\n',
@@ -80,7 +81,7 @@ const formattingDemo: Trace = [
         endIndex: 40,
         markType: "em",
     },
-    { action: "sync", delay: 1000 },
+    { action: "sync" },
 
     //           1         2        3
     // 0123456789012345678901234578901234567
@@ -152,8 +153,6 @@ const formattingDemo: Trace = [
         attrs: { id: "comment-3" },
     },
     { action: "sync", delay: 0 },
-    { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
-    { action: "sync", delay: 0 },
 ]
 
 //             1         2        3
@@ -213,8 +212,13 @@ const expansionDemo: Trace = [
         values: " retain their size".split(""),
     }),
     { action: "sync", delay: 0 },
-    { editorId: "alice", path: [], action: "makeList", key: "text", delay: 2000 },
-    { action: "sync", delay: 0 },
 ]
 
-export const trace: Trace = [...initialDemo, ...formattingDemo, ...expansionDemo]
+export const trace: Trace = [
+    { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
+    ...initialDemo,
+    ...clearEditors,
+    ...formattingDemo,
+    ...clearEditors,
+    ...expansionDemo
+]

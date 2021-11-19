@@ -2,7 +2,7 @@ import { createEditor } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change, Operation } from "./micromerge"
 import type { Editor } from "./bridge"
-import { Mark } from "prosemirror-model"
+import { Mark, MarkType } from "prosemirror-model"
 import Micromerge from "./micromerge"
 import { playTrace } from "./playback"
 import { trace } from "./essay-demo-script"
@@ -17,15 +17,26 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
         .join("<br/>")
 }
 
+const describeMarkType = (markType: string): string => {
+    switch (markType) {
+        case "em":
+            return "italic"
+        case "strong":
+            return "bold"
+        default:
+            return markType
+    }
+}
+
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: Operation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert <strong>"${op.value}"</strong>`
+        return `insert <strong>${op.value}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
         return `delete <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
-        return `add mark <strong>${op.markType}</strong>`
+        return `add mark <strong>${describeMarkType(op.markType)}</strong>`
     } else if (op.action === "removeMark") {
         return `remove mark <strong>${op.markType}</strong>`
     } else {

@@ -168,12 +168,13 @@ blockquote > p {
 
 .peritext-demo .changes .op {
     height: 20px;
-    padding: 2px 5px;
+    padding: 0 5px 5px 5px;
     border-radius: 5px;
     font-family: sans-serif;
     margin: 3px;
-    color: white;
+    background-color: white;
     animation: fadeIn 200ms;
+    border: solid thin #ddd;
 }
 
 @keyframes fadeIn {
@@ -185,23 +186,26 @@ blockquote > p {
     }
 }
 
+.peritext-demo .changes .op {
+}
+
 .peritext-demo #alice .changes .op {
-    background-color: #e08b8b;
+    border-left: solid 3px #e08b8b;
 }
 .peritext-demo #bob .changes .op {
-    background-color: #00c2ff;
+    border-left: solid 3px #00c2ff;
 }
 
 span.highlight-flash {
-    background: rgba(255, 247, 135, 1);
+    background: rgb(255, 250, 185);
 }
 
 @keyframes unhighlightGradual {
     0% {
-        background: rgba(255, 247, 135, 1);
+        background: rgba(255, 250, 185, 1);
     }
     100% {
-        background: rgba(255, 247, 135, 0);
+        background: rgba(255, 250, 185, 0);
     }
 }
 

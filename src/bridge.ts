@@ -80,19 +80,30 @@ export type Editor = {
     outputDebugForChange: (change: Change) => void
 }
 
+const describeMarkType = (markType: string): string => {
+    switch (markType) {
+        case "em":
+            return "italic"
+        case "strong":
+            return "bold"
+        default:
+            return markType
+    }
+}
+
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert <strong>"${op.value}"</strong>`
+        return `➕ insert <strong>${op.value}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
-        return `delete <strong>${String(op.elemId)}</strong>`
+        return `❌ <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
-        return `add mark <strong>${op.markType}</strong>`
+        return `🖌add formatting <strong>${describeMarkType(op.markType)}</strong>`
     } else if (op.action === "removeMark") {
-        return `remove mark <strong>${op.markType}</strong>`
+        return `🖌remove formatting <strong>${op.markType}</strong>`
     } else if (op.action === "makeList") {
-        return `reset`
+        return `🗑 reset`
     } else {
         return op.action
     }

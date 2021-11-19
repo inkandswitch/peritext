@@ -82,7 +82,7 @@ console.log({ trace })
 const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     switch (event.action) {
         case "sync": {
-            const demiDelay = (event.delay) ? event.delay / 2 : 500
+            const demiDelay = event.delay ? event.delay / 2 : 500
             // Call the sync event handler, then wait before actually syncing.
             // This makes the sync indicator seem more realistic because it
             // starts activating before the sync completes.
@@ -122,7 +122,7 @@ export const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent:
     while (true) {
         for (const event of trace) {
             console.log({ event })
-            const delay = event.delay || 100
+            const delay = event.delay || 1000
             await new Promise(resolve => setTimeout(resolve, delay))
             await executeTraceEvent(event, editors, handleSyncEvent)
         }

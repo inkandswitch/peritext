@@ -95,13 +95,13 @@ const describeMarkType = (markType: string): string => {
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `➕ insert <strong>${op.value}</strong>`
+        return `<strong>${op.value}</strong>`
     } else if (op.action === "del" && op.elemId !== undefined) {
         return `❌ <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
-        return `🖌add formatting <strong>${describeMarkType(op.markType)}</strong>`
+        return `🖌 format <strong>${describeMarkType(op.markType)}</strong>`
     } else if (op.action === "removeMark") {
-        return `🖌remove formatting <strong>${op.markType}</strong>`
+        return `🖌 unformat <strong>${op.markType}</strong>`
     } else if (op.action === "makeList") {
         return `🗑 reset`
     } else {
@@ -245,7 +245,6 @@ export function createEditor(args: {
             const patches = doc.applyChange(change)
             for (const patch of patches) {
                 const { transaction: newTransaction, startPos, endPos } = applyPatchToTransaction(transaction, patch)
-                console.log("highlighting", { startPos, endPos })
                 transaction = newTransaction.addMark(startPos, endPos, schema.mark("highlightChange"))
 
                 setTimeout(() => {
@@ -298,8 +297,6 @@ export function createEditor(args: {
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
-            console.group("dispatchtxn", txn.steps[0])
-            console.log("input txn", txn)
 
             // Apply a corresponding change to the Micromerge document.
             // We observe a Micromerge Patch from applying the change, and
@@ -311,9 +308,6 @@ export function createEditor(args: {
                     const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
                     transaction = newTxn
                 }
-                // console.log("applying incremental transaction for local update", {
-                //     steps: transaction.steps,
-                // })
                 state = state.apply(transaction)
                 outputDebugForChange(change)
 
@@ -326,7 +320,6 @@ export function createEditor(args: {
             // (Roundtripping through Micromerge won't do that for us, since
             // selection state is not part of the document state.)
             if (txn.selectionSet) {
-                console.log("txn.selectionSet")
                 state = state.apply(
                     state.tr.setSelection(
                         new TextSelection(
@@ -336,8 +329,6 @@ export function createEditor(args: {
                     ),
                 )
             }
-
-            console.log("new state", state)
 
             view.updateState(state)
             console.groupEnd()
@@ -422,8 +413,6 @@ export function applyTransaction(args: { doc: Micromerge; txn: Transaction<DocSc
     const operations: Array<InputOperation> = []
 
     for (const step of txn.steps) {
-        console.log("step", step)
-
         if (step instanceof ReplaceStep) {
             if (step.slice) {
                 // handle insertion

@@ -122,8 +122,6 @@ function removeChange(doc: Micromerge) {
     const index = Math.floor(Math.random() * length) + 1
     const count = Math.ceil(Math.random() * (length - index))
 
-    // console.log(`l ${length} i ${index} c ${count}`)
-
     const { change, patches } = doc.change([
         {
             path: ["text"],

@@ -47,7 +47,7 @@ const initialDemo: Trace = [
 const formatting = [
     "Bold formatting can overlap with italic.\n",
     "Links conflict when they overlap.\n",
-    "Comments can co-exist.\n",
+    "Comments can co-exist.",
 ]
 const formattingDemo: Trace = [
     { editorId: "alice", path: [], action: "makeList", key: "text", delay: 0 },
@@ -138,7 +138,7 @@ const formattingDemo: Trace = [
         action: "addMark",
         path: ["text"],
         startIndex: formatting[0].length + formatting[1].length + 9,
-        endIndex: formatting[0].length + formatting[1].length + 20,
+        endIndex: formatting[0].length + formatting[1].length + 21,
         markType: "comment",
         attrs: { id: "comment-2" },
     },

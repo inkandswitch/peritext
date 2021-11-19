@@ -71,7 +71,7 @@ blockquote > p {
 .peritext-demo .editor {
     border: solid thin #000;
     border-radius: 5px;
-    min-height: 60px;
+    height: 76px;
     background: #fff;
     padding: 5px;
 }
@@ -125,7 +125,7 @@ blockquote > p {
 .peritext-demo .changes {
     display: flex;
     flex-wrap: wrap;
-    height: 60px;
+    height: 64px;
     overflow: hidden;
     margin-top: 10px;
     position: relative;
@@ -170,6 +170,7 @@ blockquote > p {
     height: 20px;
     padding: 0 5px 5px 5px;
     border-radius: 5px;
+    line-height: 1.5em;
     font-family: sans-serif;
     margin: 3px;
     background-color: white;

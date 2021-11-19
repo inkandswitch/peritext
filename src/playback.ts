@@ -77,9 +77,7 @@ export const trace = testToTrace({
     ],
 })
 
-console.log({ trace })
-
-const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
+export const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
     switch (event.action) {
         case "sync": {
             const demiDelay = event.delay ? event.delay / 2 : 500
@@ -113,18 +111,6 @@ const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSync
             editor.view.updateState(editor.view.state)
             editor.queue.enqueue(change)
             editor.outputDebugForChange(change)
-        }
-    }
-}
-
-export const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-        for (const event of trace) {
-            console.log({ event })
-            const delay = event.delay || 1000
-            await new Promise(resolve => setTimeout(resolve, delay))
-            await executeTraceEvent(event, editors, handleSyncEvent)
         }
     }
 }

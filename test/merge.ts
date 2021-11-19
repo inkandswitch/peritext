@@ -10,7 +10,6 @@ export function applyChanges(document: Micromerge, changes: Change[]): Patch[] {
             return patches
         }
         try {
-            // console.log("applying", document.actorId, change)
             const newPatches = document.applyChange(change)
             patches.push(...newPatches)
 

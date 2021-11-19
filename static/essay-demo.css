@@ -65,7 +65,7 @@ blockquote > p {
     box-sizing: border-box;
     border-radius: 5px;
     padding: 20px 10px;
-    margin: 20px 0;
+    margin: 20px 5px;
 }
 
 .peritext-demo .editor {
@@ -104,22 +104,6 @@ blockquote > p {
 
 .peritext-demo #bob {
     border-top: solid 5px #00c2ff;
-}
-
-.peritext-demo .sync-container {
-    width: 50px;
-    margin: 20px;
-    margin-top: 70px;
-    height: 100px;
-    box-sizing: border-box;
-}
-
-.peritext-demo .sync-indicator {
-    display: none;
-    color: #999;
-    font-family: sans-serif;
-    font-size: 12px;
-    animation: fadeIn 200ms;
 }
 
 .peritext-demo .changes {

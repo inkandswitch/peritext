@@ -193,6 +193,11 @@ blockquote > p {
     border-left: solid 3px #00c2ff;
 }
 
+span[data-mark="comment"] {
+    background: rgba(255, 227, 86, 0.3);
+    border-bottom: solid 2px rgba(255, 212, 0, 0.5);
+}
+
 span.highlight-flash {
     background: rgb(255, 250, 185);
 }

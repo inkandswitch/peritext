@@ -186,9 +186,6 @@ blockquote > p {
     }
 }
 
-.peritext-demo .changes .op {
-}
-
 .peritext-demo #alice .changes .op {
     border-left: solid 3px #e08b8b;
 }

@@ -210,7 +210,7 @@ while (true) {
                     left: {
                         doc: docs[left].actorId,
                         text: leftText,
-                        // @ts-ignore -- reach into private metadata, it's fine
+                        // @ts-ignore -- reach into private metadata, it's fine for this purpose
                         meta: docs[left].metadata["1@doc1"].map(item => ({
                             ...item,
                             // show mark op sets as arrays in JSON

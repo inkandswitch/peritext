@@ -32,7 +32,7 @@ const initialDemo: Trace = [
         action: "addMark",
         path: ["text"],
         startIndex: 14,
-        endIndex: 22,
+        endIndex: 23,
         markType: "em",
     },
     {

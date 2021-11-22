@@ -1,10 +1,13 @@
+// This file is meant to go together w/ the markup in essay-demo.html,
+// and be embedded into the Peritext essay.
+
 import { createEditor } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import Micromerge from "./micromerge"
 import { executeTraceEvent, Trace } from "./playback"
-import { trace } from "./essay-demo-script"
+import { trace } from "./essay-demo-content"
 
 export type Editors = { [key: string]: Editor }
 
@@ -76,7 +79,9 @@ const initializeDemo = () => {
     const traceGen = endlessLoop(trace)
 
     const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
-        if (!playing) { return }
+        if (!playing) {
+            return
+        }
 
         const event = traceGen.next().value
         await executeTraceEvent(event, editors, handleSyncEvent)
@@ -93,8 +98,7 @@ const initializeDemo = () => {
 
     playTrace(trace, editors, displaySyncEvent)
 
-    document.querySelector('#playpause')?.addEventListener("click", playPause)
+    document.querySelector("#playpause")?.addEventListener("click", playPause)
 }
 
 initializeDemo()
-

@@ -21,14 +21,14 @@ export type Patch =
 /** A patch which only has a start index and not an end index yet.
  *  Used when we're iterating thru metadata sequence and constructing a patch to emit.
  */
-type PartialPatch = DistributiveOmit<AddMarkOperationInput | RemoveMarkOperationInput, "endIndex">
+type PartialPatch = Omit<AddMarkOperationInput, "endIndex"> | Omit<RemoveMarkOperationInput, "endIndex">
 
 type CONTENT_KEY = "text"
 
 export type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-    ? Array<WithoutOpId<MarkValue[K]>>
-    : WithoutOpId<MarkValue[K]>
+        ? Array<WithoutOpId<MarkValue[K]>>
+        : WithoutOpId<MarkValue[K]>
 }
 
 type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
@@ -150,15 +150,13 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 }
 
 // TODO: automatically populate attrs type w/o manual enumeration
-export type AddMarkOperationInput = Values<
-    {
-        [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+export type AddMarkOperationInput = Values<{
+    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
         ? AddMarkOperationInputBase<M> & { attrs?: undefined }
         : AddMarkOperationInputBase<M> & {
-            attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-        }
-    }
->
+              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+          }
+}>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
 // TODO: What happens if the indices are out of bounds?
@@ -176,19 +174,19 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
 
 export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"strong"> & {
-        attrs?: undefined
-    })
+          attrs?: undefined
+      })
     | (RemoveMarkOperationInputBase<"em"> & {
-        attrs?: undefined
-    })
+          attrs?: undefined
+      })
     | (RemoveMarkOperationInputBase<"comment"> & {
-        /** Data attributes for the mark. */
-        attrs: Omit<MarkValue["comment"], "opId">
-    })
+          /** Data attributes for the mark. */
+          attrs: Omit<MarkValue["comment"], "opId">
+      })
     | (RemoveMarkOperationInputBase<"link"> & {
-        /** Data attributes for the mark. */
-        attrs?: undefined
-    })
+          /** Data attributes for the mark. */
+          attrs?: undefined
+      })
 
 export type InputOperation =
     | MakeListOperationInput
@@ -281,15 +279,13 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     markType: M
 }
 
-export type AddMarkOperation = Values<
-    {
-        [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+export type AddMarkOperation = Values<{
+    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
         ? AddMarkOperationBase<M> & { attrs?: undefined }
         : AddMarkOperationBase<M> & {
-            attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-        }
-    }
->
+              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+          }
+}>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "removeMark"
@@ -305,9 +301,9 @@ type RemoveMarkOperation =
     | RemoveMarkOperationBase<"strong">
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
-        /** Data attributes for the mark. */
-        attrs: DistributiveOmit<MarkValue["comment"], "opId">
-    })
+          /** Data attributes for the mark. */
+          attrs: DistributiveOmit<MarkValue["comment"], "opId">
+      })
     | RemoveMarkOperationBase<"link">
 
 export type Operation =
@@ -366,14 +362,14 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
 type BooleanMarkValue =
     | {
-        active: true
-        /** A MarkValue should always have the ID of the operation that last modified it. */
-        opId: OperationId
-    }
+          active: true
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+      }
     | {
-        active: false
-        opId: OperationId
-    }
+          active: false
+          opId: OperationId
+      }
 
 type IdMarkValue = {
     id: string
@@ -383,16 +379,16 @@ type IdMarkValue = {
 
 type LinkMarkValue =
     | {
-        url: string
-        /** A MarkValue should always have the ID of the operation that last modified it. */
-        opId: OperationId
-        active: true
-    }
+          url: string
+          /** A MarkValue should always have the ID of the operation that last modified it. */
+          opId: OperationId
+          active: true
+      }
     | {
-        url?: undefined
-        opId: OperationId
-        active: false
-    }
+          url?: undefined
+          opId: OperationId
+          active: false
+      }
 
 export type MarkValue = Assert<
     {
@@ -1066,7 +1062,7 @@ export default class Micromerge {
                                 const patch: Patch = {
                                     ...partialPatch,
                                     endIndex,
-                                }
+                                } as Patch // TODO: how to convince TS this is a valid Patch?
                                 patches.push(patch)
                                 partialPatch = undefined
                             }
@@ -1102,7 +1098,7 @@ export default class Micromerge {
                 }
 
                 if (partialPatch) {
-                    patches.push({ ...partialPatch, endIndex: obj.length })
+                    patches.push({ ...partialPatch, endIndex: obj.length } as Patch) // TODO: how to convince TS this is a valid Patch?
                 }
 
                 return patches

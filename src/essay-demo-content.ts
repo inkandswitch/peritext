@@ -220,5 +220,5 @@ export const trace: Trace = [
     ...clearEditors,
     ...formattingDemo,
     ...clearEditors,
-    ...expansionDemo
+    ...expansionDemo,
 ]

@@ -93,6 +93,11 @@ export const markSpec = {
             ] as const
         },
     },
+} as const
+
+// We add additional mark types only used for displaying changes in the demo.
+export const demoMarkSpec = {
+    ...markSpec,
     highlightChange: {
         toDOM() {
             return [
@@ -113,7 +118,7 @@ export const markSpec = {
             ]
         },
     },
-} as const
+}
 
 export type Marks = typeof markSpec
 
@@ -140,7 +145,7 @@ export function isMarkType(s: string): s is MarkType {
 
 export const schemaSpec: SchemaSpec<NodeType, MarkType> = {
     nodes: nodeSpec,
-    marks: markSpec,
+    marks: demoMarkSpec,
 }
 
 export type DocSchema = Schema<NodeType, MarkType>

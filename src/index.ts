@@ -4,7 +4,6 @@ import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
-import { change } from "./automate"
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -19,7 +18,49 @@ const renderMarks = (domNode: Element, marks: Mark[]): void => {
 const aliceDoc = new Micromerge("alice")
 const bobDoc = new Micromerge("bob")
 
-initializeDocs([aliceDoc, bobDoc])
+initializeDocs(
+    [aliceDoc, bobDoc],
+    [
+        {
+            path: [Micromerge.contentKey],
+            action: "insert",
+            index: 0,
+            values: "This is the Peritext editor demo. Press sync to synchronize the editors. Ctrl-B for bold, Ctrl-i for italic, Ctrl-k for link, Ctrl-e for comment".split(
+                "",
+            ),
+        },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "strong",
+            startIndex: 84,
+            endIndex: 88,
+        },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "em",
+            startIndex: 100,
+            endIndex: 107,
+        },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "link",
+            attrs: { url: "http://inkandswitch.com" },
+            startIndex: 120,
+            endIndex: 124,
+        },
+        {
+            path: [Micromerge.contentKey],
+            action: "addMark",
+            markType: "comment",
+            attrs: { id: "1" },
+            startIndex: 137,
+            endIndex: 144,
+        },
+    ],
+)
 
 const aliceNode = document.querySelector("#alice")
 const aliceEditor = aliceNode?.querySelector(".editor")
@@ -33,6 +74,7 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
         changesNode: aliceChanges,
         doc: aliceDoc,
         publisher,
+        editable: true,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
             // We only want to run our callback once, on the innermost clicked node.
@@ -43,11 +85,6 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
             return false
         },
     })
-
-    // Every 1 second, insert new text into the editor
-    // setInterval(() => {
-    //     change(editors["alice"], editors["bob"])
-    // }, 300)
 } else {
     throw new Error(`Didn't find expected node in the DOM`)
 }
@@ -62,6 +99,7 @@ if (bobNode && bobEditor && bobChanges) {
         changesNode: bobChanges,
         doc: bobDoc,
         publisher,
+        editable: true,
         handleClickOn: (view, pos, node, nodePos, event, direct) => {
             // Prosemirror calls this once per node that overlaps w/ the clicked pos.
             // We only want to run our callback once, on the innermost clicked node.

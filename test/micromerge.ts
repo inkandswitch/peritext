@@ -8,8 +8,8 @@ import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const debug = (obj: any) => {
+// eslint-disable-next-line
+export const debug = (obj: any): void => {
     console.log(inspect(obj, false, 6))
 }
 
@@ -29,17 +29,20 @@ export const range = (start: number, end: number): number[] => {
         .map((_, idx) => start + idx)
 }
 
+export type PathlessInputOperation = DistributiveOmit<InputOperation, "path">
+export type TraceSpec = {
+    initialText?: string
+    preOps?: PathlessInputOperation[]
+    inputOps1?: PathlessInputOperation[]
+    inputOps2?: PathlessInputOperation[]
+    expectedResult: FormatSpanWithText[]
+}
+
 /** Concurrently apply a change to two documents,
  *  then sync them and see if we converge to the expected result.
  *  This tests both the "batch" codepath as well as the result after
  *  incrementally applying the patches generated on both sides. */
-const testConcurrentWrites = (args: {
-    initialText?: string
-    preOps?: DistributiveOmit<InputOperation, "path">[]
-    inputOps1?: DistributiveOmit<InputOperation, "path">[]
-    inputOps2?: DistributiveOmit<InputOperation, "path">[]
-    expectedResult: FormatSpanWithText[]
-}): void => {
+const testConcurrentWrites = (args: TraceSpec): void => {
     const { initialText = "The Peritext editor", preOps, inputOps1 = [], inputOps2 = [], expectedResult } = args
 
     const { docs, patches } = generateDocs(initialText)
@@ -178,6 +181,41 @@ describe.only("Micromerge", () => {
                     text: "Peritext",
                 },
                 { marks: { em: { active: true } }, text: " editor" },
+            ],
+        })
+    })
+
+    it("merges insert at end of doc and italic to end of doc", () => {
+        testConcurrentWrites({
+            initialText: "The Peritext editor",
+            inputOps1: [
+                {
+                    action: "addMark",
+                    startIndex: 0,
+                    endIndex: 12,
+                    markType: "strong",
+                },
+                {
+                    action: "insert",
+                    index: 19,
+                    values: [" is great!"],
+                },
+            ],
+            inputOps2: [
+                {
+                    action: "addMark",
+                    startIndex: 4,
+                    endIndex: 19,
+                    markType: "em",
+                },
+            ],
+            expectedResult: [
+                { marks: { strong: { active: true } }, text: "The " },
+                {
+                    marks: { strong: { active: true }, em: { active: true } },
+                    text: "Peritext",
+                },
+                { marks: { em: { active: true } }, text: " editor is great!" },
             ],
         })
     })

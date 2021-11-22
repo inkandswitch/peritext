@@ -10,7 +10,7 @@ import { generateDocs } from "./generateDocs"
 import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
 
 function assertUnreachable(x: never): never {
-    throw new Error("Didn't expect to get here" + x);
+    throw new Error("Didn't expect to get here" + x)
 }
 
 type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
@@ -24,7 +24,7 @@ const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 const commentHistory: string[] = []
 
 function addMarkChange(doc: Micromerge) {
-    const length = (doc.root.text as Json[]).length
+    const length = (doc.root.text as string[]).length
     const startIndex = Math.floor(Math.random() * length)
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
@@ -122,8 +122,6 @@ function removeChange(doc: Micromerge) {
     const index = Math.floor(Math.random() * length) + 1
     const count = Math.ceil(Math.random() * (length - index))
 
-    // console.log(`l ${length} i ${index} c ${count}`)
-
     const { change, patches } = doc.change([
         {
             path: ["text"],
@@ -135,7 +133,7 @@ function removeChange(doc: Micromerge) {
     return { change, patches }
 }
 
-function handleOp(op: OpTypes, doc: Micromerge): { change: Change, patches: Patch[] } {
+function handleOp(op: OpTypes, doc: Micromerge): { change: Change; patches: Patch[] } {
     switch (op) {
         case "insert":
             return insertChange(doc)
@@ -171,7 +169,6 @@ while (true) {
     const { change, patches } = handleOp(op, doc)
     queue.push(change)
     patchList.push(...patches)
-
 
     const shouldSync = true // (Math.random() < 0.2)
     if (shouldSync) {
@@ -213,7 +210,7 @@ while (true) {
                     left: {
                         doc: docs[left].actorId,
                         text: leftText,
-                        // @ts-ignore -- reach into private metadata, it's fine
+                        // @ts-ignore -- reach into private metadata, it's fine for this purpose
                         meta: docs[left].metadata["1@doc1"].map(item => ({
                             ...item,
                             // show mark op sets as arrays in JSON
@@ -242,4 +239,3 @@ while (true) {
         assert.deepStrictEqual(leftText, rightText)
     }
 }
-

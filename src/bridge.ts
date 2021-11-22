@@ -77,19 +77,33 @@ export type Editor = {
     doc: Micromerge
     view: EditorView
     queue: ChangeQueue
+    outputDebugForChange: (change: Change) => void
+}
+
+const describeMarkType = (markType: string): string => {
+    switch (markType) {
+        case "em":
+            return "italic"
+        case "strong":
+            return "bold"
+        default:
+            return markType
+    }
 }
 
 // Returns a natural language description of an op in our CRDT.
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `insert "${op.value}" after char ID <strong>${String(op.elemId)}</strong>`
+        return `${op.value}`
     } else if (op.action === "del" && op.elemId !== undefined) {
-        return `delete <strong>${String(op.elemId)}</strong>`
+        return `❌ <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {
-        return `add mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+        return `🖌 format <strong>${describeMarkType(op.markType)}</strong>`
     } else if (op.action === "removeMark") {
-        return `remove mark <strong>${op.markType}</strong> from <strong>${op.start}</strong> to <strong>${op.end}</strong>`
+        return `🖌 unformat <strong>${op.markType}</strong>`
+    } else if (op.action === "makeList") {
+        return `🗑 reset`
     } else {
         return op.action
     }
@@ -100,24 +114,12 @@ function describeOp(op: InternalOperation): string {
  *  on one of the docs; this avoids weird issues where each doc independently
  *  tries to initialize the basic structure of the document.
  */
-export const initializeDocs = (docs: Micromerge[]): void => {
-    const initialValue = "This is the Peritext editor"
-    const { change: initialChange } = docs[0].change([
-        { path: [], action: "makeList", key: Micromerge.contentKey },
-        {
-            path: [Micromerge.contentKey],
-            action: "insert",
-            index: 0,
-            values: initialValue.split(""),
-        },
-        {
-            path: [Micromerge.contentKey],
-            action: "addMark",
-            markType: "strong",
-            startIndex: 12,
-            endIndex: 21,
-        },
-    ])
+export const initializeDocs = (docs: Micromerge[], initialInputOps?: InputOperation[]): void => {
+    const inputOps: InputOperation[] = [{ path: [], action: "makeList", key: Micromerge.contentKey }]
+    if (initialInputOps) {
+        inputOps.push(...initialInputOps)
+    }
+    const { change: initialChange } = docs[0].change(inputOps)
     for (const doc of docs.slice(1)) {
         doc.applyChange(initialChange)
     }
@@ -128,42 +130,71 @@ export const initializeDocs = (docs: Micromerge[]): void => {
  *
  *  @param transaction - the original transaction to extend
  *  @param patch - the Micromerge Patch to incorporate
- *  @returns a Transaction that includes additional steps representing the patch
+ *  @returns
+ *      transaction: a Transaction that includes additional steps representing the patch
+ *      startPos: the Prosemirror position where the patch's effects start
+ *      endPos: the Prosemirror position where the patch's effects end
  *    */
-const applyPatchToTransaction = (transaction: Transaction, patch: Patch): Transaction => {
-    console.log("applying patch", patch)
+export const applyPatchToTransaction = (
+    transaction: Transaction,
+    patch: Patch,
+): { transaction: Transaction; startPos: number; endPos: number } => {
+    // console.log("applying patch", patch)
     switch (patch.action) {
         case "insert": {
             const index = prosemirrorPosFromContentPos(patch.index)
-            return transaction.replace(
-                index,
-                index,
-                new Slice(
-                    Fragment.from(schema.text(patch.values[0], getProsemirrorMarksForMarkMap(patch.marks))),
-                    0,
-                    0,
+            return {
+                transaction: transaction.replace(
+                    index,
+                    index,
+                    new Slice(
+                        Fragment.from(schema.text(patch.values[0], getProsemirrorMarksForMarkMap(patch.marks))),
+                        0,
+                        0,
+                    ),
                 ),
-            )
+                startPos: index,
+                endPos: index + 1,
+            }
         }
 
         case "delete": {
             const index = prosemirrorPosFromContentPos(patch.index)
-            return transaction.replace(index, index + patch.count, Slice.empty)
+            return {
+                transaction: transaction.replace(index, index + patch.count, Slice.empty),
+                startPos: index,
+                endPos: index,
+            }
         }
 
         case "addMark": {
-            return transaction.addMark(
-                prosemirrorPosFromContentPos(patch.startIndex),
-                prosemirrorPosFromContentPos(patch.endIndex),
-                schema.mark(patch.markType, patch.attrs),
-            )
+            return {
+                transaction: transaction.addMark(
+                    prosemirrorPosFromContentPos(patch.startIndex),
+                    prosemirrorPosFromContentPos(patch.endIndex),
+                    schema.mark(patch.markType, patch.attrs),
+                ),
+                startPos: prosemirrorPosFromContentPos(patch.startIndex),
+                endPos: prosemirrorPosFromContentPos(patch.endIndex),
+            }
         }
         case "removeMark": {
-            return transaction.removeMark(
-                prosemirrorPosFromContentPos(patch.startIndex),
-                prosemirrorPosFromContentPos(patch.endIndex),
-                schema.mark(patch.markType, patch.attrs),
-            )
+            return {
+                transaction: transaction.removeMark(
+                    prosemirrorPosFromContentPos(patch.startIndex),
+                    prosemirrorPosFromContentPos(patch.endIndex),
+                    schema.mark(patch.markType, patch.attrs),
+                ),
+                startPos: prosemirrorPosFromContentPos(patch.startIndex),
+                endPos: prosemirrorPosFromContentPos(patch.endIndex),
+            }
+        }
+        case "makeList": {
+            return {
+                transaction: transaction.delete(0, transaction.doc.content.size),
+                startPos: 0,
+                endPos: 0,
+            }
         }
     }
     unreachable(patch)
@@ -175,6 +206,7 @@ export function createEditor(args: {
     changesNode: Element
     doc: Micromerge
     publisher: Publisher<Array<Change>>
+    editable: boolean
     handleClickOn?: (
         this: unknown,
         view: EditorView<Schema>,
@@ -193,59 +225,12 @@ export function createEditor(args: {
     })
     queue.start()
 
-    const outputDebugForChange = (change: Change, txn: Transaction<Schema>) => {
-        const opsHtml = change.ops
-            .map(
-                (op: InternalOperation) =>
-                    `<div class="change-description"><span class="de-emphasize">Micromerge:</span> ${describeOp(
-                        op,
-                    )}</div>`,
-            )
-            .join("")
+    const outputDebugForChange = (change: Change) => {
+        const opsDivs = change.ops.map((op: InternalOperation) => `<div class="op">${describeOp(op)}</div>`)
 
-        const stepsHtml = txn.steps
-            .map(step => {
-                let stepText = ""
-                if (step instanceof ReplaceStep) {
-                    const stepContent = step.slice.content.textBetween(0, step.slice.content.size)
-                    if (step.slice.size === 0) {
-                        if (step.to - 1 === step.from) {
-                            // single character deletion
-                            stepText = `delete at index <strong>${step.from}</strong>`
-                        } else {
-                            stepText = `delete from index <strong>${step.from}</strong> to <strong>${
-                                step.to - 1
-                            }</strong>`
-                        }
-                    } else if (step.from === step.to) {
-                        stepText = `insert "${stepContent}" at index <strong>${step.from}</strong> ${
-                            step.slice.content.firstChild?.marks?.length &&
-                            step.slice.content.firstChild?.marks?.length > 0
-                                ? `with marks `
-                                : ``
-                        } ${step.slice.content.firstChild?.marks.map(m => m.type.name).join(", ")}`
-                    } else {
-                        stepText = `replace index <strong>${step.from}</strong> to <strong>${step.to}</strong> with: "${stepContent}"`
-                    }
-                } else if (step instanceof AddMarkStep) {
-                    stepText = `add mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
-                } else if (step instanceof RemoveMarkStep) {
-                    stepText = `remove mark ${step.mark.type.name} from index <strong>${step.from}</strong> to <strong>${step.to}</strong>`
-                } else {
-                    stepText = `unknown step type: ${step.toJSON().type}`
-                }
-
-                return `<div class="prosemirror-step"><span class="de-emphasize">Prosemirror:</span> ${stepText}</div>`
-            })
-            .join("")
-
-        changesNode.insertAdjacentHTML(
-            "beforeend",
-            `<div class="change from-${change.actor}">
-                <div class="ops">${opsHtml}</div>
-                <div class="prosemirror-steps">${stepsHtml}</div>
-            </div>`,
-        )
+        for (const divHtml of opsDivs) {
+            changesNode.insertAdjacentHTML("beforeend", divHtml)
+        }
         changesNode.scrollTop = changesNode.scrollHeight
     }
 
@@ -264,13 +249,30 @@ export function createEditor(args: {
             let transaction = state.tr
             const patches = doc.applyChange(change)
             for (const patch of patches) {
-                transaction = applyPatchToTransaction(transaction, patch)
+                const { transaction: newTransaction, startPos, endPos } = applyPatchToTransaction(transaction, patch)
+                transaction = newTransaction.addMark(startPos, endPos, schema.mark("highlightChange"))
+
+                setTimeout(() => {
+                    view.state = view.state.apply(
+                        view.state.tr
+                            .removeMark(startPos, endPos, schema.mark("highlightChange"))
+                            .addMark(startPos, endPos, schema.mark("unhighlightChange")),
+                    )
+                    view.updateState(view.state)
+
+                    setTimeout(() => {
+                        view.state = view.state.apply(
+                            view.state.tr.removeMark(startPos, endPos, schema.mark("unhighlightChange")),
+                        )
+                        view.updateState(view.state)
+                    }, 1000)
+                }, 10)
             }
-            console.log("applying incremental transaction for remote update", {
-                steps: transaction.steps,
-            })
+            // console.log("applying incremental transaction for remote update", {
+            //     steps: transaction.steps,
+            // })
             state = state.apply(transaction)
-            outputDebugForChange(change, transaction)
+            // outputDebugForChange(change, transaction)
         }
 
         view.updateState(state)
@@ -296,11 +298,10 @@ export function createEditor(args: {
         // Order of marks specified by schema.
         state,
         handleClickOn,
+        editable: () => true,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
-            console.group("dispatch", txn.steps[0])
-            console.log("input txn", txn)
 
             // Apply a corresponding change to the Micromerge document.
             // We observe a Micromerge Patch from applying the change, and
@@ -309,13 +310,11 @@ export function createEditor(args: {
             if (change) {
                 let transaction = state.tr
                 for (const patch of patches) {
-                    transaction = applyPatchToTransaction(transaction, patch)
+                    const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
+                    transaction = newTxn
                 }
-                console.log("applying incremental transaction for local update", {
-                    steps: transaction.steps,
-                })
                 state = state.apply(transaction)
-                outputDebugForChange(change, transaction)
+                outputDebugForChange(change)
 
                 // Broadcast the change to remote peers
                 queue.enqueue(change)
@@ -326,7 +325,6 @@ export function createEditor(args: {
             // (Roundtripping through Micromerge won't do that for us, since
             // selection state is not part of the document state.)
             if (txn.selectionSet) {
-                console.log("txn.selectionSet")
                 state = state.apply(
                     state.tr.setSelection(
                         new TextSelection(
@@ -337,14 +335,12 @@ export function createEditor(args: {
                 )
             }
 
-            console.log("new state", state)
-
             view.updateState(state)
             console.groupEnd()
         },
     })
 
-    return { doc, view, queue }
+    return { doc, view, queue, outputDebugForChange }
 }
 
 /**
@@ -422,8 +418,6 @@ export function applyTransaction(args: { doc: Micromerge; txn: Transaction<DocSc
     const operations: Array<InputOperation> = []
 
     for (const step of txn.steps) {
-        console.log("step", step)
-
         if (step instanceof ReplaceStep) {
             if (step.slice) {
                 // handle insertion

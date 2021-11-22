@@ -95,6 +95,31 @@ export const markSpec = {
     },
 } as const
 
+// We add additional mark types only used for displaying changes in the demo.
+export const demoMarkSpec = {
+    ...markSpec,
+    highlightChange: {
+        toDOM() {
+            return [
+                "span",
+                {
+                    class: "highlight-flash",
+                },
+            ] as const
+        },
+    },
+    unhighlightChange: {
+        toDOM() {
+            return [
+                "span",
+                {
+                    class: "unhighlight",
+                },
+            ]
+        },
+    },
+}
+
 export type Marks = typeof markSpec
 
 export const ALL_MARKS = ["strong" as const, "em" as const, "comment" as const, "link" as const]
@@ -120,7 +145,7 @@ export function isMarkType(s: string): s is MarkType {
 
 export const schemaSpec: SchemaSpec<NodeType, MarkType> = {
     nodes: nodeSpec,
-    marks: markSpec,
+    marks: demoMarkSpec,
 }
 
 export type DocSchema = Schema<NodeType, MarkType>

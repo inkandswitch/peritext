@@ -224,7 +224,7 @@ export function createEditor(args: {
         endPos: number
     }) => Transaction
 }): Editor {
-    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn, onRemotePatchApplied } = args
+    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn, onRemotePatchApplied, editable } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -306,7 +306,7 @@ export function createEditor(args: {
         // Order of marks specified by schema.
         state,
         handleClickOn,
-        editable: () => true,
+        editable: () => editable,
         // We intercept local Prosemirror transactions and derive Micromerge changes from them
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state

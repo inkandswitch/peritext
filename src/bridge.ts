@@ -95,7 +95,7 @@ const describeMarkType = (markType: string): string => {
 // Just for demo / debug purposes, doesn't cover all cases
 function describeOp(op: InternalOperation): string {
     if (op.action === "set" && op.elemId !== undefined) {
-        return `<strong>${op.value}</strong>`
+        return `${op.value}`
     } else if (op.action === "del" && op.elemId !== undefined) {
         return `❌ <strong>${String(op.elemId)}</strong>`
     } else if (op.action === "addMark") {

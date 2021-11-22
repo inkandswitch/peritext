@@ -1,3 +1,8 @@
+:root {
+    --alice-color: #e08b8b;
+    --bob-color: #00c2ff;
+}
+
 blockquote > p {
     margin: 0;
 }
@@ -6,14 +11,30 @@ blockquote > p {
 .bob {
     display: inline-block;
     vertical-align: top;
-    width: 37%;
+    width: 35%;
+    min-width: 300px;
     padding: 0;
 }
 
 .alice > p,
 .bob > p {
-    font-style: italic;
-    margin-bottom: 0.2em;
+    padding-left: 5px;
+    margin-bottom: 0.1em;
+}
+
+.alice > blockquote,
+.bob > blockquote {
+    border: solid thin #ddd;
+    border-radius: 5px;
+    margin-right: 15px;
+}
+
+.alice > blockquote {
+    border-left: solid 3px var(--alice-color);
+}
+
+.bob > blockquote {
+    border-left: solid 3px var(--bob-color);
 }
 
 /* Style shamelessly copied from Notion */
@@ -47,7 +68,7 @@ blockquote > p {
     border-bottom: 2px solid rgb(255, 212, 0);
 }
 
-/* Peritext figure ------------- */
+/* Live demo ------------- */
 
 .peritext-demo {
     width: 100%;
@@ -99,11 +120,11 @@ blockquote > p {
 }
 
 .peritext-demo #alice {
-    border-top: solid 5px #e08b8b;
+    border-top: solid 5px var(--alice-color);
 }
 
 .peritext-demo #bob {
-    border-top: solid 5px #00c2ff;
+    border-top: solid 5px var(--bob-color);
 }
 
 .peritext-demo .changes {
@@ -155,11 +176,12 @@ blockquote > p {
     padding: 0 5px 5px 5px;
     border-radius: 5px;
     line-height: 1.5em;
-    font-family: sans-serif;
-    margin: 3px;
-    background-color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
+        "Helvetica Neue", sans-serif;
+    font-weight: 500;
+    margin: 2px;
+    background: white;
     animation: fadeIn 200ms;
-    border: solid thin #ddd;
 }
 
 @keyframes fadeIn {
@@ -172,10 +194,10 @@ blockquote > p {
 }
 
 .peritext-demo #alice .changes .op {
-    border-left: solid 3px #e08b8b;
+    border-bottom: solid 2px var(--alice-color);
 }
 .peritext-demo #bob .changes .op {
-    border-left: solid 3px #00c2ff;
+    border-bottom: solid 2px var(--bob-color);
 }
 
 span[data-mark="comment"] {

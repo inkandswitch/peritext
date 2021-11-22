@@ -5,9 +5,7 @@ declare global {
     type Assert<T1 extends T2, T2> = T1
     type Values<T extends Record<string, unknown>> = T[keyof T]
     type Inner<T> = T extends Array<infer U> ? U : never
-    type DistributiveOmit<O, K extends keyof O> = O extends unknown
-        ? Omit<O, K>
-        : never
+    type DistributiveOmit<O, K extends keyof O> = O extends unknown ? Omit<O, K> : never
 
     function unreachable(x: never): never
 
@@ -59,11 +57,6 @@ declare module "prosemirror-model" {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
     interface Fragment<S extends Schema = any> {
         /** https://prosemirror.net/docs/ref/#model.Fragment.textBetween */
-        textBetween(
-            from: number,
-            to: number,
-            blockSeparator?: string,
-            leafText?: string,
-        ): string
+        textBetween(from: number, to: number, blockSeparator?: string, leafText?: string): string
     }
 }

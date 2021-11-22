@@ -1,5 +1,5 @@
 import { TraceSpec, PathlessInputOperation } from "../test/micromerge"
-import { applyPatchToTransaction, Editor } from "./bridge"
+import { extendProsemirrorTransactionWithMicromergePatch, Editor } from "./bridge"
 import { InputOperation } from "./micromerge"
 
 export type Editors = { [key: string]: Editor }
@@ -109,7 +109,7 @@ export const executeTraceEvent = async (
             const { change, patches } = editor.doc.change([event])
             let transaction = editor.view.state.tr
             for (const patch of patches) {
-                const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
+                const { transaction: newTxn } = extendProsemirrorTransactionWithMicromergePatch(transaction, patch)
                 transaction = newTxn
             }
             editor.view.state = editor.view.state.apply(transaction)

@@ -1,12 +1,14 @@
 // This file is meant to go together w/ the markup in essay-demo.html,
 // and be embedded into the Peritext essay.
 
-import { createEditor } from "./bridge"
+import { createEditor, schema } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change } from "./micromerge"
 import Micromerge from "./micromerge"
 import { executeTraceEvent, Trace, Editors } from "./playback"
 import { trace } from "./essay-demo-content"
+import { Transaction } from "prosemirror-state"
+import { EditorView } from "prosemirror-view"
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -34,11 +36,42 @@ const initializeEditor = (name: string) => {
         handleClickOn: () => false,
         changesNode,
         editable: false,
+        onRemotePatchApplied: highlightRemoteChanges,
     })
 
     editor.queue.enqueue(change)
 
     return editor
+}
+
+const highlightRemoteChanges = ({
+    transaction,
+    view,
+    startPos,
+    endPos,
+}: {
+    transaction: Transaction
+    view: EditorView
+    startPos: number
+    endPos: number
+}): Transaction => {
+    const newTransaction = transaction.addMark(startPos, endPos, schema.mark("highlightChange"))
+
+    setTimeout(() => {
+        view.state = view.state.apply(
+            view.state.tr
+                .removeMark(startPos, endPos, schema.mark("highlightChange"))
+                .addMark(startPos, endPos, schema.mark("unhighlightChange")),
+        )
+        view.updateState(view.state)
+
+        setTimeout(() => {
+            view.state = view.state.apply(view.state.tr.removeMark(startPos, endPos, schema.mark("unhighlightChange")))
+            view.updateState(view.state)
+        }, 1000)
+    }, 10)
+
+    return newTransaction
 }
 
 // This handler gets called 500ms before the sync happens.

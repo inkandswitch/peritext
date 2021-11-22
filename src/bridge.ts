@@ -25,7 +25,7 @@ import type {
 import type { Comment, CommentId } from "./comment"
 import { v4 as uuid } from "uuid"
 
-const schema = new Schema(schemaSpec)
+export const schema = new Schema(schemaSpec)
 
 export type RootDoc = {
     text: Array<Char>
@@ -135,7 +135,7 @@ export const initializeDocs = (docs: Micromerge[], initialInputOps?: InputOperat
  *      startPos: the Prosemirror position where the patch's effects start
  *      endPos: the Prosemirror position where the patch's effects end
  *    */
-export const applyPatchToTransaction = (
+export const extendProsemirrorTransactionWithMicromergePatch = (
     transaction: Transaction,
     patch: Patch,
 ): { transaction: Transaction; startPos: number; endPos: number } => {
@@ -200,6 +200,7 @@ export const applyPatchToTransaction = (
     unreachable(patch)
 }
 
+/** Construct a Prosemirror editor instance on a DOM node, and bind it to a Micromerge doc  */
 export function createEditor(args: {
     actorId: ActorId
     editorNode: Element
@@ -216,8 +217,14 @@ export function createEditor(args: {
         event: MouseEvent,
         direct: boolean,
     ) => boolean
+    onRemotePatchApplied?: (args: {
+        transaction: Transaction
+        view: EditorView
+        startPos: number
+        endPos: number
+    }) => Transaction
 }): Editor {
-    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn } = args
+    const { actorId, editorNode, changesNode, doc, publisher, handleClickOn, onRemotePatchApplied } = args
     const queue = new ChangeQueue({
         handleFlush: (changes: Array<Change>) => {
             publisher.publish(actorId, changes)
@@ -246,33 +253,34 @@ export function createEditor(args: {
         // - construct a Prosemirror Transaction representing those effecst
         // - apply that Prosemirror Transaction to the document
         for (const change of incomingChanges) {
+            // Create a transaction that will accumulate the effects of our patches
             let transaction = state.tr
+
             const patches = doc.applyChange(change)
             for (const patch of patches) {
-                const { transaction: newTransaction, startPos, endPos } = applyPatchToTransaction(transaction, patch)
-                transaction = newTransaction.addMark(startPos, endPos, schema.mark("highlightChange"))
+                // Get a new Prosemirror transaction containing the effects of the Micromerge patch
+                let {
+                    transaction: newTransaction,
+                    startPos,
+                    endPos,
+                } = extendProsemirrorTransactionWithMicromergePatch(transaction, patch)
 
-                setTimeout(() => {
-                    view.state = view.state.apply(
-                        view.state.tr
-                            .removeMark(startPos, endPos, schema.mark("highlightChange"))
-                            .addMark(startPos, endPos, schema.mark("unhighlightChange")),
-                    )
-                    view.updateState(view.state)
+                // If this editor has a callback function defined for handling a remote patch being applied,
+                // apply that callback and give it the chance to extend the transaction.
+                // (e.g. this can be used to visualize changes by adding new marks.)
+                if (onRemotePatchApplied) {
+                    newTransaction = onRemotePatchApplied({
+                        transaction: newTransaction,
+                        view,
+                        startPos,
+                        endPos,
+                    })
+                }
 
-                    setTimeout(() => {
-                        view.state = view.state.apply(
-                            view.state.tr.removeMark(startPos, endPos, schema.mark("unhighlightChange")),
-                        )
-                        view.updateState(view.state)
-                    }, 1000)
-                }, 10)
+                // Assign the newly modified transaction
+                transaction = newTransaction
             }
-            // console.log("applying incremental transaction for remote update", {
-            //     steps: transaction.steps,
-            // })
             state = state.apply(transaction)
-            // outputDebugForChange(change, transaction)
         }
 
         view.updateState(state)
@@ -299,18 +307,18 @@ export function createEditor(args: {
         state,
         handleClickOn,
         editable: () => true,
-        // Intercept transactions.
+        // We intercept local Prosemirror transactions and derive Micromerge changes from them
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state
 
             // Apply a corresponding change to the Micromerge document.
             // We observe a Micromerge Patch from applying the change, and
             // apply its effects to our local Prosemirror doc.
-            const { change, patches } = applyTransaction({ doc, txn })
+            const { change, patches } = applyProsemirrorTransactionToMicromergeDoc({ doc, txn })
             if (change) {
                 let transaction = state.tr
                 for (const patch of patches) {
-                    const { transaction: newTxn } = applyPatchToTransaction(transaction, patch)
+                    const { transaction: newTxn } = extendProsemirrorTransactionWithMicromergePatch(transaction, patch)
                     transaction = newTxn
                 }
                 state = state.apply(transaction)
@@ -408,9 +416,7 @@ export function prosemirrorDocFromCRDT(args: { schema: DocSchema; spans: FormatS
 }
 
 // Given a CRDT Doc and a Prosemirror Transaction, update the micromerge doc.
-// Note: need to derive a PM doc from the new CRDT doc later!
-// TODO: why don't we need to update the selection when we do insertions?
-export function applyTransaction(args: { doc: Micromerge; txn: Transaction<DocSchema> }): {
+export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromerge; txn: Transaction<DocSchema> }): {
     change: Change | null
     patches: Patch[]
 } {

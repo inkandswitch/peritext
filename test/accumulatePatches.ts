@@ -2,6 +2,7 @@ import { addCharactersToSpans, FormatSpanWithText, Patch } from "../src/micromer
 import { sortBy, isEqual } from "lodash"
 import { TextWithMetadata, range } from "./micromerge"
 import assert from "assert"
+import { MarkType } from "../src/schema"
 
 /** Accumulates effects of patches into the same structure returned by our batch codepath;
  *  this lets us test that the result of applying a bunch of patches is what we expect.
@@ -78,7 +79,7 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
     return spans
 }
 
-export const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResult: FormatSpanWithText[]): boolean => {
+export const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResult: FormatSpanWithText[]) => {
     for (const [index, expectedSpan] of expectedResult.entries()) {
         const actualSpan = actualSpans[index]
         assert.strictEqual(expectedSpan.text, actualSpan.text)
@@ -90,7 +91,7 @@ export const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResul
                     sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
                 )
             } else {
-                assert.deepStrictEqual(markValue, actualSpan.marks[markType])
+                assert.deepStrictEqual(markValue, actualSpan.marks[markType as MarkType])
             }
         }
     }

@@ -1,7 +1,8 @@
-import { Editors } from "."
 import { TraceSpec, PathlessInputOperation } from "../test/micromerge"
-import { applyPatchToTransaction } from "./bridge"
+import { applyPatchToTransaction, Editor } from "./bridge"
 import { InputOperation } from "./micromerge"
+
+export type Editors = { [key: string]: Editor }
 
 export type TraceEvent = ((InputOperation & { editorId: string }) | { action: "sync" } | { action: "restart" }) & {
     delay?: number
@@ -78,7 +79,11 @@ export const trace = testToTrace({
 })
 
 const SYNC_ANIMATION_SPEED = 1000
-export const executeTraceEvent = async (event: TraceEvent, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
+export const executeTraceEvent = async (
+    event: TraceEvent,
+    editors: Editors,
+    handleSyncEvent: () => void,
+): Promise<void> => {
     switch (event.action) {
         case "sync": {
             // Call the sync event handler, then wait before actually syncing.

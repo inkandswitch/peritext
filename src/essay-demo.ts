@@ -4,12 +4,9 @@
 import { createEditor } from "./bridge"
 import { Publisher } from "./pubsub"
 import type { Change } from "./micromerge"
-import type { Editor } from "./bridge"
 import Micromerge from "./micromerge"
-import { executeTraceEvent, Trace } from "./playback"
+import { executeTraceEvent, Trace, Editors } from "./playback"
 import { trace } from "./essay-demo-content"
-
-export type Editors = { [key: string]: Editor }
 
 const publisher = new Publisher<Array<Change>>()
 
@@ -36,6 +33,7 @@ const initializeEditor = (name: string) => {
         publisher,
         handleClickOn: () => false,
         changesNode,
+        editable: false,
     })
 
     editor.queue.enqueue(change)

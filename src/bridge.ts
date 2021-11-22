@@ -114,8 +114,12 @@ function describeOp(op: InternalOperation): string {
  *  on one of the docs; this avoids weird issues where each doc independently
  *  tries to initialize the basic structure of the document.
  */
-export const initializeDocs = (docs: Micromerge[]): void => {
-    const { change: initialChange } = docs[0].change([{ path: [], action: "makeList", key: Micromerge.contentKey }])
+export const initializeDocs = (docs: Micromerge[], initialInputOps?: InputOperation[]): void => {
+    const inputOps: InputOperation[] = [{ path: [], action: "makeList", key: Micromerge.contentKey }]
+    if (initialInputOps) {
+        inputOps.push(...initialInputOps)
+    }
+    const { change: initialChange } = docs[0].change(inputOps)
     for (const doc of docs.slice(1)) {
         doc.applyChange(initialChange)
     }
@@ -202,6 +206,7 @@ export function createEditor(args: {
     changesNode: Element
     doc: Micromerge
     publisher: Publisher<Array<Change>>
+    editable: boolean
     handleClickOn?: (
         this: unknown,
         view: EditorView<Schema>,
@@ -293,7 +298,7 @@ export function createEditor(args: {
         // Order of marks specified by schema.
         state,
         handleClickOn,
-        editable: () => false,
+        editable: () => true,
         // Intercept transactions.
         dispatchTransaction: (txn: Transaction) => {
             let state = view.state

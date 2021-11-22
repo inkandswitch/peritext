@@ -14,3 +14,5 @@ To run:
 Copy the resulting file to the essay repo:
 
 `cp ./dist/essay-demo.js <Insert Essays Repo Path>/content/peritext/static/peritext-demo.js`
+
+Also copy over any CSS changes to the essay repo under `content/peritext/static/peritext-styles.css` if needed.

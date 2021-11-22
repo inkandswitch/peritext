@@ -74,6 +74,8 @@ blockquote > p {
     width: 100%;
     display: flex;
     flex-wrap: wrap;
+    gap: 20px;
+    padding: 5px 0;
 }
 
 .peritext-demo .editor-container {
@@ -144,7 +146,7 @@ blockquote > p {
     }
 
     to {
-        left: 500px;
+        left: 450px;
         opacity: 30%;
     }
 }
@@ -156,7 +158,7 @@ blockquote > p {
     }
 
     to {
-        left: -500px;
+        left: -450px;
         opacity: 30%;
     }
 }

@@ -119,18 +119,16 @@ const initializeDemo = () => {
         const delay = event.delay || 1000
         setTimeout(() => playTrace(trace, editors, handleSyncEvent), delay)
     }
-    const playPause = (e) => {
+    const playPause = (e: MouseEvent) => {
         playing = !playing
-        e.target.classList.toggle('paused')
-        e.target.innerHTML = playing ? '⏸︎' : '⏵︎'
+        ;(e.target as HTMLElement).classList.toggle("paused")
+        ;(e.target as HTMLElement).innerHTML = playing ? "⏸︎" : "⏵︎"
         if (playing) {
             playTrace(trace, editors, displaySyncEvent)
         }
     }
 
-    // playTrace(trace, editors, displaySyncEvent)
-
-    document.querySelector(".play-pause")?.addEventListener("click", playPause)
+    document.querySelector(".play-pause")?.addEventListener("click", playPause as (e: Event) => void)
 }
 
 initializeDemo()

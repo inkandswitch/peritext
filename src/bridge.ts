@@ -259,11 +259,9 @@ export function createEditor(args: {
             const patches = doc.applyChange(change)
             for (const patch of patches) {
                 // Get a new Prosemirror transaction containing the effects of the Micromerge patch
-                let {
-                    transaction: newTransaction,
-                    startPos,
-                    endPos,
-                } = extendProsemirrorTransactionWithMicromergePatch(transaction, patch)
+                const result = extendProsemirrorTransactionWithMicromergePatch(transaction, patch)
+                let { transaction: newTransaction } = result
+                const { startPos, endPos } = result
 
                 // If this editor has a callback function defined for handling a remote patch being applied,
                 // apply that callback and give it the chance to extend the transaction.

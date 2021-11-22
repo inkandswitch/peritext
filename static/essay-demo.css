@@ -223,3 +223,26 @@ span.highlight-flash {
 span.unhighlight {
     animation: unhighlightGradual 1000ms ease-out;
 }
+
+.peritext-demo .play-pause {
+    position: absolute;
+    width: 100%;
+    height: 90%;
+    background-color: #000;
+    color: white;
+    font-size: 10em;
+    text-align: center;
+    transition: opacity 200ms ease-out;
+}
+
+.peritext-demo .play-pause.paused {
+    opacity: 0.2;
+}
+
+.peritext-demo .play-pause:hover {
+    opacity: 0.1;
+}
+
+.peritext-demo .play-pause:not(.paused):not(:hover) {
+    opacity: 0.0;
+}

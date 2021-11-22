@@ -73,7 +73,7 @@ const initializeDemo = () => {
         editor.queue.drop()
     }
 
-    let playing = true
+    let playing = false
     const traceGen = endlessLoop(trace)
 
     const playTrace = async (trace: Trace, editors: Editors, handleSyncEvent: () => void): Promise<void> => {
@@ -86,17 +86,18 @@ const initializeDemo = () => {
         const delay = event.delay || 1000
         setTimeout(() => playTrace(trace, editors, handleSyncEvent), delay)
     }
-
-    const playPause = () => {
+    const playPause = (e) => {
         playing = !playing
+        e.target.classList.toggle('paused')
+        e.target.innerHTML = playing ? '⏸︎' : '⏵︎'
         if (playing) {
             playTrace(trace, editors, displaySyncEvent)
         }
     }
 
-    playTrace(trace, editors, displaySyncEvent)
+    // playTrace(trace, editors, displaySyncEvent)
 
-    document.querySelector("#playpause")?.addEventListener("click", playPause)
+    document.querySelector(".play-pause")?.addEventListener("click", playPause)
 }
 
 initializeDemo()

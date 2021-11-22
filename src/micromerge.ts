@@ -597,7 +597,10 @@ export default class Micromerge {
             // Check if the operation is modifying a list object.
             if (Array.isArray(obj)) {
                 if (inputOp.action === "insert") {
-                    let elemId = inputOp.index === 0 ? HEAD : this.getListElementId(objId, inputOp.index - 1)
+                    let elemId =
+                        inputOp.index === 0
+                            ? HEAD
+                            : this.getListElementId(objId, inputOp.index - 1, { lookAfterTombstones: true })
                     for (const value of inputOp.values) {
                         const { opId: result, patches } = this.makeNewOp(change, {
                             action: "set",
@@ -1328,7 +1331,11 @@ export default class Micromerge {
      * Scans the list object with ID `objectId` and returns the element ID of the `index`-th
      * non-deleted element. This is essentially the inverse of `findListElement()`.
      */
-    private getListElementId(objectId: ObjectId, index: number): OperationId {
+    private getListElementId(
+        objectId: ObjectId,
+        index: number,
+        options?: { lookAfterTombstones: boolean },
+    ): OperationId {
         let visible = -1
         const meta = this.metadata[objectId]
         if (!meta) {
@@ -1337,11 +1344,36 @@ export default class Micromerge {
         if (!Array.isArray(meta)) {
             throw new Error("Expected array metadata for findListElement")
         }
-        for (const element of meta) {
+        for (const [metaIndex, element] of meta.entries()) {
             if (!element.deleted) {
                 visible++
                 if (visible === index) {
-                    return element.elemId
+                    if (options?.lookAfterTombstones) {
+                        // Normally in Automerge we insert new characters before any tombstones at the insertion position.
+                        // But when formatting is involved, we sometimes want to insert after some of the tombstones.
+                        // We peek ahead and see if there are any tombstones that have a nonempty markOpsAfter;
+                        // If there are, we want to put this new character after the last such tombstone.
+                        // This ensures that if there are non-growing marks which end at this insertion position,
+                        // this new character is inserted after the span-end.
+                        // See the test case labeled "handles growth behavior for spans where the boundary is a tombstone"
+                        // for a motivating exapmle of why this behavior is needed.
+                        let elemIndex = metaIndex
+                        let peekIndex = metaIndex + 1
+                        let latestIndexAfterTombstone: number | undefined
+
+                        while (meta[peekIndex] && meta[peekIndex].deleted) {
+                            if (meta[peekIndex].markOpsAfter !== undefined) {
+                                latestIndexAfterTombstone = peekIndex
+                            }
+                            peekIndex++
+                        }
+                        if (latestIndexAfterTombstone) {
+                            elemIndex = latestIndexAfterTombstone
+                        }
+                        return meta[elemIndex].elemId
+                    } else {
+                        return element.elemId
+                    }
                 }
             }
         }

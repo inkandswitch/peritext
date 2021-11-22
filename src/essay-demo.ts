@@ -122,7 +122,7 @@ const initializeDemo = () => {
     const playPause = (e: MouseEvent) => {
         playing = !playing
         ;(e.target as HTMLElement).classList.toggle("paused")
-        ;(e.target as HTMLElement).innerHTML = playing ? "⏸︎" : "⏵︎"
+        ;(e.target as HTMLElement).innerHTML = playing ? "⏸" : "▶"
         if (playing) {
             playTrace(trace, editors, displaySyncEvent)
         }

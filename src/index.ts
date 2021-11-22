@@ -4,7 +4,6 @@ import type { Change } from "./micromerge"
 import type { Editor } from "./bridge"
 import { Mark } from "prosemirror-model"
 import Micromerge from "./micromerge"
-import { playTrace, trace } from "./playback"
 
 export type Editors = { [key: string]: Editor }
 
@@ -54,29 +53,5 @@ const initializeEditor = (name: string) => {
     return editor
 }
 
-// This handler gets called 500ms before the sync happens.
-// If we keep the sync icon visible for ~700ms it feels good.
-const displaySyncEvent = () => {
-    const syncElement = document.querySelector(".sync-indicator") as HTMLElement
-    syncElement!.style.visibility = "visible"
-    setTimeout(() => {
-        syncElement!.style.visibility = "hidden"
-    }, 700)
-}
-
-const initializeDemo = () => {
-    const names = ["alice", "bob"]
-    const editors = names.reduce(
-        (editors: Editors, name: string) => ({ ...editors, [name]: initializeEditor(name) }),
-        {},
-    )
-
-    // disable live sync & use manual calls to flush()
-    for (const editor of Object.values(editors)) {
-        editor.queue.drop()
-    }
-
-    playTrace(trace, editors, displaySyncEvent)
-}
-
-initializeDemo()
+initializeEditor("alice")
+initializeEditor("bob")

@@ -1002,6 +1002,9 @@ export default class Micromerge {
                     const patchIsNotZeroLength = patch.endIndex > patch.startIndex
                     const patchAffectsVisibleDocument = patch.startIndex < obj.length
                     if (patch.endIndex > obj.length) {
+                        console.log(
+                            `Truncating patch: ${patch.startIndex}-${patch.endIndex} to ${patch.startIndex}-${obj.length}`,
+                        )
                         patch.endIndex = obj.length
                     }
                     if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
@@ -1040,7 +1043,11 @@ export default class Micromerge {
                     ] as const
 
                     for (const { side, metadataProperty } of positions) {
-                        const indexForPatch = side === "before" ? visibleIndex : visibleIndex + 1
+                        // Compute an index in the visible characters which will be used for patches.
+                        // If this character is visible and we're on the "after slot", then the relevant
+                        // index is one to the right of the current visible index.
+                        // Otherwise, just use the current visible index.
+                        const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
 
                         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
                             let existingOps: Set<AddMarkOperation | RemoveMarkOperation>

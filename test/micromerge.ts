@@ -807,6 +807,32 @@ describe.only("Micromerge", () => {
         })
     })
 
+    it("handles formatting on a single deleted character", () => {
+        testConcurrentWrites({
+            initialText: "ABCDE",
+            inputOps1: [
+                // Delete C
+                {
+                    action: "delete",
+                    index: 2,
+                    count: 1,
+                },
+            ],
+            inputOps2: [
+                // Add a link to C
+                {
+                    action: "addMark",
+                    startIndex: 2,
+                    endIndex: 3,
+                    markType: "link",
+                    attrs: { url: "inkandswitch.com" },
+                },
+            ],
+            // The link on the deleted character should not be visible
+            expectedResult: [{ marks: {}, text: "ABDE" }],
+        })
+    })
+
     it("handles adding a mark which starts and ends after the visible sequence", () => {
         testConcurrentWrites({
             initialText: "ABCDE",

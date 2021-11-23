@@ -8,7 +8,6 @@ import { getMissingChanges, applyChanges } from "./merge"
 import Micromerge, { ActorId, Change, Patch } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
-import { debug } from "./micromerge"
 
 function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x)
@@ -24,7 +23,7 @@ type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
 const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["link"]
+const markTypes: MarkTypes[] = ["strong", "em", "link"]
 
 const exampleURLs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(letter => `${letter}.com`)
 

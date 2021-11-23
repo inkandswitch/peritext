@@ -17,7 +17,7 @@ type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
 const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong"]
+const markTypes: MarkTypes[] = ["link"]
 
 const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 

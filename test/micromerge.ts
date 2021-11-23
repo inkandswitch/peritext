@@ -908,7 +908,7 @@ describe.only("Micromerge", () => {
     // Other test cases:
     // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 
-    describe.skip("patches", () => {
+    describe("patches", () => {
         // In the simplest case, when a change is applied immediately to another peer,
         // it simply generates the original input operations as the patch
         it("produces the correct patch for applying a simple insertion", () => {

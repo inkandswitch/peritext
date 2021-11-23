@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import uuid from "uuid"
-import { isEqual, sortBy, startCase } from "lodash"
+import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
-import { debug } from "../test/micromerge"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")

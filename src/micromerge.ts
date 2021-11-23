@@ -2,6 +2,7 @@
 import uuid from "uuid"
 import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
+import { debug } from "../test/micromerge"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -998,6 +999,9 @@ export default class Micromerge {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
+                console.log("applying op")
+                debug({ op, metadata })
+
                 // Maintain a flag while we iterate, detecting whether the op we're applying
                 // overlaps with the metadata item we're currently considering
                 let opIntersectsItem = false
@@ -1098,8 +1102,11 @@ export default class Micromerge {
                 }
 
                 if (partialPatch) {
+                    console.log("pushing final patch")
                     patches.push({ ...partialPatch, endIndex: obj.length } as Patch) // TODO: how to convince TS this is a valid Patch?
                 }
+
+                debug({ patches })
 
                 return patches
             } else if (op.action === "makeList" || op.action === "makeMap") {

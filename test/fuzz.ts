@@ -7,7 +7,7 @@ import { v4 as uuid } from "uuid"
 import { getMissingChanges, applyChanges } from "./merge"
 import Micromerge, { ActorId, Change, Patch } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
-import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
+import { accumulatePatches } from "./accumulatePatches"
 
 function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x)
@@ -23,7 +23,7 @@ type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
 const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong", "em", "link"]
+const markTypes: MarkTypes[] = ["strong", "em", "link", "comment"]
 
 const exampleURLs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(letter => `${letter}.com`)
 
@@ -204,46 +204,46 @@ while (true) {
         const leftText = docs[left].getTextWithFormatting(["text"])
         const rightText = docs[right].getTextWithFormatting(["text"])
 
-        // if (!isEqual(accumulatePatches(allPatches[left]), leftText)) {
-        //     console.log(`de-sync with ${allPatches[left].length} patches`)
-        //     saveFailedTrace({
-        //         docId: docs[left].actorId,
-        //         patchDoc: accumulatePatches(allPatches[left]),
-        //         batchDoc: leftText,
-        //         // @ts-ignore -- reach into private metadata, it's fine for this purpose
-        //         meta: docs[left].metadata["1@doc1"].map(item => ({
-        //             ...item,
-        //             // show mark op sets as arrays in JSON
-        //             markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
-        //             markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
-        //         })),
-        //         patches: allPatches[left],
-        //         queues,
-        //         syncs,
-        //     })
-        // }
+        if (!isEqual(accumulatePatches(allPatches[left]), leftText)) {
+            console.log(`de-sync with ${allPatches[left].length} patches`)
+            saveFailedTrace({
+                docId: docs[left].actorId,
+                patchDoc: accumulatePatches(allPatches[left]),
+                batchDoc: leftText,
+                // @ts-ignore -- reach into private metadata, it's fine for this purpose
+                meta: docs[left].metadata["1@doc1"].map(item => ({
+                    ...item,
+                    // show mark op sets as arrays in JSON
+                    markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                    markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                })),
+                patches: allPatches[left],
+                queues,
+                syncs,
+            })
+        }
 
-        // if (!isEqual(accumulatePatches(allPatches[right]), rightText)) {
-        //     console.log(`de-sync with ${allPatches[right].length} patches`)
-        //     saveFailedTrace({
-        //         docId: docs[right].actorId,
-        //         patchDoc: accumulatePatches(allPatches[right]),
-        //         batchDoc: rightText,
-        //         // @ts-ignore -- reach into private metadata, it's fine for this purpose
-        //         meta: docs[right].metadata["1@doc1"].map(item => ({
-        //             ...item,
-        //             // show mark op sets as arrays in JSON
-        //             markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
-        //             markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
-        //         })),
-        //         patches: allPatches[right],
-        //         queues,
-        //         syncs,
-        //     })
-        // }
+        if (!isEqual(accumulatePatches(allPatches[right]), rightText)) {
+            console.log(`de-sync with ${allPatches[right].length} patches`)
+            saveFailedTrace({
+                docId: docs[right].actorId,
+                patchDoc: accumulatePatches(allPatches[right]),
+                batchDoc: rightText,
+                // @ts-ignore -- reach into private metadata, it's fine for this purpose
+                meta: docs[right].metadata["1@doc1"].map(item => ({
+                    ...item,
+                    // show mark op sets as arrays in JSON
+                    markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                    markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                })),
+                patches: allPatches[right],
+                queues,
+                syncs,
+            })
+        }
 
-        assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
-        assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
+        assert.deepStrictEqual(accumulatePatches(allPatches[right]), rightText)
+        assert.deepStrictEqual(accumulatePatches(allPatches[left]), leftText)
 
         if (!isEqual(leftText, rightText)) {
             saveFailedTrace({

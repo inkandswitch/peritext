@@ -3,7 +3,7 @@ import { FormatSpanWithText, InputOperation, MarkMapWithoutOpIds } from "../src/
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { generateDocs } from "./generateDocs"
-import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
+import { accumulatePatches } from "./accumulatePatches"
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -80,8 +80,8 @@ const testConcurrentWrites = (args: TraceSpec): void => {
     // Test that applying patches converges to the same state
     // debug(patchesForDoc1)
     // debug(accumulatePatches(patchesForDoc1))
-    assertDocsEqual(accumulatePatches(patchesForDoc1), expectedResult)
-    assertDocsEqual(accumulatePatches(patchesForDoc2), expectedResult)
+    assert.deepStrictEqual(accumulatePatches(patchesForDoc1), expectedResult)
+    assert.deepStrictEqual(accumulatePatches(patchesForDoc2), expectedResult)
 }
 
 describe.only("Micromerge", () => {

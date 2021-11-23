@@ -432,12 +432,19 @@ function opsToMarks(ops: Set<AddMarkOperation | RemoveMarkOperation>): MarkMapWi
                 active: op.action === "addMark" ? true : false,
                 opId: op.opId,
             }
-        } else if (op.markType === "comment" && op.action === "addMark") {
+        } else if (
+            op.markType === "comment" &&
+            op.action === "addMark" &&
+            !markMap["comment"]?.find(c => c.id === op.attrs.id)
+        ) {
             const newMark = {
                 id: op.attrs.id,
                 opId: op.opId,
             }
-            markMap["comment"] = [...(markMap["comment"] || []), newMark]
+
+            // Keeping the comments in ID-sorted order helps make equality checks easier later
+            // because we can just check mark maps for deep equality
+            markMap["comment"] = sortBy([...(markMap["comment"] || []), newMark], c => c.id)
         } else if (op.markType === "comment" && op.action === "removeMark") {
             markMap["comment"] = (markMap["comment"] || []).filter(c => c.id !== op.attrs.id)
         } else if (

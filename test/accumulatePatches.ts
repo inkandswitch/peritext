@@ -1,8 +1,6 @@
 import { addCharactersToSpans, FormatSpanWithText, Patch } from "../src/micromerge"
-import { isEqual } from "lodash"
-import { TextWithMetadata, range, debug } from "./micromerge"
-import assert from "assert"
-import { MarkType } from "../src/schema"
+import { isEqual, sortBy } from "lodash"
+import { TextWithMetadata, range } from "./micromerge"
 
 /** Accumulates effects of patches into the same structure returned by our batch codepath;
  *  this lets us test that the result of applying a bunch of patches is what we expect.
@@ -39,13 +37,15 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
                             ...patch.attrs,
                         }
                     } else {
-                        if (metadata[index].marks[patch.markType] === undefined) {
-                            metadata[index].marks[patch.markType] = []
+                        const commentsArray = metadata[index].marks[patch.markType]
+                        if (commentsArray === undefined) {
+                            metadata[index].marks[patch.markType] = [{ ...patch.attrs }]
+                        } else if (!commentsArray.find(c => c.id === patch.attrs.id)) {
+                            metadata[index].marks[patch.markType] = sortBy(
+                                [...commentsArray, { ...patch.attrs }],
+                                c => c.id,
+                            )
                         }
-
-                        metadata[index].marks[patch.markType]!.push({
-                            ...patch.attrs,
-                        })
                     }
                 }
                 break
@@ -77,24 +77,4 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
     }
 
     return spans
-}
-
-export const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResult: FormatSpanWithText[]) => {
-    for (const [index, expectedSpan] of expectedResult.entries()) {
-        const actualSpan = actualSpans[index]
-        assert.strictEqual(expectedSpan.text, actualSpan.text)
-
-        for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
-            if (markType === "comment") {
-                const expectedIds = new Set((markValue as { id: string }[]).map(c => c.id))
-                const actualIds = new Set((actualSpan.marks[markType] as { id: string }[]).map(c => c.id))
-                if (!isEqual(expectedIds, actualIds)) {
-                    debug({ expected: expectedIds, actual: actualIds })
-                }
-                assert.deepStrictEqual(expectedIds, actualIds)
-            } else {
-                assert.deepStrictEqual(markValue, actualSpan.marks[markType as MarkType])
-            }
-        }
-    }
 }

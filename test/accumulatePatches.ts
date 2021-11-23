@@ -1,5 +1,5 @@
 import { addCharactersToSpans, FormatSpanWithText, Patch } from "../src/micromerge"
-import { sortBy, isEqual } from "lodash"
+import { isEqual } from "lodash"
 import { TextWithMetadata, range, debug } from "./micromerge"
 import assert from "assert"
 import { MarkType } from "../src/schema"

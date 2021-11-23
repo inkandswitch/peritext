@@ -1,6 +1,6 @@
 import { addCharactersToSpans, FormatSpanWithText, Patch } from "../src/micromerge"
 import { sortBy, isEqual } from "lodash"
-import { TextWithMetadata, range } from "./micromerge"
+import { TextWithMetadata, range, debug } from "./micromerge"
 import assert from "assert"
 import { MarkType } from "../src/schema"
 
@@ -86,10 +86,12 @@ export const assertDocsEqual = (actualSpans: FormatSpanWithText[], expectedResul
 
         for (const [markType, markValue] of Object.entries(expectedSpan.marks)) {
             if (markType === "comment") {
-                assert.deepStrictEqual(
-                    sortBy(markValue, (c: { id: string }) => c.id),
-                    sortBy(actualSpan.marks[markType], (c: { id: string }) => c.id),
-                )
+                const expectedIds = new Set((markValue as { id: string }[]).map(c => c.id))
+                const actualIds = new Set((actualSpan.marks[markType] as { id: string }[]).map(c => c.id))
+                if (!isEqual(expectedIds, actualIds)) {
+                    debug({ expected: expectedIds, actual: actualIds })
+                }
+                assert.deepStrictEqual(expectedIds, actualIds)
             } else {
                 assert.deepStrictEqual(markValue, actualSpan.marks[markType as MarkType])
             }

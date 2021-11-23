@@ -8,6 +8,7 @@ import { getMissingChanges, applyChanges } from "./merge"
 import Micromerge, { ActorId, Change, Patch } from "../src/micromerge"
 import { generateDocs } from "./generateDocs"
 import { accumulatePatches, assertDocsEqual } from "./accumulatePatches"
+import { debug } from "./micromerge"
 
 function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x)
@@ -198,6 +199,18 @@ while (true) {
         const leftText = docs[left].getTextWithFormatting(["text"])
         const rightText = docs[right].getTextWithFormatting(["text"])
 
+        if (!isEqual(accumulatePatches(allPatches[left]), leftText)) {
+            debug({
+                patchDoc: accumulatePatches(allPatches[left]),
+                batchDoc: leftText,
+            })
+        }
+        if (!isEqual(accumulatePatches(allPatches[right]), rightText)) {
+            debug({
+                patchDoc: accumulatePatches(allPatches[right]),
+                batchDoc: rightText,
+            })
+        }
         assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
         assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
 

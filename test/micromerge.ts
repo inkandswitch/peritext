@@ -516,7 +516,7 @@ describe.only("Micromerge", () => {
             })
         })
 
-        it.skip("handles growth behavior for spans where the boundary is a tombstone", () => {
+        it("handles growth behavior for spans where the boundary is a tombstone", () => {
             // The user creates a link and then deletes the boundary characters.
             // When they insert at the end of the link, the new char shouldn't become
             // part of the link because links don't grow to the right.
@@ -526,6 +526,7 @@ describe.only("Micromerge", () => {
             testConcurrentWrites({
                 initialText: "ABCDE",
                 inputOps1: [
+                    // Make BCD a link
                     {
                         action: "addMark",
                         startIndex: 1,
@@ -533,16 +534,19 @@ describe.only("Micromerge", () => {
                         markType: "link",
                         attrs: { url: "inkandswitch.com" },
                     },
+                    // Delete B
                     {
                         action: "delete",
                         index: 1,
                         count: 1,
                     },
+                    // Delete D
                     {
                         action: "delete",
                         index: 2,
                         count: 1,
                     },
+                    // Insert after C
                     {
                         action: "insert",
                         index: 2,
@@ -550,7 +554,8 @@ describe.only("Micromerge", () => {
                     },
                 ],
                 inputOps2: [],
-                // The B should be bold, because the bold on A grows to the right
+                // The F is inserted outside the link, even though it was inserted after C
+                // and the end of the link is on the E tombstone.
                 expectedResult: [
                     { marks: {}, text: "A" },
                     { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "C" },
@@ -902,11 +907,6 @@ describe.only("Micromerge", () => {
             ],
         })
     })
-
-    // TODO: test a case where the two actors have different links.
-
-    // Other test cases:
-    // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 
     describe("patches", () => {
         // In the simplest case, when a change is applied immediately to another peer,

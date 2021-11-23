@@ -1,3 +1,28 @@
+/** Mobile layout */
+
+@media (max-width: 720px) {
+    body > article {
+        width: calc(100% - var(--column-gap));
+    }
+
+    article aside {
+        margin-top: 8px;
+        margin-bottom: 16px;
+        padding: var(--padding); /* Override the padding-right: 0; assignment */
+    }
+}
+
+/** article.css overrides */
+code span {
+    font-style: normal;
+}
+
+/** Peritext-specific */
+
+code {
+    hyphens: none;
+}
+
 :root {
     --alice-color: #e08b8b;
     --bob-color: #00c2ff;
@@ -7,13 +32,28 @@ blockquote > p {
     margin: 0;
 }
 
-.alice,
-.bob {
-    display: inline-block;
-    vertical-align: top;
-    width: 35%;
-    min-width: 300px;
-    padding: 0;
+.actors {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+@media (min-width: 720px) {
+    .actors {
+        flex-direction: row;
+    }
+
+    .actors > div:first-child {
+        margin-right: 15px;
+        margin-bottom: 0;
+    }
+
+    .alice,
+    .bob {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
 }
 
 .alice > p,
@@ -26,7 +66,7 @@ blockquote > p {
 .bob > blockquote {
     border: solid thin #ddd;
     border-radius: 5px;
-    margin-right: 15px;
+    padding: var(--padding); /* Otherwise too small on mobile. */
 }
 
 .alice > blockquote {
@@ -76,6 +116,7 @@ blockquote > p {
     flex-wrap: wrap;
     gap: 20px;
     padding: 5px 0;
+    position: relative;
 }
 
 .peritext-demo .editor-container {
@@ -178,6 +219,7 @@ blockquote > p {
     padding: 0 5px 5px 5px;
     border-radius: 5px;
     line-height: 1.5em;
+    min-width: 0.6em;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
         "Helvetica Neue", sans-serif;
     font-weight: 500;
@@ -227,22 +269,30 @@ span.unhighlight {
 .peritext-demo .play-pause {
     position: absolute;
     width: 100%;
-    height: 90%;
+    height: 100%;
     background-color: #000;
     color: white;
     font-size: 10em;
     text-align: center;
     transition: opacity 200ms ease-out;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .peritext-demo .play-pause.paused {
     opacity: 0.2;
 }
 
-.peritext-demo .play-pause:hover {
-    opacity: 0.1;
+.peritext-demo .play-pause:not(.paused) {
+    opacity: 0;
 }
 
-.peritext-demo .play-pause:not(.paused):not(:hover) {
-    opacity: 0.0;
+/* On devices with actual hover support, show a hover state
+   https://stackoverflow.com/a/28058919 */
+@media (hover: hover) {
+    .peritext-demo .play-pause:hover {
+        opacity: 0.1;
+    }
 }

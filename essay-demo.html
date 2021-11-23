@@ -1,42 +1,42 @@
 <!DOCTYPE html>
 <html>
+    <head>
+        <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content="Help" />
+        <title>Peritext</title>
+        <link rel="stylesheet" href="https://prosemirror.net/css/editor.css" />
+        <link rel="stylesheet" href="static/essay-demo.css" />
+    </head>
 
-<head>
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Help" />
-    <title>Peritext</title>
-    <link rel="stylesheet" href="https://prosemirror.net/css/editor.css" />
-    <link rel="stylesheet" href="static/essay-demo.css" />
-</head>
-
-<body>
-    <div class="peritext-demo">
-        <div class="editor-container" id="alice">
-            <div class="buttons">
-                <div class="button bold"><strong>B</strong></div>
-                <div class="button italic"><em>i</em></div>
-                <div class="button underline"><u>U</u></div>
-                <div class="button link">🔗</div>
+    <body>
+        <div style="max-width: 880px; overflow: hidden">
+            <div class="peritext-demo">
+                <div class="editor-container" id="alice">
+                    <div class="buttons">
+                        <div class="button bold"><strong>B</strong></div>
+                        <div class="button italic"><em>i</em></div>
+                        <div class="button underline"><u>U</u></div>
+                        <div class="button link">🔗</div>
+                    </div>
+                    <div class="editor"></div>
+                    <div class="changes"></div>
+                    <div class="marks"></div>
+                </div>
+                <div class="editor-container" id="bob">
+                    <div class="buttons">
+                        <div class="button bold"><strong>B</strong></div>
+                        <div class="button italic"><em>i</em></div>
+                        <div class="button underline"><u>U</u></div>
+                        <div class="button link">🔗</div>
+                    </div>
+                    <div class="editor"></div>
+                    <div class="changes"></div>
+                    <div class="marks"></div>
+                </div>
+                <div class="play-pause paused">▶</div>
             </div>
-            <div class="editor"></div>
-            <div class="changes"></div>
-            <div class="marks"></div>
-        </div>
-        <div class="editor-container" id="bob">
-            <div class="buttons">
-                <div class="button bold"><strong>B</strong></div>
-                <div class="button italic"><em>i</em></div>
-                <div class="button underline"><u>U</u></div>
-                <div class="button link">🔗</div>
-            </div>
-            <div class="editor"></div>
-            <div class="changes"></div>
-            <div class="marks"></div>
-        </div>
-        <div class="play-pause paused">⏵︎</button>
         </div>
         <script src="src/essay-demo.ts" type="module"></script>
-</body>
-
+    </body>
 </html>

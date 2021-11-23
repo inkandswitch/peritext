@@ -16,6 +16,7 @@ export function applyChanges(document: Micromerge, changes: Change[]): Patch[] {
             changes.push(change)
         }
         if (iterations++ > 10000) {
+            console.log(patches)
             throw "applyChanges did not converge"
         }
     }

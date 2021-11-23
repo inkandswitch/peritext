@@ -27,11 +27,13 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
             }
 
             case "delete": {
+                console.log("d", patch, metadata)
                 metadata.splice(patch.index, patch.count)
                 break
             }
 
             case "addMark": {
+                console.log("p", patch, metadata)
                 for (const index of range(patch.startIndex, patch.endIndex - 1)) {
                     if (patch.markType !== "comment") {
                         metadata[index].marks[patch.markType] = {

@@ -17,7 +17,7 @@ type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
 const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
-const markTypes: MarkTypes[] = ["strong"]
+const markTypes: MarkTypes[] = [/* "strong", "em", */ "link"] // , "comment"]
 
 const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
 
@@ -29,6 +29,9 @@ function addMarkChange(doc: Micromerge) {
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
 
+    console.log("amc", doc.root.text)
+    // assert(length > endIndex)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedStuff: any = {
         path: ["text"],
@@ -37,6 +40,7 @@ function addMarkChange(doc: Micromerge) {
         endIndex,
         markType,
     }
+    console.log("input op", sharedStuff)
 
     if (markType === "link") {
         // pick one of the four urls we use to encourage adjacent matching spans
@@ -120,7 +124,7 @@ function removeChange(doc: Micromerge) {
     const length = (doc.root.text as any[]).length
     // gklitt: this appears to be a real bug! if you delete everything things go wonky
     const index = Math.floor(Math.random() * length) + 1
-    const count = Math.ceil(Math.random() * (length - index))
+    const count = Math.ceil(Math.random() * (length - index) / 2)
 
     const { change, patches } = doc.change([
         {

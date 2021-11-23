@@ -2,6 +2,7 @@
 import uuid from "uuid"
 import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
+import * as assert from "assert"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -27,8 +28,8 @@ type CONTENT_KEY = "text"
 
 export type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-        ? Array<WithoutOpId<MarkValue[K]>>
-        : WithoutOpId<MarkValue[K]>
+    ? Array<WithoutOpId<MarkValue[K]>>
+    : WithoutOpId<MarkValue[K]>
 }
 
 type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
@@ -152,10 +153,10 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 // TODO: automatically populate attrs type w/o manual enumeration
 export type AddMarkOperationInput = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-        : AddMarkOperationInputBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
+    ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+    : AddMarkOperationInputBase<M> & {
+        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+    }
 }>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -174,19 +175,19 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
 
 export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"strong"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"em"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: Omit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: Omit<MarkValue["comment"], "opId">
+    })
     | (RemoveMarkOperationInputBase<"link"> & {
-          /** Data attributes for the mark. */
-          attrs?: undefined
-      })
+        /** Data attributes for the mark. */
+        attrs?: undefined
+    })
 
 export type InputOperation =
     | MakeListOperationInput
@@ -281,10 +282,10 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
 
 export type AddMarkOperation = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationBase<M> & { attrs?: undefined }
-        : AddMarkOperationBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
+    ? AddMarkOperationBase<M> & { attrs?: undefined }
+    : AddMarkOperationBase<M> & {
+        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+    }
 }>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
@@ -301,9 +302,9 @@ type RemoveMarkOperation =
     | RemoveMarkOperationBase<"strong">
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: DistributiveOmit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: DistributiveOmit<MarkValue["comment"], "opId">
+    })
     | RemoveMarkOperationBase<"link">
 
 export type Operation =
@@ -362,14 +363,14 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
 type BooleanMarkValue =
     | {
-          active: true
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-      }
+        active: true
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+    }
     | {
-          active: false
-          opId: OperationId
-      }
+        active: false
+        opId: OperationId
+    }
 
 type IdMarkValue = {
     id: string
@@ -379,16 +380,16 @@ type IdMarkValue = {
 
 type LinkMarkValue =
     | {
-          url: string
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-          active: true
-      }
+        url: string
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+        active: true
+    }
     | {
-          url?: undefined
-          opId: OperationId
-          active: false
-      }
+        url?: undefined
+        opId: OperationId
+        active: false
+    }
 
 export type MarkValue = Assert<
     {
@@ -1063,6 +1064,7 @@ export default class Micromerge {
                                     ...partialPatch,
                                     endIndex,
                                 } as Patch // TODO: how to convince TS this is a valid Patch?
+                                assert.strictEqual(partialPatch.startIndex <= endIndex, true)
                                 patches.push(patch)
                                 partialPatch = undefined
                             }
@@ -1077,6 +1079,7 @@ export default class Micromerge {
                                     ...partialPatch,
                                     endIndex,
                                 } as Patch
+                                assert.strictEqual(partialPatch.startIndex <= endIndex, true)
                                 patches.push(patch)
                                 partialPatch = undefined
                             }
@@ -1098,8 +1101,11 @@ export default class Micromerge {
                 }
 
                 if (partialPatch) {
+                    // console.log(partialPatch, obj)
+                    assert.strictEqual(partialPatch.startIndex <= obj.length, true)
                     patches.push({ ...partialPatch, endIndex: obj.length } as Patch) // TODO: how to convince TS this is a valid Patch?
                 }
+
 
                 return patches
             } else if (op.action === "makeList" || op.action === "makeMap") {

@@ -807,10 +807,11 @@ describe.only("Micromerge", () => {
         })
     })
 
-    it("handles adding marks to the end of a doc when there are tombstones at the end", () => {
+    it("handles adding a mark which starts and ends after the visible sequence", () => {
         testConcurrentWrites({
             initialText: "ABCDE",
             inputOps1: [
+                // Add a link to CD
                 {
                     action: "addMark",
                     startIndex: 2,
@@ -818,11 +819,13 @@ describe.only("Micromerge", () => {
                     markType: "link",
                     attrs: { url: "A.com" },
                 },
+                // Delete BC
                 {
                     action: "delete",
                     index: 1,
                     count: 2,
                 },
+                // Delete E
                 {
                     action: "delete",
                     index: 2,
@@ -830,6 +833,7 @@ describe.only("Micromerge", () => {
                 },
             ],
             inputOps2: [
+                // Add a link to DE
                 {
                     action: "addMark",
                     startIndex: 3,
@@ -840,6 +844,34 @@ describe.only("Micromerge", () => {
             ],
             expectedResult: [
                 { marks: {}, text: "A" },
+                { marks: { link: { active: true, url: "A.com" } }, text: "D" },
+            ],
+        })
+    })
+
+    it("handles adding a mark which starts within the visible sequence but ends after visible sequence", () => {
+        testConcurrentWrites({
+            initialText: "ABCDE",
+            inputOps1: [
+                // Delete E
+                {
+                    action: "delete",
+                    index: 4,
+                    count: 1,
+                },
+            ],
+            inputOps2: [
+                // Add a link to DE
+                {
+                    action: "addMark",
+                    startIndex: 3,
+                    endIndex: 5,
+                    markType: "link",
+                    attrs: { url: "A.com" },
+                },
+            ],
+            expectedResult: [
+                { marks: {}, text: "ABC" },
                 { marks: { link: { active: true, url: "A.com" } }, text: "D" },
             ],
         })

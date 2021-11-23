@@ -1,0 +1,1084 @@
+{
+  "docId": "doc1",
+  "patchDoc": [
+    {
+      "text": "A",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "X.com"
+        }
+      }
+    },
+    {
+      "text": "D",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "R.com"
+        }
+      }
+    }
+  ],
+  "batchDoc": [
+    {
+      "text": "A",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "X.com"
+        }
+      }
+    },
+    {
+      "text": "D",
+      "marks": {}
+    }
+  ],
+  "meta": [
+    {
+      "elemId": "2@doc1",
+      "valueId": "2@doc1",
+      "deleted": false,
+      "markOpsBefore": [
+        {
+          "opId": "7@doc3",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "2@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "4@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "X.com"
+          }
+        }
+      ]
+    },
+    {
+      "elemId": "3@doc1",
+      "valueId": "3@doc1",
+      "deleted": true,
+      "markOpsBefore": [
+        {
+          "opId": "7@doc3",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "2@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "4@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "X.com"
+          }
+        },
+        {
+          "opId": "8@doc3",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "3@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "4@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "C.com"
+          }
+        }
+      ]
+    },
+    {
+      "elemId": "4@doc1",
+      "valueId": "4@doc1",
+      "deleted": true,
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "11@doc1",
+      "valueId": "11@doc1",
+      "deleted": true
+    },
+    {
+      "elemId": "12@doc1",
+      "valueId": "12@doc1",
+      "deleted": true,
+      "markOpsBefore": [
+        {
+          "opId": "14@doc2",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "12@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "12@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "R.com"
+          }
+        }
+      ],
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "5@doc1",
+      "valueId": "5@doc1",
+      "deleted": false
+    },
+    {
+      "elemId": "6@doc1",
+      "valueId": "6@doc1",
+      "deleted": true,
+      "markOpsBefore": [
+        {
+          "opId": "9@doc3",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "6@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "6@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "F.com"
+          }
+        }
+      ],
+      "markOpsAfter": []
+    }
+  ],
+  "patches": [
+    {
+      "opId": "1@doc1",
+      "action": "makeList",
+      "key": "text",
+      "path": [
+        "text"
+      ]
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 0,
+      "values": [
+        "A"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 1,
+      "values": [
+        "B"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 2,
+      "values": [
+        "C"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 3,
+      "values": [
+        "D"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 4,
+      "values": [
+        "E"
+      ],
+      "marks": {}
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 0,
+      "attrs": {
+        "url": "X.com"
+      },
+      "endIndex": 3
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 1,
+      "attrs": {
+        "url": "C.com"
+      },
+      "endIndex": 3
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 4,
+      "attrs": {
+        "url": "F.com"
+      },
+      "endIndex": 5
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 4,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 3,
+      "values": [
+        "8"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 4,
+      "values": [
+        "7"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 1,
+      "attrs": {
+        "url": "R.com"
+      },
+      "endIndex": 2
+    }
+  ],
+  "queues": {
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc1",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "2@doc1",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "3@doc1",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "4@doc1",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "5@doc1",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 2,
+        "deps": {
+          "doc1": 1,
+          "doc3": 6
+        },
+        "startOp": 11,
+        "ops": [
+          {
+            "opId": "11@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "4@doc1",
+            "insert": true,
+            "value": "8"
+          },
+          {
+            "opId": "12@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "11@doc1",
+            "insert": true,
+            "value": "7"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 3,
+        "deps": {
+          "doc1": 2,
+          "doc3": 6
+        },
+        "startOp": 13,
+        "ops": [
+          {
+            "opId": "13@doc1",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "3@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 4,
+        "deps": {
+          "doc1": 3,
+          "doc3": 6
+        },
+        "startOp": 14,
+        "ops": [
+          {
+            "opId": "14@doc1",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "4@doc1"
+          },
+          {
+            "opId": "15@doc1",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "11@doc1"
+          },
+          {
+            "opId": "16@doc1",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "12@doc1"
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc1": 3,
+          "doc3": 6
+        },
+        "startOp": 14,
+        "ops": [
+          {
+            "opId": "14@doc2",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "12@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "12@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "R.com"
+            }
+          }
+        ]
+      }
+    ],
+    "doc3": [
+      {
+        "actor": "doc3",
+        "seq": 1,
+        "deps": {
+          "doc1": 1
+        },
+        "startOp": 7,
+        "ops": []
+      },
+      {
+        "actor": "doc3",
+        "seq": 2,
+        "deps": {
+          "doc1": 1,
+          "doc3": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc3",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "4@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "X.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc3",
+        "seq": 3,
+        "deps": {
+          "doc1": 1,
+          "doc3": 2
+        },
+        "startOp": 8,
+        "ops": [
+          {
+            "opId": "8@doc3",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "3@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "4@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "C.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc3",
+        "seq": 4,
+        "deps": {
+          "doc1": 1,
+          "doc3": 3
+        },
+        "startOp": 9,
+        "ops": [
+          {
+            "opId": "9@doc3",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "6@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "F.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc3",
+        "seq": 5,
+        "deps": {
+          "doc1": 1,
+          "doc3": 4
+        },
+        "startOp": 10,
+        "ops": [
+          {
+            "opId": "10@doc3",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "6@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc3",
+        "seq": 6,
+        "deps": {
+          "doc1": 1,
+          "doc3": 5
+        },
+        "startOp": 11,
+        "ops": []
+      }
+    ]
+  },
+  "syncs": [
+    {
+      "left": "doc1",
+      "right": "doc2",
+      "missingLeft": [],
+      "missingRight": []
+    },
+    {
+      "left": "doc3",
+      "right": "doc1",
+      "missingLeft": [
+        {
+          "actor": "doc3",
+          "seq": 1,
+          "deps": {
+            "doc1": 1
+          },
+          "startOp": 7,
+          "ops": []
+        },
+        {
+          "actor": "doc3",
+          "seq": 2,
+          "deps": {
+            "doc1": 1,
+            "doc3": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "4@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "X.com"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc2",
+      "right": "doc3",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc3",
+          "seq": 1,
+          "deps": {
+            "doc1": 1
+          },
+          "startOp": 7,
+          "ops": []
+        },
+        {
+          "actor": "doc3",
+          "seq": 2,
+          "deps": {
+            "doc1": 1,
+            "doc3": 1
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "4@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "X.com"
+              }
+            }
+          ]
+        },
+        {
+          "actor": "doc3",
+          "seq": 3,
+          "deps": {
+            "doc1": 1,
+            "doc3": 2
+          },
+          "startOp": 8,
+          "ops": [
+            {
+              "opId": "8@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "3@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "4@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "C.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc3",
+      "right": "doc1",
+      "missingLeft": [
+        {
+          "actor": "doc3",
+          "seq": 3,
+          "deps": {
+            "doc1": 1,
+            "doc3": 2
+          },
+          "startOp": 8,
+          "ops": [
+            {
+              "opId": "8@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "3@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "4@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "C.com"
+              }
+            }
+          ]
+        },
+        {
+          "actor": "doc3",
+          "seq": 4,
+          "deps": {
+            "doc1": 1,
+            "doc3": 3
+          },
+          "startOp": 9,
+          "ops": [
+            {
+              "opId": "9@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "F.com"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc3",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc3",
+          "seq": 4,
+          "deps": {
+            "doc1": 1,
+            "doc3": 3
+          },
+          "startOp": 9,
+          "ops": [
+            {
+              "opId": "9@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "F.com"
+              }
+            }
+          ]
+        },
+        {
+          "actor": "doc3",
+          "seq": 5,
+          "deps": {
+            "doc1": 1,
+            "doc3": 4
+          },
+          "startOp": 10,
+          "ops": [
+            {
+              "opId": "10@doc3",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "6@doc1"
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc1",
+      "right": "doc3",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc3",
+          "seq": 5,
+          "deps": {
+            "doc1": 1,
+            "doc3": 4
+          },
+          "startOp": 10,
+          "ops": [
+            {
+              "opId": "10@doc3",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "6@doc1"
+            }
+          ]
+        },
+        {
+          "actor": "doc3",
+          "seq": 6,
+          "deps": {
+            "doc1": 1,
+            "doc3": 5
+          },
+          "startOp": 11,
+          "ops": []
+        }
+      ]
+    },
+    {
+      "left": "doc1",
+      "right": "doc3",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 2,
+          "deps": {
+            "doc1": 1,
+            "doc3": 6
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "4@doc1",
+              "insert": true,
+              "value": "8"
+            },
+            {
+              "opId": "12@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "11@doc1",
+              "insert": true,
+              "value": "7"
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc2",
+      "right": "doc1",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc1",
+          "seq": 2,
+          "deps": {
+            "doc1": 1,
+            "doc3": 6
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "4@doc1",
+              "insert": true,
+              "value": "8"
+            },
+            {
+              "opId": "12@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "11@doc1",
+              "insert": true,
+              "value": "7"
+            }
+          ]
+        },
+        {
+          "actor": "doc1",
+          "seq": 3,
+          "deps": {
+            "doc1": 2,
+            "doc3": 6
+          },
+          "startOp": 13,
+          "ops": [
+            {
+              "opId": "13@doc1",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "3@doc1"
+            }
+          ]
+        },
+        {
+          "actor": "doc3",
+          "seq": 6,
+          "deps": {
+            "doc1": 1,
+            "doc3": 5
+          },
+          "startOp": 11,
+          "ops": []
+        }
+      ]
+    },
+    {
+      "left": "doc1",
+      "right": "doc3",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 3,
+          "deps": {
+            "doc1": 2,
+            "doc3": 6
+          },
+          "startOp": 13,
+          "ops": [
+            {
+              "opId": "13@doc1",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "3@doc1"
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc1",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 4,
+          "deps": {
+            "doc1": 3,
+            "doc3": 6
+          },
+          "startOp": 14,
+          "ops": [
+            {
+              "opId": "14@doc1",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "4@doc1"
+            },
+            {
+              "opId": "15@doc1",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "11@doc1"
+            },
+            {
+              "opId": "16@doc1",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "12@doc1"
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc1": 3,
+            "doc3": 6
+          },
+          "startOp": 14,
+          "ops": [
+            {
+              "opId": "14@doc2",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "12@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "12@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "R.com"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -14,13 +14,19 @@ function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x)
 }
 
+const saveFailedTrace = (data: any) => {
+    const filename = `../traces/fail-${uuid()}.json`
+    fs.writeFileSync(path.resolve(__dirname, filename), JSON.stringify(data))
+    console.log(`wrote failed trace to ${filename}`)
+}
+
 type OpTypes = "insert" | "remove" | "addMark" | "removeMark"
 const opTypes: OpTypes[] = ["insert", "remove", "addMark", "removeMark"]
 
 type MarkTypes = "strong" | "em" | "link" | "comment"
 const markTypes: MarkTypes[] = ["link"]
 
-const exampleURLs = "ABC".split("").map(letter => `${letter}.com`)
+const exampleURLs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(letter => `${letter}.com`)
 
 const commentHistory: string[] = []
 
@@ -200,52 +206,73 @@ while (true) {
         const rightText = docs[right].getTextWithFormatting(["text"])
 
         if (!isEqual(accumulatePatches(allPatches[left]), leftText)) {
-            debug({
+            console.log(`de-sync with ${allPatches[left].length} patches`)
+            saveFailedTrace({
+                docId: docs[left].actorId,
                 patchDoc: accumulatePatches(allPatches[left]),
                 batchDoc: leftText,
+                // @ts-ignore -- reach into private metadata, it's fine for this purpose
+                meta: docs[left].metadata["1@doc1"].map(item => ({
+                    ...item,
+                    // show mark op sets as arrays in JSON
+                    markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                    markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                })),
+                patches: allPatches[left],
+                queues,
+                syncs,
             })
         }
+
         if (!isEqual(accumulatePatches(allPatches[right]), rightText)) {
-            debug({
+            console.log(`de-sync with ${allPatches[right].length} patches`)
+            saveFailedTrace({
+                docId: docs[right].actorId,
                 patchDoc: accumulatePatches(allPatches[right]),
                 batchDoc: rightText,
+                // @ts-ignore -- reach into private metadata, it's fine for this purpose
+                meta: docs[right].metadata["1@doc1"].map(item => ({
+                    ...item,
+                    // show mark op sets as arrays in JSON
+                    markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                    markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                })),
+                patches: allPatches[right],
+                queues,
+                syncs,
             })
         }
+
         assertDocsEqual(accumulatePatches(allPatches[right]), rightText)
         assertDocsEqual(accumulatePatches(allPatches[left]), leftText)
 
         if (!isEqual(leftText, rightText)) {
-            const filename = `../traces/fail-${uuid()}.json`
-            fs.writeFileSync(
-                path.resolve(__dirname, filename),
-                JSON.stringify({
-                    queues,
-                    left: {
-                        doc: docs[left].actorId,
-                        text: leftText,
-                        // @ts-ignore -- reach into private metadata, it's fine for this purpose
-                        meta: docs[left].metadata["1@doc1"].map(item => ({
-                            ...item,
-                            // show mark op sets as arrays in JSON
-                            markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
-                            markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
-                        })),
-                    },
-                    right: {
-                        doc: docs[right].actorId,
-                        text: rightText,
-                        // @ts-ignore -- reach into private metadata, it's fine
-                        meta: docs[right].metadata["1@doc1"].map(item => ({
-                            ...item,
-                            // show mark op sets as arrays in JSON
-                            markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
-                            markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
-                        })),
-                    },
-                    syncs,
-                }),
-            )
-            console.log(`wrote failed trace to ${filename}`)
+            saveFailedTrace({
+                queues,
+                left: {
+                    doc: docs[left].actorId,
+                    text: leftText,
+                    // @ts-ignore -- reach into private metadata, it's fine for this purpose
+                    meta: docs[left].metadata["1@doc1"].map(item => ({
+                        ...item,
+                        // show mark op sets as arrays in JSON
+                        markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                        markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                    })),
+                },
+                right: {
+                    doc: docs[right].actorId,
+                    text: rightText,
+                    // @ts-ignore -- reach into private metadata, it's fine
+                    meta: docs[right].metadata["1@doc1"].map(item => ({
+                        ...item,
+                        // show mark op sets as arrays in JSON
+                        markOpsBefore: item.markOpsBefore && [...item.markOpsBefore],
+                        markOpsAfter: item.markOpsAfter && [...item.markOpsAfter],
+                    })),
+                },
+                syncs,
+            })
         }
 
         assert.deepStrictEqual(docs[left].clock, docs[right].clock)

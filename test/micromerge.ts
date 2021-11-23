@@ -807,6 +807,44 @@ describe.only("Micromerge", () => {
         })
     })
 
+    it("handles adding marks to the end of a doc when there are tombstones at the end", () => {
+        testConcurrentWrites({
+            initialText: "ABCDE",
+            inputOps1: [
+                {
+                    action: "addMark",
+                    startIndex: 2,
+                    endIndex: 4,
+                    markType: "link",
+                    attrs: { url: "A.com" },
+                },
+                {
+                    action: "delete",
+                    index: 1,
+                    count: 2,
+                },
+                {
+                    action: "delete",
+                    index: 2,
+                    count: 1,
+                },
+            ],
+            inputOps2: [
+                {
+                    action: "addMark",
+                    startIndex: 3,
+                    endIndex: 5,
+                    markType: "link",
+                    attrs: { url: "A.com" },
+                },
+            ],
+            expectedResult: [
+                { marks: {}, text: "A" },
+                { marks: { link: { active: true, url: "A.com" } }, text: "D" },
+            ],
+        })
+    })
+
     // Other test cases:
     // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 

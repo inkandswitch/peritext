@@ -845,6 +845,8 @@ describe.only("Micromerge", () => {
         })
     })
 
+    // TODO: test a case where the two actors have different links.
+
     // Other test cases:
     // - a boundary character is both start and end of some op. it gets deleted. concurrently, someone formats it. make sure no patch gets emitted.
 

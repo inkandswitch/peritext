@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import uuid from "uuid"
-import { isEqual, sortBy } from "lodash"
+import { isEqual, sortBy, startCase } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
 import { debug } from "../test/micromerge"
 
@@ -993,14 +993,28 @@ export default class Micromerge {
             } else if (op.action === "addMark" || op.action === "removeMark") {
                 const patches: Patch[] = []
 
+                // A helper function to emit patches representing changes.
+                const emitPatch = (patch: AddMarkOperationInput | RemoveMarkOperationInput) => {
+                    // Exclude certain patches which make sense from an internal metadata perspective,
+                    // but wouldn't make sense to an external caller:
+                    // - Any patch where the start or end is after the end of the currently visible text
+                    // - Any patch that is zero width, affecting no visible characters
+                    const patchIsNotZeroLength = patch.endIndex > patch.startIndex
+                    const patchIsNotPastEndOfVisibleDocument =
+                        patch.startIndex < obj.length && patch.endIndex <= obj.length
+                    if (patchIsNotZeroLength && patchIsNotPastEndOfVisibleDocument) {
+                        patches.push(patch)
+                    }
+                }
+
                 // find the active marks before; add this mark to that list
                 const metadata = this.metadata[op.obj]
                 if (!(metadata instanceof Array)) {
                     throw new Error(`Expected list metadata for a list`)
                 }
 
-                console.log("applying op")
-                debug({ op, metadata })
+                // console.log("applying op")
+                // debug({ op, metadata, actorId: this.actorId })
 
                 // Maintain a flag while we iterate, detecting whether the op we're applying
                 // overlaps with the metadata item we're currently considering
@@ -1062,12 +1076,9 @@ export default class Micromerge {
 
                             if (partialPatch !== undefined) {
                                 const endIndex = indexForPatch
-
-                                const patch: Patch = {
-                                    ...partialPatch,
-                                    endIndex,
-                                } as Patch // TODO: how to convince TS this is a valid Patch?
-                                patches.push(patch)
+                                emitPatch({ ...partialPatch, endIndex } as
+                                    | AddMarkOperationInput
+                                    | RemoveMarkOperationInput)
                                 partialPatch = undefined
                             }
 
@@ -1076,12 +1087,9 @@ export default class Micromerge {
                         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
                             if (partialPatch !== undefined) {
                                 const endIndex = indexForPatch
-
-                                const patch = {
-                                    ...partialPatch,
-                                    endIndex,
-                                } as Patch
-                                patches.push(patch)
+                                emitPatch({ ...partialPatch, endIndex } as
+                                    | AddMarkOperationInput
+                                    | RemoveMarkOperationInput)
                                 partialPatch = undefined
                             }
 
@@ -1101,12 +1109,13 @@ export default class Micromerge {
                     }
                 }
 
+                // If we have a partial patch leftover at the end, emit it
                 if (partialPatch) {
-                    console.log("pushing final patch")
-                    patches.push({ ...partialPatch, endIndex: obj.length } as Patch) // TODO: how to convince TS this is a valid Patch?
+                    const endIndex = obj.length // The patch's exclusive-end is the length of the sequence
+                    emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput)
                 }
 
-                debug({ patches })
+                // debug({ patches })
 
                 return patches
             } else if (op.action === "makeList" || op.action === "makeMap") {

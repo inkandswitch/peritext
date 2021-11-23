@@ -1,0 +1,1064 @@
+{
+  "docId": "doc3",
+  "patchDoc": [
+    {
+      "text": "5",
+      "marks": {}
+    },
+    {
+      "text": "5",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "N.com"
+        }
+      }
+    },
+    {
+      "text": "A",
+      "marks": {}
+    }
+  ],
+  "batchDoc": [
+    {
+      "text": "5",
+      "marks": {}
+    },
+    {
+      "text": "5",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "N.com"
+        }
+      }
+    },
+    {
+      "text": "A",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "T.com"
+        }
+      }
+    }
+  ],
+  "meta": [
+    {
+      "elemId": "9@doc1",
+      "valueId": "9@doc1",
+      "deleted": false
+    },
+    {
+      "elemId": "10@doc1",
+      "valueId": "10@doc1",
+      "deleted": false,
+      "markOpsBefore": [
+        {
+          "opId": "11@doc3",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "10@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "10@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "N.com"
+          }
+        },
+        {
+          "opId": "11@doc2",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "10@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "10@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "B.com"
+          }
+        }
+      ],
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "2@doc1",
+      "valueId": "2@doc1",
+      "deleted": false,
+      "markOpsBefore": [
+        {
+          "opId": "12@doc2",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "2@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "3@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "T.com"
+          }
+        }
+      ]
+    },
+    {
+      "elemId": "3@doc1",
+      "valueId": "3@doc1",
+      "deleted": true,
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "4@doc1",
+      "valueId": "4@doc1",
+      "deleted": true
+    },
+    {
+      "elemId": "5@doc1",
+      "valueId": "5@doc1",
+      "deleted": true
+    },
+    {
+      "elemId": "6@doc1",
+      "valueId": "6@doc1",
+      "deleted": true,
+      "markOpsBefore": [
+        {
+          "opId": "7@doc1",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "6@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "6@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "C.com"
+          }
+        }
+      ],
+      "markOpsAfter": []
+    }
+  ],
+  "patches": [
+    {
+      "opId": "1@doc1",
+      "action": "makeList",
+      "key": "text",
+      "path": [
+        "text"
+      ]
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 0,
+      "values": [
+        "A"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 1,
+      "values": [
+        "B"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 2,
+      "values": [
+        "C"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 3,
+      "values": [
+        "D"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 4,
+      "values": [
+        "E"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 3,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 3,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 0,
+      "values": [
+        "5"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 1,
+      "values": [
+        "5"
+      ],
+      "marks": {}
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 1,
+      "attrs": {
+        "url": "N.com"
+      },
+      "endIndex": 2
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 3,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 3,
+      "count": 1
+    }
+  ],
+  "queues": {
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc1",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "2@doc1",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "3@doc1",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "4@doc1",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "5@doc1",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 2,
+        "deps": {
+          "doc1": 1
+        },
+        "startOp": 7,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 3,
+        "deps": {
+          "doc1": 2
+        },
+        "startOp": 7,
+        "ops": []
+      },
+      {
+        "actor": "doc1",
+        "seq": 4,
+        "deps": {
+          "doc1": 3
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc1",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "6@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "6@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "C.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 5,
+        "deps": {
+          "doc1": 4,
+          "doc2": 2
+        },
+        "startOp": 9,
+        "ops": [
+          {
+            "opId": "9@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "insert": true,
+            "value": "5"
+          },
+          {
+            "opId": "10@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "9@doc1",
+            "insert": true,
+            "value": "5"
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc1": 2
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "5@doc1"
+          },
+          {
+            "opId": "8@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "6@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 2,
+        "deps": {
+          "doc1": 2,
+          "doc2": 1
+        },
+        "startOp": 9,
+        "ops": []
+      },
+      {
+        "actor": "doc2",
+        "seq": 3,
+        "deps": {
+          "doc1": 5,
+          "doc2": 2
+        },
+        "startOp": 11,
+        "ops": [
+          {
+            "opId": "11@doc2",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "10@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "10@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "B.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 4,
+        "deps": {
+          "doc1": 5,
+          "doc2": 3
+        },
+        "startOp": 12,
+        "ops": [
+          {
+            "opId": "12@doc2",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "3@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "T.com"
+            }
+          }
+        ]
+      }
+    ],
+    "doc3": [
+      {
+        "actor": "doc3",
+        "seq": 1,
+        "deps": {
+          "doc1": 5,
+          "doc2": 2
+        },
+        "startOp": 11,
+        "ops": [
+          {
+            "opId": "11@doc3",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "10@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "10@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "N.com"
+            }
+          }
+        ]
+      },
+      {
+        "actor": "doc3",
+        "seq": 2,
+        "deps": {
+          "doc1": 5,
+          "doc2": 2,
+          "doc3": 1
+        },
+        "startOp": 12,
+        "ops": []
+      },
+      {
+        "actor": "doc3",
+        "seq": 3,
+        "deps": {
+          "doc1": 5,
+          "doc2": 2,
+          "doc3": 2
+        },
+        "startOp": 12,
+        "ops": [
+          {
+            "opId": "12@doc3",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "3@doc1"
+          },
+          {
+            "opId": "13@doc3",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "4@doc1"
+          }
+        ]
+      }
+    ]
+  },
+  "syncs": [
+    {
+      "left": "doc1",
+      "right": "doc3",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 2,
+          "deps": {
+            "doc1": 1
+          },
+          "startOp": 7,
+          "ops": []
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc3",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 2,
+          "deps": {
+            "doc1": 1
+          },
+          "startOp": 7,
+          "ops": []
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc3",
+      "right": "doc2",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc1": 2
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "5@doc1"
+            },
+            {
+              "opId": "8@doc2",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "6@doc1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc3",
+      "right": "doc1",
+      "missingLeft": [
+        {
+          "actor": "doc2",
+          "seq": 1,
+          "deps": {
+            "doc1": 2
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc2",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "5@doc1"
+            },
+            {
+              "opId": "8@doc2",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "6@doc1"
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc1",
+          "seq": 3,
+          "deps": {
+            "doc1": 2
+          },
+          "startOp": 7,
+          "ops": []
+        },
+        {
+          "actor": "doc1",
+          "seq": 4,
+          "deps": {
+            "doc1": 3
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc1",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "C.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc1",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 3,
+          "deps": {
+            "doc1": 2
+          },
+          "startOp": 7,
+          "ops": []
+        },
+        {
+          "actor": "doc1",
+          "seq": 4,
+          "deps": {
+            "doc1": 3
+          },
+          "startOp": 7,
+          "ops": [
+            {
+              "opId": "7@doc1",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "6@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "6@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "C.com"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 2,
+          "deps": {
+            "doc1": 2,
+            "doc2": 1
+          },
+          "startOp": 9,
+          "ops": []
+        }
+      ]
+    },
+    {
+      "left": "doc3",
+      "right": "doc1",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc1",
+          "seq": 5,
+          "deps": {
+            "doc1": 4,
+            "doc2": 2
+          },
+          "startOp": 9,
+          "ops": [
+            {
+              "opId": "9@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "insert": true,
+              "value": "5"
+            },
+            {
+              "opId": "10@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "9@doc1",
+              "insert": true,
+              "value": "5"
+            }
+          ]
+        },
+        {
+          "actor": "doc2",
+          "seq": 2,
+          "deps": {
+            "doc1": 2,
+            "doc2": 1
+          },
+          "startOp": 9,
+          "ops": []
+        }
+      ]
+    },
+    {
+      "left": "doc1",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc1",
+          "seq": 5,
+          "deps": {
+            "doc1": 4,
+            "doc2": 2
+          },
+          "startOp": 9,
+          "ops": [
+            {
+              "opId": "9@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "insert": true,
+              "value": "5"
+            },
+            {
+              "opId": "10@doc1",
+              "action": "set",
+              "obj": "1@doc1",
+              "elemId": "9@doc1",
+              "insert": true,
+              "value": "5"
+            }
+          ]
+        }
+      ],
+      "missingRight": []
+    },
+    {
+      "left": "doc1",
+      "right": "doc3",
+      "missingLeft": [],
+      "missingRight": [
+        {
+          "actor": "doc3",
+          "seq": 1,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "10@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "10@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "N.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc3",
+      "right": "doc1",
+      "missingLeft": [],
+      "missingRight": []
+    },
+    {
+      "left": "doc2",
+      "right": "doc1",
+      "missingLeft": [
+        {
+          "actor": "doc2",
+          "seq": 3,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc2",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "10@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "10@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "B.com"
+              }
+            }
+          ]
+        },
+        {
+          "actor": "doc2",
+          "seq": 4,
+          "deps": {
+            "doc1": 5,
+            "doc2": 3
+          },
+          "startOp": 12,
+          "ops": [
+            {
+              "opId": "12@doc2",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "3@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "T.com"
+              }
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc3",
+          "seq": 1,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc3",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "10@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "10@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "N.com"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "left": "doc3",
+      "right": "doc2",
+      "missingLeft": [
+        {
+          "actor": "doc3",
+          "seq": 2,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2,
+            "doc3": 1
+          },
+          "startOp": 12,
+          "ops": []
+        },
+        {
+          "actor": "doc3",
+          "seq": 3,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2,
+            "doc3": 2
+          },
+          "startOp": 12,
+          "ops": [
+            {
+              "opId": "12@doc3",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "3@doc1"
+            },
+            {
+              "opId": "13@doc3",
+              "action": "del",
+              "obj": "1@doc1",
+              "elemId": "4@doc1"
+            }
+          ]
+        }
+      ],
+      "missingRight": [
+        {
+          "actor": "doc2",
+          "seq": 3,
+          "deps": {
+            "doc1": 5,
+            "doc2": 2
+          },
+          "startOp": 11,
+          "ops": [
+            {
+              "opId": "11@doc2",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "10@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "10@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "B.com"
+              }
+            }
+          ]
+        },
+        {
+          "actor": "doc2",
+          "seq": 4,
+          "deps": {
+            "doc1": 5,
+            "doc2": 3
+          },
+          "startOp": 12,
+          "ops": [
+            {
+              "opId": "12@doc2",
+              "action": "addMark",
+              "obj": "1@doc1",
+              "start": {
+                "type": "before",
+                "elemId": "2@doc1"
+              },
+              "end": {
+                "type": "after",
+                "elemId": "3@doc1"
+              },
+              "markType": "link",
+              "attrs": {
+                "url": "T.com"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

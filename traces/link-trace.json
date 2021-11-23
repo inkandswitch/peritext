@@ -1,0 +1,436 @@
+{
+  "patchDoc": [
+    {
+      "text": "A",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "C.com"
+        }
+      }
+    },
+    {
+      "text": "28",
+      "marks": {}
+    }
+  ],
+  "batchDoc": [
+    {
+      "text": "A",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "C.com"
+        }
+      }
+    },
+    {
+      "text": "2",
+      "marks": {}
+    },
+    {
+      "text": "8",
+      "marks": {
+        "link": {
+          "active": true,
+          "url": "A.com"
+        }
+      }
+    }
+  ],
+  "meta": [
+    {
+      "elemId": "2@doc1",
+      "valueId": "2@doc1",
+      "deleted": false,
+      "markOpsBefore": [
+        {
+          "opId": "11@doc2",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "2@doc1"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "2@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "C.com"
+          }
+        }
+      ],
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "3@doc1",
+      "valueId": "3@doc1",
+      "deleted": true
+    },
+    {
+      "elemId": "7@doc3",
+      "valueId": "7@doc3",
+      "deleted": false
+    },
+    {
+      "elemId": "8@doc3",
+      "valueId": "8@doc3",
+      "deleted": false,
+      "markOpsBefore": [
+        {
+          "opId": "9@doc1",
+          "action": "addMark",
+          "obj": "1@doc1",
+          "start": {
+            "type": "before",
+            "elemId": "8@doc3"
+          },
+          "end": {
+            "type": "after",
+            "elemId": "4@doc1"
+          },
+          "markType": "link",
+          "attrs": {
+            "url": "A.com"
+          }
+        }
+      ]
+    },
+    {
+      "elemId": "4@doc1",
+      "valueId": "4@doc1",
+      "deleted": true,
+      "markOpsAfter": []
+    },
+    {
+      "elemId": "5@doc1",
+      "valueId": "5@doc1",
+      "deleted": true
+    },
+    {
+      "elemId": "6@doc1",
+      "valueId": "6@doc1",
+      "deleted": true
+    }
+  ],
+  "patches": [
+    {
+      "opId": "1@doc1",
+      "action": "makeList",
+      "key": "text",
+      "path": [
+        "text"
+      ]
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 0,
+      "values": [
+        "A"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 1,
+      "values": [
+        "B"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 2,
+      "values": [
+        "C"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 3,
+      "values": [
+        "D"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 4,
+      "values": [
+        "E"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "delete",
+      "index": 1,
+      "count": 1
+    },
+    {
+      "action": "addMark",
+      "markType": "link",
+      "path": [
+        "text"
+      ],
+      "startIndex": 0,
+      "attrs": {
+        "url": "C.com"
+      },
+      "endIndex": 1
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 1,
+      "values": [
+        "2"
+      ],
+      "marks": {}
+    },
+    {
+      "path": [
+        "text"
+      ],
+      "action": "insert",
+      "index": 2,
+      "values": [
+        "8"
+      ],
+      "marks": {}
+    }
+  ],
+  "queues": {
+    "doc1": [
+      {
+        "actor": "doc1",
+        "seq": 1,
+        "deps": {},
+        "startOp": 1,
+        "ops": [
+          {
+            "opId": "1@doc1",
+            "action": "makeList",
+            "key": "text"
+          },
+          {
+            "opId": "2@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "insert": true,
+            "value": "A"
+          },
+          {
+            "opId": "3@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "2@doc1",
+            "insert": true,
+            "value": "B"
+          },
+          {
+            "opId": "4@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "3@doc1",
+            "insert": true,
+            "value": "C"
+          },
+          {
+            "opId": "5@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "4@doc1",
+            "insert": true,
+            "value": "D"
+          },
+          {
+            "opId": "6@doc1",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "5@doc1",
+            "insert": true,
+            "value": "E"
+          }
+        ]
+      },
+      {
+        "actor": "doc1",
+        "seq": 2,
+        "deps": {
+          "doc1": 1,
+          "doc3": 1
+        },
+        "startOp": 9,
+        "ops": [
+          {
+            "opId": "9@doc1",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "8@doc3"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "4@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "A.com"
+            }
+          }
+        ]
+      }
+    ],
+    "doc2": [
+      {
+        "actor": "doc2",
+        "seq": 1,
+        "deps": {
+          "doc1": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "3@doc1"
+          },
+          {
+            "opId": "8@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "4@doc1"
+          },
+          {
+            "opId": "9@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "5@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 2,
+        "deps": {
+          "doc1": 1,
+          "doc2": 1
+        },
+        "startOp": 10,
+        "ops": [
+          {
+            "opId": "10@doc2",
+            "action": "del",
+            "obj": "1@doc1",
+            "elemId": "6@doc1"
+          }
+        ]
+      },
+      {
+        "actor": "doc2",
+        "seq": 3,
+        "deps": {
+          "doc1": 1,
+          "doc2": 2
+        },
+        "startOp": 11,
+        "ops": [
+          {
+            "opId": "11@doc2",
+            "action": "addMark",
+            "obj": "1@doc1",
+            "start": {
+              "type": "before",
+              "elemId": "2@doc1"
+            },
+            "end": {
+              "type": "after",
+              "elemId": "2@doc1"
+            },
+            "markType": "link",
+            "attrs": {
+              "url": "C.com"
+            }
+          }
+        ]
+      }
+    ],
+    "doc3": [
+      {
+        "actor": "doc3",
+        "seq": 1,
+        "deps": {
+          "doc1": 1
+        },
+        "startOp": 7,
+        "ops": [
+          {
+            "opId": "7@doc3",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "3@doc1",
+            "insert": true,
+            "value": "2"
+          },
+          {
+            "opId": "8@doc3",
+            "action": "set",
+            "obj": "1@doc1",
+            "elemId": "7@doc3",
+            "insert": true,
+            "value": "8"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1000,9 +1000,11 @@ export default class Micromerge {
                     // - Any patch where the start or end is after the end of the currently visible text
                     // - Any patch that is zero width, affecting no visible characters
                     const patchIsNotZeroLength = patch.endIndex > patch.startIndex
-                    const patchIsNotPastEndOfVisibleDocument =
-                        patch.startIndex < obj.length && patch.endIndex <= obj.length
-                    if (patchIsNotZeroLength && patchIsNotPastEndOfVisibleDocument) {
+                    const patchAffectsVisibleDocument = patch.startIndex < obj.length
+                    if (patch.endIndex > obj.length) {
+                        patch.endIndex = obj.length
+                    }
+                    if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
                         patches.push(patch)
                     }
                 }

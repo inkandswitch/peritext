@@ -27,8 +27,8 @@ type CONTENT_KEY = "text"
 
 export type MarkMapWithoutOpIds = {
     [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-        ? Array<WithoutOpId<MarkValue[K]>>
-        : WithoutOpId<MarkValue[K]>
+    ? Array<WithoutOpId<MarkValue[K]>>
+    : WithoutOpId<MarkValue[K]>
 }
 
 type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
@@ -152,10 +152,10 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 // TODO: automatically populate attrs type w/o manual enumeration
 export type AddMarkOperationInput = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-        : AddMarkOperationInputBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
+    ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+    : AddMarkOperationInputBase<M> & {
+        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+    }
 }>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -174,19 +174,19 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
 
 export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"strong"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"em"> & {
-          attrs?: undefined
-      })
+        attrs?: undefined
+    })
     | (RemoveMarkOperationInputBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: Omit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: Omit<MarkValue["comment"], "opId">
+    })
     | (RemoveMarkOperationInputBase<"link"> & {
-          /** Data attributes for the mark. */
-          attrs?: undefined
-      })
+        /** Data attributes for the mark. */
+        attrs?: undefined
+    })
 
 export type InputOperation =
     | MakeListOperationInput
@@ -281,10 +281,10 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
 
 export type AddMarkOperation = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
-        ? AddMarkOperationBase<M> & { attrs?: undefined }
-        : AddMarkOperationBase<M> & {
-              attrs: Required<Omit<MarkValue[M], "opId" | "active">>
-          }
+    ? AddMarkOperationBase<M> & { attrs?: undefined }
+    : AddMarkOperationBase<M> & {
+        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+    }
 }>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
@@ -301,9 +301,9 @@ type RemoveMarkOperation =
     | RemoveMarkOperationBase<"strong">
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
-          /** Data attributes for the mark. */
-          attrs: DistributiveOmit<MarkValue["comment"], "opId">
-      })
+        /** Data attributes for the mark. */
+        attrs: DistributiveOmit<MarkValue["comment"], "opId">
+    })
     | RemoveMarkOperationBase<"link">
 
 export type Operation =
@@ -362,14 +362,14 @@ type Metadata = ListMetadata | MapMetadata<Record<string, Json>>
 
 type BooleanMarkValue =
     | {
-          active: true
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-      }
+        active: true
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+    }
     | {
-          active: false
-          opId: OperationId
-      }
+        active: false
+        opId: OperationId
+    }
 
 type IdMarkValue = {
     id: string
@@ -379,16 +379,16 @@ type IdMarkValue = {
 
 type LinkMarkValue =
     | {
-          url: string
-          /** A MarkValue should always have the ID of the operation that last modified it. */
-          opId: OperationId
-          active: true
-      }
+        url: string
+        /** A MarkValue should always have the ID of the operation that last modified it. */
+        opId: OperationId
+        active: true
+    }
     | {
-          url?: undefined
-          opId: OperationId
-          active: false
-      }
+        url?: undefined
+        opId: OperationId
+        active: false
+    }
 
 export type MarkValue = Assert<
     {
@@ -1000,142 +1000,7 @@ export default class Micromerge {
                 }
                 return this.applyListUpdate(op)
             } else if (op.action === "addMark" || op.action === "removeMark") {
-                const patches: Patch[] = []
-
-                // A helper function to emit patches representing changes.
-                const emitPatch = (patch: AddMarkOperationInput | RemoveMarkOperationInput) => {
-                    // Exclude certain patches which make sense from an internal metadata perspective,
-                    // but wouldn't make sense to an external caller:
-                    // - Any patch where the start or end is after the end of the currently visible text
-                    // - Any patch that is zero width, affecting no visible characters
-                    const patchIsNotZeroLength = patch.endIndex > patch.startIndex
-                    const patchAffectsVisibleDocument = patch.startIndex < obj.length
-                    if (patch.endIndex > obj.length) {
-                        console.log(
-                            `Truncating patch: ${patch.startIndex}-${patch.endIndex} to ${patch.startIndex}-${obj.length}`,
-                        )
-                        patch.endIndex = obj.length
-                    }
-                    if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
-                        patches.push(patch)
-                    }
-                }
-
-                // find the active marks before; add this mark to that list
-                const metadata = this.metadata[op.obj]
-                if (!(metadata instanceof Array)) {
-                    throw new Error(`Expected list metadata for a list`)
-                }
-
-                // console.log("applying op")
-                // debug({ op, metadata, actorId: this.actorId })
-
-                // Maintain a flag while we iterate, detecting whether the op we're applying
-                // overlaps with the metadata item we're currently considering
-                let opIntersectsItem = false
-                let visibleIndex = 0
-
-                let partialPatch: PartialPatch | undefined
-                let exitLoop: boolean = false
-
-                for (const [index, elMeta] of metadata.entries()) {
-                    // We compute the effects that this op has on the position before and after this character,
-                    // the logic is the same in both cases and we need to consider the before case first.
-
-                    if (exitLoop) {
-                        break
-                    }
-
-                    const positions = [
-                        { side: "before", metadataProperty: "markOpsBefore" },
-                        { side: "after", metadataProperty: "markOpsAfter" },
-                    ] as const
-
-                    for (const { side, metadataProperty } of positions) {
-                        // Compute an index in the visible characters which will be used for patches.
-                        // If this character is visible and we're on the "after slot", then the relevant
-                        // index is one to the right of the current visible index.
-                        // Otherwise, just use the current visible index.
-                        const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
-
-                        if (op.start.type === side && op.start.elemId === elMeta.elemId) {
-                            let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
-
-                            // If we already have a set of mark ops here, just add the new op
-                            // Otherwise, we first copy over closest ops from left, then add this new one
-                            if (elMeta[metadataProperty] !== undefined) {
-                                existingOps = elMeta[metadataProperty]!
-                            } else {
-                                existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
-                            }
-
-                            const newOps = new Set([...existingOps, op])
-
-                            // Store the new set of mark ops on the metadata at this position
-                            elMeta[metadataProperty] = newOps
-
-                            // If this op has an effect on the final formatting, start emitting a patch
-                            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-                            }
-
-                            opIntersectsItem = true
-                        } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
-                            // We need to record what mark ops should be active to the right of this position.
-                            // We do this by finding the nearest set of ops to the left, and then
-                            // excluding the op which is ending at this position.
-                            if (elMeta[metadataProperty] === undefined) {
-                                elMeta[metadataProperty] = new Set(
-                                    [...this.findClosestMarkOpsToLeft({ index, side, metadata })].filter(
-                                        opInSet => opInSet !== op,
-                                    ),
-                                )
-                            }
-
-                            if (partialPatch !== undefined) {
-                                const endIndex = indexForPatch
-                                emitPatch({ ...partialPatch, endIndex } as
-                                    | AddMarkOperationInput
-                                    | RemoveMarkOperationInput)
-                                partialPatch = undefined
-                            }
-
-                            exitLoop = true
-                            break
-                        } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
-                            if (partialPatch !== undefined) {
-                                const endIndex = indexForPatch
-                                emitPatch({ ...partialPatch, endIndex } as
-                                    | AddMarkOperationInput
-                                    | RemoveMarkOperationInput)
-                                partialPatch = undefined
-                            }
-
-                            const existingOps = elMeta[metadataProperty]!
-                            const newOps = new Set([...existingOps, op])
-
-                            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-                            }
-
-                            elMeta[metadataProperty] = newOps
-                        }
-                    }
-
-                    if (!elMeta.deleted) {
-                        visibleIndex += 1
-                    }
-                }
-
-                // If we have a partial patch leftover at the end, emit it
-                if (partialPatch) {
-                    const endIndex = obj.length // The patch's exclusive-end is the length of the sequence
-                    emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput)
-                }
-
-                // debug({ patches })
-
-                return patches
+                return this.applyAddRemoveMark(op)
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {
@@ -1178,6 +1043,147 @@ export default class Micromerge {
         // If we've reached this point, that means we haven't yet implemented
         // the logic to return a correct patch for applying this particular op.
         return []
+    }
+
+    private applyAddRemoveMark(op: AddMarkOperation | RemoveMarkOperation) {
+        const patches: Patch[] = []
+        const obj = this.objects[op.obj]
+        const length = obj.length as number
+
+        // A helper function to emit patches representing changes.
+        const emitPatch = (patch: AddMarkOperationInput | RemoveMarkOperationInput) => {
+            // Exclude certain patches which make sense from an internal metadata perspective,
+            // but wouldn't make sense to an external caller:
+            // - Any patch where the start or end is after the end of the currently visible text
+            // - Any patch that is zero width, affecting no visible characters
+            const patchIsNotZeroLength = patch.endIndex > patch.startIndex
+            const patchAffectsVisibleDocument = patch.startIndex < length
+            if (patch.endIndex > length) {
+                console.log(
+                    `Truncating patch: ${patch.startIndex}-${patch.endIndex} to ${patch.startIndex}-${length}`
+                )
+                patch.endIndex = length
+            }
+            if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
+                patches.push(patch)
+            }
+        }
+
+        // find the active marks before; add this mark to that list
+        const metadata = this.metadata[op.obj]
+        if (!(metadata instanceof Array)) {
+            throw new Error(`Expected list metadata for a list`)
+        }
+
+        // console.log("applying op")
+        // debug({ op, metadata, actorId: this.actorId })
+
+        // Maintain a flag while we iterate, detecting whether the op we're applying
+        // overlaps with the metadata item we're currently considering
+        let opIntersectsItem = false
+        let visibleIndex = 0
+
+        let partialPatch: PartialPatch | undefined
+        let exitLoop: boolean = false
+
+        for (const [index, elMeta] of metadata.entries()) {
+            // We compute the effects that this op has on the position before and after this character,
+            // the logic is the same in both cases and we need to consider the before case first.
+
+            if (exitLoop) {
+                break
+            }
+
+            const positions = [
+                { side: "before", metadataProperty: "markOpsBefore" },
+                { side: "after", metadataProperty: "markOpsAfter" },
+            ] as const
+
+            for (const { side, metadataProperty } of positions) {
+                // Compute an index in the visible characters which will be used for patches.
+                // If this character is visible and we're on the "after slot", then the relevant
+                // index is one to the right of the current visible index.
+                // Otherwise, just use the current visible index.
+                const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
+
+                if (op.start.type === side && op.start.elemId === elMeta.elemId) {
+                    let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
+
+                    // If we already have a set of mark ops here, just add the new op
+                    // Otherwise, we first copy over closest ops from left, then add this new one
+                    if (elMeta[metadataProperty] !== undefined) {
+                        existingOps = elMeta[metadataProperty]!
+                    } else {
+                        existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
+                    }
+
+                    const newOps = new Set([...existingOps, op])
+
+                    // Store the new set of mark ops on the metadata at this position
+                    elMeta[metadataProperty] = newOps
+
+                    // If this op has an effect on the final formatting, start emitting a patch
+                    if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                        partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+                    }
+
+                    opIntersectsItem = true
+                } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
+                    // We need to record what mark ops should be active to the right of this position.
+                    // We do this by finding the nearest set of ops to the left, and then
+                    // excluding the op which is ending at this position.
+                    if (elMeta[metadataProperty] === undefined) {
+                        elMeta[metadataProperty] = new Set(
+                            [...this.findClosestMarkOpsToLeft({ index, side, metadata })].filter(
+                                opInSet => opInSet !== op,
+                            ),
+                        )
+                    }
+
+                    if (partialPatch !== undefined) {
+                        const endIndex = indexForPatch
+                        emitPatch({ ...partialPatch, endIndex } as
+                            | AddMarkOperationInput
+                            | RemoveMarkOperationInput)
+                        partialPatch = undefined
+                    }
+
+                    exitLoop = true
+                    break
+                } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
+                    if (partialPatch !== undefined) {
+                        const endIndex = indexForPatch
+                        emitPatch({ ...partialPatch, endIndex } as
+                            | AddMarkOperationInput
+                            | RemoveMarkOperationInput)
+                        partialPatch = undefined
+                    }
+
+                    const existingOps = elMeta[metadataProperty]!
+                    const newOps = new Set([...existingOps, op])
+
+                    if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                        partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+                    }
+
+                    elMeta[metadataProperty] = newOps
+                }
+            }
+
+            if (!elMeta.deleted) {
+                visibleIndex += 1
+            }
+        }
+
+        // If we have a partial patch leftover at the end, emit it
+        if (partialPatch) {
+            const endIndex = obj.length // The patch's exclusive-end is the length of the sequence
+            emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput)
+        }
+
+        // debug({ patches })
+
+        return patches
     }
 
     /**

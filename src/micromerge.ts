@@ -1050,25 +1050,6 @@ export default class Micromerge {
         const obj = this.objects[op.obj]
         const length = obj.length as number
 
-        // A helper function to emit patches representing changes.
-        const emitPatch = (patch: AddMarkOperationInput | RemoveMarkOperationInput) => {
-            // Exclude certain patches which make sense from an internal metadata perspective,
-            // but wouldn't make sense to an external caller:
-            // - Any patch where the start or end is after the end of the currently visible text
-            // - Any patch that is zero width, affecting no visible characters
-            const patchIsNotZeroLength = patch.endIndex > patch.startIndex
-            const patchAffectsVisibleDocument = patch.startIndex < length
-            if (patch.endIndex > length) {
-                console.log(
-                    `Truncating patch: ${patch.startIndex}-${patch.endIndex} to ${patch.startIndex}-${length}`
-                )
-                patch.endIndex = length
-            }
-            if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
-                patches.push(patch)
-            }
-        }
-
         // find the active marks before; add this mark to that list
         const metadata = this.metadata[op.obj]
         if (!(metadata instanceof Array)) {
@@ -1089,86 +1070,14 @@ export default class Micromerge {
         for (const [index, elMeta] of metadata.entries()) {
             // We compute the effects that this op has on the position before and after this character,
             // the logic is the same in both cases and we need to consider the before case first.
+            let patch
 
-            if (exitLoop) {
-                break
-            }
-
-            const positions = [
-                { side: "before", metadataProperty: "markOpsBefore" },
-                { side: "after", metadataProperty: "markOpsAfter" },
-            ] as const
-
-            for (const { side, metadataProperty } of positions) {
-                // Compute an index in the visible characters which will be used for patches.
-                // If this character is visible and we're on the "after slot", then the relevant
-                // index is one to the right of the current visible index.
-                // Otherwise, just use the current visible index.
-                const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
-
-                if (op.start.type === side && op.start.elemId === elMeta.elemId) {
-                    let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
-
-                    // If we already have a set of mark ops here, just add the new op
-                    // Otherwise, we first copy over closest ops from left, then add this new one
-                    if (elMeta[metadataProperty] !== undefined) {
-                        existingOps = elMeta[metadataProperty]!
-                    } else {
-                        existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
-                    }
-
-                    const newOps = new Set([...existingOps, op])
-
-                    // Store the new set of mark ops on the metadata at this position
-                    elMeta[metadataProperty] = newOps
-
-                    // If this op has an effect on the final formatting, start emitting a patch
-                    if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                        partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-                    }
-
-                    opIntersectsItem = true
-                } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
-                    // We need to record what mark ops should be active to the right of this position.
-                    // We do this by finding the nearest set of ops to the left, and then
-                    // excluding the op which is ending at this position.
-                    if (elMeta[metadataProperty] === undefined) {
-                        elMeta[metadataProperty] = new Set(
-                            [...this.findClosestMarkOpsToLeft({ index, side, metadata })].filter(
-                                opInSet => opInSet !== op,
-                            ),
-                        )
-                    }
-
-                    if (partialPatch !== undefined) {
-                        const endIndex = indexForPatch
-                        emitPatch({ ...partialPatch, endIndex } as
-                            | AddMarkOperationInput
-                            | RemoveMarkOperationInput)
-                        partialPatch = undefined
-                    }
-
-                    exitLoop = true
-                    break
-                } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
-                    if (partialPatch !== undefined) {
-                        const endIndex = indexForPatch
-                        emitPatch({ ...partialPatch, endIndex } as
-                            | AddMarkOperationInput
-                            | RemoveMarkOperationInput)
-                        partialPatch = undefined
-                    }
-
-                    const existingOps = elMeta[metadataProperty]!
-                    const newOps = new Set([...existingOps, op])
-
-                    if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
-                        partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-                    }
-
-                    elMeta[metadataProperty] = newOps
-                }
-            }
+            [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, "before", index, elMeta, visibleIndex, partialPatch, metadata, length, opIntersectsItem)
+            if (patch) { patches.push(patch) }
+            if (exitLoop) { break }
+            [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, "after", index, elMeta, visibleIndex, partialPatch, metadata, length, opIntersectsItem)
+            if (patch) { patches.push(patch) }
+            if (exitLoop) { break }
 
             if (!elMeta.deleted) {
                 visibleIndex += 1
@@ -1178,12 +1087,123 @@ export default class Micromerge {
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
             const endIndex = obj.length // The patch's exclusive-end is the length of the sequence
-            emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput)
+            const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
+            if (patch) { patches.push(patch) }
         }
 
         // debug({ patches })
 
         return patches
+    }
+
+    // A helper function to emit patches representing changes.
+    private emitPatch(patch: AddMarkOperationInput | RemoveMarkOperationInput, length: number): Patch | undefined {
+        // Exclude certain patches which make sense from an internal metadata perspective,
+        // but wouldn't make sense to an external caller:
+        // - Any patch where the start or end is after the end of the currently visible text
+        // - Any patch that is zero width, affecting no visible characters
+        const patchIsNotZeroLength = patch.endIndex > patch.startIndex
+        const patchAffectsVisibleDocument = patch.startIndex < length
+        if (patch.endIndex > length) {
+            console.log(
+                `Truncating patch: ${patch.startIndex}-${patch.endIndex} to ${patch.startIndex}-${length}`
+            )
+            patch.endIndex = length
+        }
+        if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
+            return patch
+        }
+        return undefined
+    }
+
+    private applyOpToEachPosition(
+        op: AddMarkOperation | RemoveMarkOperation,
+        side: "before" | "after",
+        index: number,
+        elMeta: ListItemMetadata,
+        visibleIndex: number,
+        partialPatch: PartialPatch | undefined,
+        metadata: ListMetadata,
+        length: number,
+        opIntersectsItem: boolean): [
+            exitLoop: boolean,
+            opIntersectsItem: boolean,
+            partialPatch: PartialPatch | undefined,
+            patch: Patch | undefined] {
+        // Compute an index in the visible characters which will be used for patches.
+        // If this character is visible and we're on the "after slot", then the relevant
+        // index is one to the right of the current visible index.
+        // Otherwise, just use the current visible index.
+        const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
+        const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
+        let exitLoop = false
+        let patch
+
+        if (op.start.type === side && op.start.elemId === elMeta.elemId) {
+            let existingOps: Set<AddMarkOperation | RemoveMarkOperation>
+
+            // If we already have a set of mark ops here, just add the new op
+            // Otherwise, we first copy over closest ops from left, then add this new one
+            if (elMeta[metadataProperty] !== undefined) {
+                existingOps = elMeta[metadataProperty]!
+            } else {
+                existingOps = this.findClosestMarkOpsToLeft({ index, side, metadata })
+            }
+
+            const newOps = new Set([...existingOps, op])
+
+            // Store the new set of mark ops on the metadata at this position
+            elMeta[metadataProperty] = newOps
+
+            // If this op has an effect on the final formatting, start emitting a patch
+            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+            }
+
+            opIntersectsItem = true
+        } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
+            // We need to record what mark ops should be active to the right of this position.
+            // We do this by finding the nearest set of ops to the left, and then
+            // excluding the op which is ending at this position.
+            if (elMeta[metadataProperty] === undefined) {
+                elMeta[metadataProperty] = new Set(
+                    [...this.findClosestMarkOpsToLeft({ index, side, metadata })].filter(
+                        opInSet => opInSet !== op,
+                    ),
+                )
+            }
+
+            if (partialPatch !== undefined) {
+                const endIndex = indexForPatch
+                patch = this.emitPatch({ ...partialPatch, endIndex } as
+                    | AddMarkOperationInput
+                    | RemoveMarkOperationInput,
+                    length)
+                partialPatch = undefined
+            }
+
+            exitLoop = true
+        } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
+            if (partialPatch !== undefined) {
+                const endIndex = indexForPatch
+                patch = this.emitPatch({ ...partialPatch, endIndex } as
+                    | AddMarkOperationInput
+                    | RemoveMarkOperationInput,
+                    length)
+                partialPatch = undefined
+            }
+
+            const existingOps = elMeta[metadataProperty]!
+            const newOps = new Set([...existingOps, op])
+
+            if (!isEqual(opsToMarks(existingOps), opsToMarks(newOps))) {
+                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+            }
+
+            elMeta[metadataProperty] = newOps
+        }
+
+        return [exitLoop, opIntersectsItem, partialPatch, patch]
     }
 
     /**

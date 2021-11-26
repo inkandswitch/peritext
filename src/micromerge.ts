@@ -1071,15 +1071,21 @@ export default class Micromerge {
         const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
 
         // #no-ops
+        let endIndex = 0
         let currentOps = new Set<MarkOperation>()
         for (const [index, side, elMeta] of positions) {
             const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
             currentOps = metadata[index][metadataProperty] || currentOps
 
+            const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
+            endIndex = indexForPatch
+
             let patch
             [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, length, opIntersectsItem)
             if (patch) { patches.push(patch) }
-            if (exitLoop) { break }
+            if (exitLoop) {
+                break
+            }
 
             if (side === "after" && !elMeta.deleted) {
                 visibleIndex += 1
@@ -1088,7 +1094,7 @@ export default class Micromerge {
 
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
-            const endIndex = obj.length // The patch's exclusive-end is the length of the sequence
+            endIndex = Math.min(endIndex, obj.length as number) // The patch's exclusive-end is the length of the sequence
             const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
             if (patch) { patches.push(patch) }
         }
@@ -1144,7 +1150,7 @@ export default class Micromerge {
         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
             ({ partialPatch, newOps, opIntersectsItem } = this.opStartsLocation(op, currentOps, partialPatch, indexForPatch, opIntersectsItem))
         } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
-            ({ partialPatch, patch, newOps } = this.opEndsLocation(op, currentOps, partialPatch, indexForPatch, patch, length))
+            ({ newOps } = this.opEndsLocation(op, currentOps))
             exitLoop = true // this op is finished.
         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
             ({ partialPatch, newOps, patch } = this.opIntersectsItem(op, currentOps, partialPatch, indexForPatch, patch, length))
@@ -1176,11 +1182,7 @@ export default class Micromerge {
 
     private opEndsLocation(
         op: MarkOperation,
-        currentOps: Set<MarkOperation>,
-        partialPatch: PartialPatch | undefined,
-        indexForPatch: number,
-        patch: Patch | undefined,
-        length: number) {
+        currentOps: Set<MarkOperation>) {
         // Remove the active op from this location -- it's done. 
         const newOps = new Set(
             [...currentOps].filter(
@@ -1188,14 +1190,7 @@ export default class Micromerge {
             )
         )
 
-        if (partialPatch !== undefined) {
-            const endIndex = indexForPatch
-            patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput,
-                length)
-            partialPatch = undefined
-        }
-
-        return { partialPatch, patch, newOps }
+        return { newOps }
     }
 
     private opIntersectsItem(

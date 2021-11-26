@@ -953,24 +953,6 @@ export default class Micromerge {
         return ops
     }
 
-    private beginPartialPatch = (
-        op: MarkOperation,
-        startIndex: number
-    ): PartialPatch => {
-        const partialPatch: PartialPatch = {
-            action: op.action,
-            markType: op.markType,
-            path: [Micromerge.contentKey],
-            startIndex,
-        }
-
-        if (op.action === "addMark" && (op.markType === "link" || op.markType === "comment")) {
-            partialPatch.attrs = op.attrs
-        }
-
-        return partialPatch
-    }
-
     /**
      * Updates the document state with one of the operations from a change.
      */
@@ -1051,7 +1033,6 @@ export default class Micromerge {
     }
 
     private applyAddRemoveMark(op: MarkOperation): Patch[] {
-        // find the active marks before; add this mark to that list
         const metadata = this.metadata[op.obj]
         if (!(metadata instanceof Array)) {
             throw new Error(`Expected list metadata for a list`)
@@ -1060,19 +1041,20 @@ export default class Micromerge {
         // we shall build a list of patches to return
         const patches: Patch[] = []
 
-        let visibleIndex = 0
-        let currentOps = new Set<MarkOperation>()
-        const objLength = this.objects[op.obj].length as number // pvh wonders: why does this not account for deleted items?
-        let opState: MarkOpState = "BEFORE"
-
-        let partialPatch: PartialPatch | undefined
-
         // Make an ordered list of all the undeleted document positions, walking from left to right
         type Positions = [number, "markOpsAfter" | "markOpsBefore", ListItemMetadata][]
         const positions = Array.from(metadata.entries(), ([i, elMeta]) => [
             [i, "markOpsBefore", elMeta],
             [i, "markOpsAfter", elMeta]
         ]).flat() as Positions;
+
+        // set up some initial counters which will keep track of the state of the document.
+        // these are explained where they're used. 
+        let visibleIndex = 0
+        let currentOps = new Set<MarkOperation>()
+        let opState: MarkOpState = "BEFORE"
+        let partialPatch: PartialPatch | undefined
+        const objLength = this.objects[op.obj].length as number // pvh wonders: why does this not account for deleted items?
 
         for (const [, side, elMeta] of positions) {
             // First we update the currently known formatting operations affecting this position
@@ -1115,7 +1097,24 @@ export default class Micromerge {
         return patches
     }
 
-    // A helper function to emit patches representing changes.
+    private beginPartialPatch = (
+        op: MarkOperation,
+        startIndex: number
+    ): PartialPatch => {
+        const partialPatch: PartialPatch = {
+            action: op.action,
+            markType: op.markType,
+            path: [Micromerge.contentKey],
+            startIndex,
+        }
+
+        if (op.action === "addMark" && (op.markType === "link" || op.markType === "comment")) {
+            partialPatch.attrs = op.attrs
+        }
+
+        return partialPatch
+    }
+
     private finishPartialPatch(partialPatch: PartialPatch, endIndex: number, length: number): Patch | undefined {
         // Exclude certain patches which make sense from an internal metadata perspective,
         // but wouldn't make sense to an external caller:

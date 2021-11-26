@@ -1080,8 +1080,14 @@ export default class Micromerge {
             const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
             endIndex = indexForPatch
 
-            let patch
-            [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, length, opIntersectsItem)
+            let patch, newOps
+            [newOps, exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, length, opIntersectsItem)
+
+
+            if (newOps && !partialPatch && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
+                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+            }
+
             if (patch) { patches.push(patch) }
             if (exitLoop) {
                 break
@@ -1133,6 +1139,7 @@ export default class Micromerge {
         partialPatch: PartialPatch | undefined,
         length: number,
         opIntersectsItem: boolean): [
+            newOps: Set<MarkOperation> | undefined,
             exitLoop: boolean,
             opIntersectsItem: boolean,
             partialPatch: PartialPatch | undefined,
@@ -1148,7 +1155,7 @@ export default class Micromerge {
         let newOps: Set<MarkOperation> | undefined = undefined
 
         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
-            ({ partialPatch, newOps, opIntersectsItem } = this.opStartsLocation(op, currentOps, partialPatch, indexForPatch, opIntersectsItem))
+            ({ newOps, opIntersectsItem } = this.opStartsLocation(op, currentOps))
         } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
             ({ newOps } = this.opEndsLocation(op, currentOps))
             exitLoop = true // this op is finished.
@@ -1156,28 +1163,20 @@ export default class Micromerge {
             ({ partialPatch, newOps, patch } = this.opIntersectsItem(op, currentOps, partialPatch, indexForPatch, patch, length))
         }
 
+
         if (newOps) {
             elMeta[metadataProperty] = newOps
         }
 
-        return [exitLoop, opIntersectsItem, partialPatch, patch]
+        return [newOps, exitLoop, opIntersectsItem, partialPatch, patch]
     }
 
     private opStartsLocation(
         op: MarkOperation,
-        currentOps: Set<MarkOperation>,
-        partialPatch: PartialPatch | undefined,
-        indexForPatch: number,
-        opIntersectsItem: boolean) {
+        currentOps: Set<MarkOperation>) {
         const newOps = new Set([...currentOps, op])
-
-        // If this op has an effect on the final formatting, start emitting a patch
-        if (!isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
-            partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-        }
-
-        opIntersectsItem = true
-        return { partialPatch, newOps, opIntersectsItem }
+        const opIntersectsItem = true
+        return { newOps, opIntersectsItem }
     }
 
     private opEndsLocation(
@@ -1209,10 +1208,6 @@ export default class Micromerge {
         }
 
         const newOps = new Set([...currentOps, op])
-
-        if (!isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
-            partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
-        }
 
         return { partialPatch, patch, newOps }
     }

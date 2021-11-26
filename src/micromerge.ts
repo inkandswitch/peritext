@@ -1081,8 +1081,14 @@ export default class Micromerge {
             endIndex = indexForPatch
 
             let patch, newOps
-            [newOps, exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, length, opIntersectsItem)
+            [newOps, exitLoop, opIntersectsItem] = this.applyOpToEachPosition(op, currentOps, side, elMeta, opIntersectsItem)
 
+            if ((opIntersectsItem && elMeta[metadataProperty] !== undefined) && partialPatch !== undefined) {
+                const endIndex = indexForPatch
+                patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput,
+                    length)
+                partialPatch = undefined
+            }
 
             if (newOps && !partialPatch && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
                 partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
@@ -1135,23 +1141,16 @@ export default class Micromerge {
         currentOps: Set<MarkOperation>,
         side: "before" | "after",
         elMeta: ListItemMetadata,
-        visibleIndex: number,
-        partialPatch: PartialPatch | undefined,
-        length: number,
         opIntersectsItem: boolean): [
             newOps: Set<MarkOperation> | undefined,
             exitLoop: boolean,
-            opIntersectsItem: boolean,
-            partialPatch: PartialPatch | undefined,
-            patch: Patch | undefined] {
+            opIntersectsItem: boolean] {
         // Compute an index in the visible characters which will be used for patches.
         // If this character is visible and we're on the "after slot", then the relevant
         // index is one to the right of the current visible index.
         // Otherwise, just use the current visible index.
-        const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
         const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
         let exitLoop = false
-        let patch: Patch | undefined
         let newOps: Set<MarkOperation> | undefined = undefined
 
         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
@@ -1160,15 +1159,14 @@ export default class Micromerge {
             ({ newOps } = this.opEndsLocation(op, currentOps))
             exitLoop = true // this op is finished.
         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
-            ({ partialPatch, newOps, patch } = this.opIntersectsItem(op, currentOps, partialPatch, indexForPatch, patch, length))
+            ({ newOps } = this.opIntersectsItem(op, currentOps))
         }
-
 
         if (newOps) {
             elMeta[metadataProperty] = newOps
         }
 
-        return [newOps, exitLoop, opIntersectsItem, partialPatch, patch]
+        return [newOps, exitLoop, opIntersectsItem]
     }
 
     private opStartsLocation(
@@ -1194,22 +1192,9 @@ export default class Micromerge {
 
     private opIntersectsItem(
         op: MarkOperation,
-        currentOps: Set<MarkOperation>,
-        partialPatch: PartialPatch | undefined,
-        indexForPatch: number,
-        patch: Patch | undefined,
-        length: number) {
-
-        if (partialPatch !== undefined) {
-            const endIndex = indexForPatch
-            patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput,
-                length)
-            partialPatch = undefined
-        }
-
+        currentOps: Set<MarkOperation>) {
         const newOps = new Set([...currentOps, op])
-
-        return { partialPatch, patch, newOps }
+        return { newOps }
     }
 
     /**

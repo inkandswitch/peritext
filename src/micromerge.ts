@@ -1059,17 +1059,17 @@ export default class Micromerge {
             throw new Error(`Expected list metadata for a list`)
         }
 
+        // Make an ordered list of all the undeleted document positions, walking from left to right
+        type Positions = [number, "before" | "after", ListItemMetadata][]
+        const undeletedCharacters = Array.from(metadata.entries()).filter(([, el]) => !el.deleted)
+        const positions = undeletedCharacters.flatMap(([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]) as Positions;
+
         // Maintain a flag while we iterate, detecting whether the op we're applying
         // overlaps with the metadata item we're currently considering
         let currentOps = new Set<MarkOperation>()
         let opIntersectsItem = false
-
         let partialPatch: PartialPatch | undefined
 
-        // Make an ordered list of all the undeleted document positions, walking from left to right
-        type Positions = [number, "before" | "after", ListItemMetadata][]
-        const undeletedCharacters = Array.from(metadata.entries()).filter(([i, el]) => !el.deleted)
-        const positions = undeletedCharacters.flatMap(([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]) as Positions;
         for (const [index, side, elMeta] of positions) {
             // now we update the currently known formatting operations affecting this position
             const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
@@ -1144,43 +1144,21 @@ export default class Micromerge {
         let newOps: Set<MarkOperation> | undefined = undefined
 
         if (op.start.type === side && op.start.elemId === elMeta.elemId) {
-            ({ newOps, opIntersectsItem } = this.opStartsLocation(op, currentOps))
+            // we've reached the start of the operation
+            newOps = new Set([...currentOps, op])
+            opIntersectsItem = true
         } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
-            ({ newOps } = this.opEndsLocation(op, currentOps))
+            // and here's the end of the operation
+            newOps = new Set([...currentOps].filter(
+                opInSet => opInSet !== op
+            ))
             exitLoop = true // this op is finished.
         } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
-            ({ newOps } = this.opIntersectsItem(op, currentOps))
+            // we've hit some kind of change in formatting mid-operation 
+            newOps = new Set([...currentOps, op])
         }
 
         return [newOps, exitLoop, opIntersectsItem]
-    }
-
-    private opStartsLocation(
-        op: MarkOperation,
-        currentOps: Set<MarkOperation>) {
-        const newOps = new Set([...currentOps, op])
-        const opIntersectsItem = true
-        return { newOps, opIntersectsItem }
-    }
-
-    private opEndsLocation(
-        op: MarkOperation,
-        currentOps: Set<MarkOperation>) {
-        // Remove the active op from this location -- it's done. 
-        const newOps = new Set(
-            [...currentOps].filter(
-                opInSet => opInSet !== op
-            )
-        )
-
-        return { newOps }
-    }
-
-    private opIntersectsItem(
-        op: MarkOperation,
-        currentOps: Set<MarkOperation>) {
-        const newOps = new Set([...currentOps, op])
-        return { newOps }
     }
 
     /**

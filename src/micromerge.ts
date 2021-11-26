@@ -1041,7 +1041,7 @@ export default class Micromerge {
         // we shall build a list of patches to return
         const patches: Patch[] = []
 
-        // Make an ordered list of all the undeleted document positions, walking from left to right
+        // Make an ordered list of all the document positions, walking from left to right
         type Positions = [number, "markOpsAfter" | "markOpsBefore", ListItemMetadata][]
         const positions = Array.from(metadata.entries(), ([i, elMeta]) => [
             [i, "markOpsBefore", elMeta],
@@ -1059,28 +1059,31 @@ export default class Micromerge {
         for (const [, side, elMeta] of positions) {
             // First we update the currently known formatting operations affecting this position
             currentOps = elMeta[side] || currentOps
-            let newOps
-            [newOps, opState] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opState)
-            if (newOps) { elMeta[side] = newOps }
+            let changedOps
+            [opState, changedOps] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opState)
+            if (changedOps) { elMeta[side] = changedOps }
 
-            // then we build a partial patch during one iteration, then keep counting forward until something changes,
-            // and ultimately emit it. If the operation keeps going past the change in formatting, we then begin another
-            // patch. Eventually, we finish walking through the operation (or reach the end of the document) and close out the final patch.
-            // To make this work, we must keep track of the visible character position, ignoring deleted items
+            // Next we need to do patch maintenance.
+            // Once we are DURING the operation, we'll start a patch, emitting an intermediate patch
+            // any time the formatting changes during that range, and eventually emitting one last patch
+            // at the end of the range (or document.) 
             if (side === "markOpsAfter" && !elMeta.deleted) {
+                // We need to keep track of the "visible" index, since the outside world won't know about
+                // deleted characters.
                 visibleIndex += 1
             }
 
-            if (newOps) {
-                // first see if we need to emit a new patch
+            if (changedOps) {
+                // First see if we need to emit a new patch, which occurs when formatting changes
+                // within the range of characters the formatting operation targets.
                 if (partialPatch) {
                     const patch = this.finishPartialPatch(partialPatch, visibleIndex, objLength)
                     if (patch) { patches.push(patch) }
                     partialPatch = undefined
                 }
 
-                // note that during a formatting change mid-op-span it's possible to need to finish & start a new patch on one position
-                if (opState == "DURING" && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
+                // Now begin a new patch since we have new formatting to send out.
+                if (opState == "DURING" && !isEqual(opsToMarks(currentOps), opsToMarks(changedOps))) {
                     partialPatch = this.beginPartialPatch(op, visibleIndex)
                 }
             }
@@ -1095,6 +1098,32 @@ export default class Micromerge {
         }
 
         return patches
+    }
+
+    private calculateOpsForPosition(
+        op: MarkOperation, currentOps: Set<MarkOperation>,
+        side: "markOpsBefore" | "markOpsAfter",
+        elMeta: ListItemMetadata,
+        opState: MarkOpState): [opState: MarkOpState, newOps?: Set<MarkOperation>] {
+        // Compute an index in the visible characters which will be used for patches.
+        // If this character is visible and we're on the "after slot", then the relevant
+        // index is one to the right of the current visible index.
+        // Otherwise, just use the current visible index.
+        const opSide = side === "markOpsAfter" ? "after" : "before"
+
+        if (op.start.type === opSide && op.start.elemId === elMeta.elemId) {
+            // we've reached the start of the operation
+            return ["DURING", new Set([...currentOps, op])]
+        } else if (op.end.type === opSide && op.end.elemId === elMeta.elemId) {
+            // and here's the end of the operation
+            return ["AFTER", new Set([...currentOps].filter(opInSet => opInSet !== op))]
+        } else if (opState == "DURING" && elMeta[side] !== undefined) {
+            // we've hit some kind of change in formatting mid-operation
+            return ["DURING", new Set([...currentOps, op])]
+        }
+
+        // No change...
+        return [opState, undefined]
     }
 
     private beginPartialPatch = (
@@ -1127,39 +1156,6 @@ export default class Micromerge {
             return patch
         }
         return undefined
-    }
-
-    private calculateOpsForPosition(
-        op: MarkOperation,
-        currentOps: Set<MarkOperation>,
-        side: "markOpsBefore" | "markOpsAfter",
-        elMeta: ListItemMetadata,
-        opState: MarkOpState): [
-            newOps: Set<MarkOperation> | undefined,
-            opState: MarkOpState] {
-        // Compute an index in the visible characters which will be used for patches.
-        // If this character is visible and we're on the "after slot", then the relevant
-        // index is one to the right of the current visible index.
-        // Otherwise, just use the current visible index.
-        const opSide = side === "markOpsAfter" ? "after" : "before"
-        let newOps: Set<MarkOperation> | undefined = undefined
-
-        if (op.start.type === opSide && op.start.elemId === elMeta.elemId) {
-            // we've reached the start of the operation
-            newOps = new Set([...currentOps, op])
-            opState = "DURING"
-        } else if (op.end.type === opSide && op.end.elemId === elMeta.elemId) {
-            // and here's the end of the operation
-            newOps = new Set([...currentOps].filter(
-                opInSet => opInSet !== op
-            ))
-            opState = "AFTER"
-        } else if (opState == "DURING" && elMeta[side] !== undefined) {
-            // we've hit some kind of change in formatting mid-operation 
-            newOps = new Set([...currentOps, op])
-        }
-
-        return [newOps, opState]
     }
 
     /**

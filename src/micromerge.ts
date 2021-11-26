@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import uuid from "uuid"
-import { isEqual, partial, sortBy } from "lodash"
+import { isEqual, sortBy } from "lodash"
 import { Marks, markSpec, MarkType } from "./schema"
 
 const CHILDREN = Symbol("children")
@@ -17,6 +17,11 @@ export type Patch =
     | DeleteOperationInput
     | AddMarkOperationInput
     | RemoveMarkOperationInput
+
+/**
+ * As we walk through the document applying the operation, we keep track of whether we've reached the right area.
+ */
+type MarkOpState = "BEFORE" | "DURING" | "AFTER"
 
 /** A patch which only has a start index and not an end index yet.
  *  Used when we're iterating thru metadata sequence and constructing a patch to emit.
@@ -948,12 +953,10 @@ export default class Micromerge {
         return ops
     }
 
-    private constructPartialPatch = (args: {
-        op: MarkOperation
+    private beginPartialPatch = (
+        op: MarkOperation,
         startIndex: number
-    }): PartialPatch => {
-        const { op, startIndex } = args
-
+    ): PartialPatch => {
         const partialPatch: PartialPatch = {
             action: op.action,
             markType: op.markType,
@@ -1047,66 +1050,65 @@ export default class Micromerge {
         return []
     }
 
-
-    private applyAddRemoveMark(op: MarkOperation) {
-        const patches: Patch[] = []
-        const obj = this.objects[op.obj]
-        const length = obj.length as number
-
+    private applyAddRemoveMark(op: MarkOperation): Patch[] {
         // find the active marks before; add this mark to that list
         const metadata = this.metadata[op.obj]
         if (!(metadata instanceof Array)) {
             throw new Error(`Expected list metadata for a list`)
         }
 
-        // Maintain a flag while we iterate, detecting whether the op we're applying
-        // overlaps with the metadata item we're currently considering
-        let opIntersectsItem = false
+        // we shall build a list of patches to return
+        const patches: Patch[] = []
+
         let visibleIndex = 0
         let currentOps = new Set<MarkOperation>()
+        const objLength = this.objects[op.obj].length as number // pvh wonders: why does this not account for deleted items?
+        let opState: MarkOpState = "BEFORE"
 
         let partialPatch: PartialPatch | undefined
 
         // Make an ordered list of all the undeleted document positions, walking from left to right
-        type Positions = [number, "before" | "after", ListItemMetadata][]
-        const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
-        for (const [index, side, elMeta] of positions) {
+        type Positions = [number, "markOpsAfter" | "markOpsBefore", ListItemMetadata][]
+        const positions = Array.from(metadata.entries(), ([i, elMeta]) => [
+            [i, "markOpsBefore", elMeta],
+            [i, "markOpsAfter", elMeta]
+        ]).flat() as Positions;
+
+        for (const [, side, elMeta] of positions) {
             // First we update the currently known formatting operations affecting this position
-            const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
-
-            if (side === "after" && !elMeta.deleted) {
-                visibleIndex += 1
-            }
-
-            currentOps = metadata[index][metadataProperty] || currentOps
-            let newOps, exitLoop
-            [newOps, exitLoop, opIntersectsItem] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opIntersectsItem)
-            if (newOps) { elMeta[metadataProperty] = newOps }
+            currentOps = elMeta[side] || currentOps
+            let newOps
+            [newOps, opState] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opState)
+            if (newOps) { elMeta[side] = newOps }
 
             // then we build a partial patch during one iteration, then keep counting forward until something changes,
             // and ultimately emit it. If the operation keeps going past the change in formatting, we then begin another
             // patch. Eventually, we finish walking through the operation (or reach the end of the document) and close out the final patch.
+            // To make this work, we must keep track of the visible character position, ignoring deleted items
+            if (side === "markOpsAfter" && !elMeta.deleted) {
+                visibleIndex += 1
+            }
+
             if (newOps) {
                 // first see if we need to emit a new patch
-                if (partialPatch && opIntersectsItem) {
-                    const patch = this.finishPartialPatch(partialPatch, visibleIndex, length)
+                if (partialPatch) {
+                    const patch = this.finishPartialPatch(partialPatch, visibleIndex, objLength)
                     if (patch) { patches.push(patch) }
                     partialPatch = undefined
                 }
 
                 // note that during a formatting change mid-op-span it's possible to need to finish & start a new patch on one position
-                if (!partialPatch && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
-                    partialPatch = this.constructPartialPatch({ op, startIndex: visibleIndex })
+                if (opState == "DURING" && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
+                    partialPatch = this.beginPartialPatch(op, visibleIndex)
                 }
             }
 
-            if (exitLoop) { break }
-
+            if (opState == "AFTER") { break }
         }
 
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
-            const patch = this.finishPartialPatch(partialPatch, visibleIndex, length)
+            const patch = this.finishPartialPatch(partialPatch, visibleIndex, objLength)
             if (patch) { patches.push(patch) }
         }
 
@@ -1131,36 +1133,34 @@ export default class Micromerge {
     private calculateOpsForPosition(
         op: MarkOperation,
         currentOps: Set<MarkOperation>,
-        side: "before" | "after",
+        side: "markOpsBefore" | "markOpsAfter",
         elMeta: ListItemMetadata,
-        opIntersectsItem: boolean): [
+        opState: MarkOpState): [
             newOps: Set<MarkOperation> | undefined,
-            exitLoop: boolean,
-            opIntersectsItem: boolean] {
+            opState: MarkOpState] {
         // Compute an index in the visible characters which will be used for patches.
         // If this character is visible and we're on the "after slot", then the relevant
         // index is one to the right of the current visible index.
         // Otherwise, just use the current visible index.
-        const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
-        let exitLoop = false
+        const opSide = side === "markOpsAfter" ? "after" : "before"
         let newOps: Set<MarkOperation> | undefined = undefined
 
-        if (op.start.type === side && op.start.elemId === elMeta.elemId) {
+        if (op.start.type === opSide && op.start.elemId === elMeta.elemId) {
             // we've reached the start of the operation
             newOps = new Set([...currentOps, op])
-            opIntersectsItem = true
-        } else if (op.end.type === side && op.end.elemId === elMeta.elemId) {
+            opState = "DURING"
+        } else if (op.end.type === opSide && op.end.elemId === elMeta.elemId) {
             // and here's the end of the operation
             newOps = new Set([...currentOps].filter(
                 opInSet => opInSet !== op
             ))
-            exitLoop = true // this op is finished.
-        } else if (opIntersectsItem && elMeta[metadataProperty] !== undefined) {
+            opState = "AFTER"
+        } else if (opState == "DURING" && elMeta[side] !== undefined) {
             // we've hit some kind of change in formatting mid-operation 
             newOps = new Set([...currentOps, op])
         }
 
-        return [newOps, exitLoop, opIntersectsItem]
+        return [newOps, opState]
     }
 
     /**

@@ -1063,7 +1063,6 @@ export default class Micromerge {
         // overlaps with the metadata item we're currently considering
         let opIntersectsItem = false
         let visibleIndex = 0
-        let endIndex = 0
         let currentOps = new Set<MarkOperation>()
 
         let partialPatch: PartialPatch | undefined
@@ -1073,10 +1072,12 @@ export default class Micromerge {
         const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
         for (const [index, side, elMeta] of positions) {
             const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
-            const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
+
+            if (side === "after" && !elMeta.deleted) {
+                visibleIndex += 1
+            }
 
             currentOps = metadata[index][metadataProperty] || currentOps
-            endIndex = indexForPatch
 
             let newOps, exitLoop
             [newOps, exitLoop, opIntersectsItem] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opIntersectsItem)
@@ -1084,25 +1085,22 @@ export default class Micromerge {
             if (newOps) { elMeta[metadataProperty] = newOps }
 
             if (opIntersectsItem && elMeta[metadataProperty] !== undefined && partialPatch !== undefined) {
-                const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
+                const patch = this.emitPatch({ ...partialPatch, endIndex: visibleIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
                 if (patch) { patches.push(patch) }
                 partialPatch = undefined
             }
 
             if (newOps && !partialPatch && !isEqual(opsToMarks(currentOps), opsToMarks(newOps))) {
-                partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
+                partialPatch = this.constructPartialPatch({ op, startIndex: visibleIndex })
             }
 
             if (exitLoop) { break }
 
-            if (side === "after" && !elMeta.deleted) {
-                visibleIndex += 1
-            }
         }
 
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
-            const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
+            const patch = this.emitPatch({ ...partialPatch, endIndex: visibleIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
             if (patch) { patches.push(patch) }
         }
 

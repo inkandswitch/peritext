@@ -1071,7 +1071,7 @@ export default class Micromerge {
         type Positions = [number, "before" | "after", ListItemMetadata][]
         const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
         for (const [index, side, elMeta] of positions) {
-            // now we update the currently known formatting operations affecting this position
+            // First we update the currently known formatting operations affecting this position
             const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
 
             if (side === "after" && !elMeta.deleted) {
@@ -1083,14 +1083,10 @@ export default class Micromerge {
             [newOps, exitLoop, opIntersectsItem] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opIntersectsItem)
             if (newOps) { elMeta[metadataProperty] = newOps }
 
-            // now a rather subtle bit of code to decide whether to emit a patch
-            // we build a partial patch during one iteration, then keep counting forward until something changes,
-            // and ultimately emit it. if the operation keeps going past the change in formatting, we then begin another
-            // patch. eventually, we finish walking through the operation (or reach the end of the document) and close out the final patch.
+            // then we build a partial patch during one iteration, then keep counting forward until something changes,
+            // and ultimately emit it. If the operation keeps going past the change in formatting, we then begin another
+            // patch. Eventually, we finish walking through the operation (or reach the end of the document) and close out the final patch.
             if (newOps) {
-                // spans that stretch to "after" need to include one more character for reasons pvh does not yet understand
-                const visibleIndex = (side === "after") ? index + 1 : index
-
                 // first see if we need to emit a new patch
                 if (partialPatch && opIntersectsItem) {
                     const patch = this.finishPartialPatch(partialPatch, visibleIndex, length)
@@ -1105,11 +1101,12 @@ export default class Micromerge {
             }
 
             if (exitLoop) { break }
+
         }
 
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
-            const patch = this.finishPartialPatch(partialPatch, undeletedCharacters.length, length)
+            const patch = this.finishPartialPatch(partialPatch, visibleIndex, length)
             if (patch) { patches.push(patch) }
         }
 

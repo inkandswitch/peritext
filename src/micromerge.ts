@@ -1063,34 +1063,29 @@ export default class Micromerge {
         // overlaps with the metadata item we're currently considering
         let opIntersectsItem = false
         let visibleIndex = 0
-
-        let partialPatch: PartialPatch | undefined
-        let exitLoop: boolean = false
-
-        type Positions = [number, "before" | "after", ListItemMetadata][]
-        const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
-
-        // #no-ops
         let endIndex = 0
         let currentOps = new Set<MarkOperation>()
+
+        let partialPatch: PartialPatch | undefined
+
+        // Make a list of 
+        type Positions = [number, "before" | "after", ListItemMetadata][]
+        const positions = Array.from(metadata.entries(), ([i, elMeta]) => [[i, "before", elMeta], [i, "after", elMeta]]).flat() as Positions;
         for (const [index, side, elMeta] of positions) {
             const metadataProperty = side === "after" ? "markOpsAfter" : "markOpsBefore"
-            currentOps = metadata[index][metadataProperty] || currentOps
-
             const indexForPatch = side === "after" && !elMeta.deleted ? visibleIndex + 1 : visibleIndex
+
+            currentOps = metadata[index][metadataProperty] || currentOps
             endIndex = indexForPatch
 
-            let patch, newOps
+            let newOps, exitLoop
             [newOps, exitLoop, opIntersectsItem] = this.calculateOpsForPosition(op, currentOps, side, elMeta, opIntersectsItem)
 
-            if (newOps) {
-                elMeta[metadataProperty] = newOps
-            }
+            if (newOps) { elMeta[metadataProperty] = newOps }
 
-            if ((opIntersectsItem && elMeta[metadataProperty] !== undefined) && partialPatch !== undefined) {
-                const endIndex = indexForPatch
-                patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput,
-                    length)
+            if (opIntersectsItem && elMeta[metadataProperty] !== undefined && partialPatch !== undefined) {
+                const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
+                if (patch) { patches.push(patch) }
                 partialPatch = undefined
             }
 
@@ -1098,10 +1093,7 @@ export default class Micromerge {
                 partialPatch = this.constructPartialPatch({ op, startIndex: indexForPatch })
             }
 
-            if (patch) { patches.push(patch) }
-            if (exitLoop) {
-                break
-            }
+            if (exitLoop) { break }
 
             if (side === "after" && !elMeta.deleted) {
                 visibleIndex += 1
@@ -1110,7 +1102,6 @@ export default class Micromerge {
 
         // If we have a partial patch leftover at the end, emit it
         if (partialPatch) {
-            endIndex = Math.min(endIndex, obj.length as number) // The patch's exclusive-end is the length of the sequence
             const patch = this.emitPatch({ ...partialPatch, endIndex } as AddMarkOperationInput | RemoveMarkOperationInput, length)
             if (patch) { patches.push(patch) }
         }

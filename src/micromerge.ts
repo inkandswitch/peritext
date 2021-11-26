@@ -1077,7 +1077,7 @@ export default class Micromerge {
             currentOps = metadata[index][metadataProperty] || currentOps
 
             let patch
-            [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, metadata, length, opIntersectsItem)
+            [exitLoop, opIntersectsItem, partialPatch, patch] = this.applyOpToEachPosition(op, currentOps, side, elMeta, visibleIndex, partialPatch, length, opIntersectsItem)
             if (patch) { patches.push(patch) }
             if (exitLoop) { break }
 
@@ -1125,7 +1125,6 @@ export default class Micromerge {
         elMeta: ListItemMetadata,
         visibleIndex: number,
         partialPatch: PartialPatch | undefined,
-        metadata: ListMetadata,
         length: number,
         opIntersectsItem: boolean): [
             exitLoop: boolean,

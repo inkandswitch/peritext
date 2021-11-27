@@ -22,8 +22,7 @@
         "@typescript-eslint/eslint-plugin": "^4.0.1",
         "@typescript-eslint/parser": "^4.0.1",
         "eslint": "^7.8.1",
-        "parcel": "^2.0.0-nightly.916",
-        "parcel-bundler": "^1.12.4",
+        "parcel": "^2.0.1",
         "prettier": "^2.2.1",
         "typescript": "^4.3.2"
     },

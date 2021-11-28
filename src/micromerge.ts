@@ -386,7 +386,9 @@ export default class Micromerge {
                         patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "addMark" || inputOp.action === "removeMark") {
-                    changeMark(inputOp, objId, meta, obj, change, patchesForChange, this.makeNewOp.bind(this) /* don't tell my mom */)
+                    const partialOp = changeMark(inputOp, objId, meta, obj)
+                    const { patches } = this.makeNewOp(change, partialOp as any /* what is up with this */)
+                    patchesForChange.push(...patches)
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
                 } else if (inputOp.action === "makeList" || inputOp.action === "makeMap" || inputOp.action === "set") {

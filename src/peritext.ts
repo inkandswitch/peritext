@@ -3,7 +3,7 @@ import { isEqual, sortBy } from "lodash"
 import Micromerge, { 
     Json, 
     ObjectId, OperationId, OperationPath,
-    BaseOperation, Change, Patch,
+    BaseOperation, Patch,
     ListItemMetadata, ListMetadata, Metadata, 
     compareOpIds, getListElementId } from "./micromerge"
 import { Marks, markSpec, MarkType } from "./schema"
@@ -521,16 +521,13 @@ export function addCharactersToSpans(args: {
     }
 }
 
+// TODO: what's up with these return types?
 export function changeMark(
     inputOp: AddMarkOperationInput | RemoveMarkOperationInput,
     objId: ObjectId,
     meta: Metadata,
-    obj: Json[] | (Json[] & Record<string, Json>),
-    change: Change,
-    patchesForChange: Patch[],
-    // eslint-disable-next-line @typescript-eslint/ban-types -- pvh todo: clean this up so the responsibility moves out of here
-    makeNewOp: Function): void {
-    const { action, startIndex, endIndex } = inputOp
+    obj: Json[] | (Json[] & Record<string, Json>)): unknown {
+    const { action, startIndex, endIndex, markType, attrs = undefined } = inputOp
 
     // TODO: factor this out to a proper per-mark-type config object somewhere
     const startGrows = false
@@ -566,9 +563,5 @@ export function changeMark(
         end = { type: "after", elemId: getListElementId(meta, endIndex - 1) }
     }
 
-    const partialOp = { action, obj: objId, start, end } as const
-
-    const { markType, attrs = undefined } = inputOp
-    const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
-    patchesForChange.push(...patches)
+    return { action, obj: objId, start, end, markType, attrs } 
 }

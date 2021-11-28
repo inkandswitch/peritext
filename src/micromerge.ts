@@ -5,8 +5,8 @@ import {
     AddMarkOperation, AddMarkOperationInput,
     RemoveMarkOperation, RemoveMarkOperationInput,
     MarkMapWithoutOpIds, FormatSpanWithText,
-    changeMark, applyAddRemoveMark, findClosestMarkOpsToLeft /*todo?*/,
-    getTextWithFormatting, opsToMarks
+    changeMark, applyAddRemoveMark, getActiveMarksAtIndex,
+    getTextWithFormatting,
 } from "./peritext"
 
 const CHILDREN = Symbol("children")
@@ -387,7 +387,7 @@ export default class Micromerge {
                     }
                 } else if (inputOp.action === "addMark" || inputOp.action === "removeMark") {
                     const partialOp = changeMark(inputOp, objId, meta, obj)
-                    const { patches } = this.makeNewOp(change, partialOp as any /* what is up with this */)
+                    const { patches } = this.makeNewOp(change, partialOp)
                     patchesForChange.push(...patches)
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
@@ -607,30 +607,30 @@ export default class Micromerge {
      */
     // TODO: Extend this to take MakeMapOperation and MakeListOperation.
     private applyListInsert(op: InsertOperation): Patch[] {
-        const meta = this.metadata[op.obj]
-        if (!Array.isArray(meta)) {
+        const metadata = this.metadata[op.obj]
+        if (!Array.isArray(metadata)) {
             throw new Error(`Not a list: ${String(op.obj)}`)
         }
 
         // op.elemId is the ID of the reference element; we want to insert after this element
         let { index, visible } =
             op.elemId === HEAD ? { index: -1, visible: 0 } : this.findListElement(op.obj, op.elemId)
-        if (index >= 0 && !meta[index].deleted) {
+        if (index >= 0 && !metadata[index].deleted) {
             visible++
         }
         index++
 
         // Skip over any elements whose elemId is greater than op.opId
         // (this ensures convergence when there are concurrent insertions at the same position)
-        while (index < meta.length && compareOpIds(op.opId, meta[index].elemId) < 0) {
-            if (!meta[index].deleted) {
+        while (index < metadata.length && compareOpIds(op.opId, metadata[index].elemId) < 0) {
+            if (!metadata[index].deleted) {
                 visible++
             }
             index++
         }
 
         // Insert the new list element at the correct index
-        meta.splice(index, 0, {
+        metadata.splice(index, 0, {
             elemId: op.opId,
             valueId: op.opId,
             deleted: false,
@@ -651,8 +651,7 @@ export default class Micromerge {
         }
         obj.splice(visible, 0, value)
 
-        // PVH TODO: more peritext leaking 
-        const marks = opsToMarks(findClosestMarkOpsToLeft({ metadata: meta, index: index, side: "before" }))
+        const marks = getActiveMarksAtIndex(metadata, index)
 
         return [
             {

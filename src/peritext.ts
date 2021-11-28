@@ -395,6 +395,9 @@ export function opsToMarks(ops: Set<MarkOperation>): MarkMapWithoutOpIds {
     return cleanedMap
 }
 
+export function getActiveMarksAtIndex(metadata: ListMetadata, index: number): MarkMapWithoutOpIds {
+    return opsToMarks(findClosestMarkOpsToLeft({ metadata, index, side: "before" }))
+}
 
 /** Given a path to somewhere in the document, return a list of format spans w/ text.
  *  Each span specifies the formatting marks as well as the text within the span.
@@ -526,8 +529,8 @@ export function changeMark(
     inputOp: AddMarkOperationInput | RemoveMarkOperationInput,
     objId: ObjectId,
     meta: ListMetadata,
-    obj: Json[] | (Json[] & Record<string, Json>)): unknown {
-    const { action, startIndex, endIndex, markType, attrs = undefined } = inputOp
+    obj: Json[] | (Json[] & Record<string, Json>)): DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> {
+    const { action, startIndex, endIndex, markType, attrs } = inputOp
 
     // TODO: factor this out to a proper per-mark-type config object somewhere
     const startGrows = false
@@ -563,5 +566,6 @@ export function changeMark(
         end = { type: "after", elemId: getListElementId(meta, endIndex - 1) }
     }
 
-    return { action, obj: objId, start, end, markType, attrs }
+    const partialOp: DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> = { action, obj: objId, start, end, markType, ...(attrs) && { attrs } }
+    return partialOp
 }

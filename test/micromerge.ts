@@ -1,5 +1,6 @@
 import assert from "assert"
-import { FormatSpanWithText, InputOperation, MarkMapWithoutOpIds } from "../src/micromerge"
+import { InputOperation } from "../src/micromerge"
+import { FormatSpanWithText, MarkMapWithoutOpIds } from "../src/peritext"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { generateDocs } from "./generateDocs"

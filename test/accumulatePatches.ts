@@ -1,5 +1,5 @@
-import { FormatSpanWithText, Patch } from "../src/micromerge"
-import { addCharactersToSpans } from "../src/peritext"
+import { Patch } from "../src/micromerge"
+import { FormatSpanWithText, addCharactersToSpans } from "../src/peritext"
 import { isEqual, sortBy } from "lodash"
 import { TextWithMetadata, range } from "./micromerge"
 

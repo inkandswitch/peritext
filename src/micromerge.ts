@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import uuid from "uuid"
-import { Marks, markSpec, MarkType } from "./schema"
-import { AddMarkOperation, AddMarkOperationInput, applyAddRemoveMark, BoundaryPosition, findClosestMarkOpsToLeft, getTextWithFormatting, MarkOperation, MarkValue, opsToMarks, RemoveMarkOperation, RemoveMarkOperationInput } from "./peritext"
+import {
+    MarkOperation,
+    AddMarkOperation, AddMarkOperationInput,
+    RemoveMarkOperation, RemoveMarkOperationInput,
+    MarkMapWithoutOpIds, FormatSpanWithText,
+    changeMark, applyAddRemoveMark, findClosestMarkOpsToLeft /*todo?*/,
+    getTextWithFormatting, opsToMarks
+} from "./peritext"
 
 const CHILDREN = Symbol("children")
 const ROOT = Symbol("_root")
@@ -20,25 +26,12 @@ export type Patch =
 
 type CONTENT_KEY = "text"
 
-export type MarkMapWithoutOpIds = {
-    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-    ? Array<WithoutOpId<MarkValue[K]>>
-    : WithoutOpId<MarkValue[K]>
-}
-
-type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
-
-export interface FormatSpanWithText {
-    text: string
-    marks: MarkMapWithoutOpIds
-}
-
 export type ActorId = string
 export type OperationId = string
 export type Cursor = { objectId: ObjectId; elemId: ElemId }
 
 /** The operation that created the object. */
-type ObjectId = OperationId | typeof ROOT
+export type ObjectId = OperationId | typeof ROOT
 type ElemId = OperationId | typeof HEAD
 type ChangeNumber = number
 type OpNumber = number
@@ -338,13 +331,18 @@ export default class Micromerge {
                 throw new Error(`Object doesn't exist: ${String(objId)}`)
             }
 
+            const meta = this.metadata[objId]
+            if (!meta) {
+                throw new Error(`Object ID not found: ${String(objId)}`)
+            }
+
             // Check if the operation is modifying a list object.
             if (Array.isArray(obj)) {
                 if (inputOp.action === "insert") {
                     let elemId =
                         inputOp.index === 0
                             ? HEAD
-                            : this.getListElementId(objId, inputOp.index - 1, { lookAfterTombstones: true })
+                            : getListElementId(meta, inputOp.index - 1, { lookAfterTombstones: true })
                     for (const value of inputOp.values) {
                         const { opId: result, patches } = this.makeNewOp(change, {
                             action: "set",
@@ -379,7 +377,7 @@ export default class Micromerge {
                     //   v
                     // xxx3456
                     for (let i = 0; i < inputOp.count; i++) {
-                        const elemId = this.getListElementId(objId, inputOp.index)
+                        const elemId = getListElementId(meta, inputOp.index)
                         const { patches } = this.makeNewOp(change, {
                             action: "del",
                             obj: objId,
@@ -388,77 +386,7 @@ export default class Micromerge {
                         patchesForChange.push(...patches)
                     }
                 } else if (inputOp.action === "addMark" || inputOp.action === "removeMark") {
-                    // PVH TODO: move this out of this file
-                    const { action } = inputOp
-
-                    // TODO: factor this out to a proper per-mark-type config object somewhere
-                    const startGrows = false
-                    const endGrows = markSpec[inputOp.markType].inclusive
-
-                    let start: BoundaryPosition
-                    let end: BoundaryPosition
-
-                    if (startGrows) {
-                        if (inputOp.startIndex > 0) {
-                            start = { type: "after", elemId: this.getListElementId(objId, inputOp.startIndex - 1) }
-                        } else {
-                            start = { type: "startOfText" }
-                        }
-                    } else {
-                        start = {
-                            type: "before",
-                            elemId: this.getListElementId(objId, inputOp.startIndex),
-                        }
-                    }
-
-                    if (endGrows) {
-                        if (inputOp.endIndex < obj.length) {
-                            // Because the end index on the input op is exclusive, to attach the end of the op
-                            // to the following character we just use the index as-is
-                            end = { type: "before", elemId: this.getListElementId(objId, inputOp.endIndex) }
-                        } else {
-                            end = { type: "endOfText" }
-                        }
-                    } else {
-                        end = {
-                            type: "after",
-                            elemId: this.getListElementId(objId, inputOp.endIndex - 1),
-                        }
-                    }
-
-                    const partialOp = { action, obj: objId, start, end } as const
-
-                    if (action === "addMark") {
-                        if (inputOp.markType === "comment") {
-                            const { markType, attrs } = inputOp
-                            const { patches } = this.makeNewOp(change, { ...partialOp, action, markType, attrs })
-                            patchesForChange.push(...patches)
-                        } else if (inputOp.markType === "link") {
-                            const { markType, attrs } = inputOp
-                            const { patches } = this.makeNewOp(change, { ...partialOp, action, markType, attrs })
-                            patchesForChange.push(...patches)
-                        } else {
-                            const { patches } = this.makeNewOp(change, { ...partialOp, markType: inputOp.markType })
-                            patchesForChange.push(...patches)
-                        }
-                    } else {
-                        if (inputOp.markType === "comment") {
-                            const { patches } = this.makeNewOp(change, {
-                                ...partialOp,
-                                action,
-                                markType: inputOp.markType,
-                                attrs: inputOp.attrs,
-                            })
-                            patchesForChange.push(...patches)
-                        } else {
-                            const { patches } = this.makeNewOp(change, {
-                                ...partialOp,
-                                action,
-                                markType: inputOp.markType,
-                            })
-                            patchesForChange.push(...patches)
-                        }
-                    }
+                    changeMark(inputOp, objId, meta, obj, change, patchesForChange, this.makeNewOp.bind(this) /* don't tell my mom */)
                 } else if (inputOp.action === "del") {
                     throw new Error("Use the remove action")
                 } else if (inputOp.action === "makeList" || inputOp.action === "makeMap" || inputOp.action === "set") {
@@ -535,10 +463,11 @@ export default class Micromerge {
 
     public getCursor(path: OperationPath, index: number): Cursor {
         const objectId = this.getObjectIdForPath(path)
+        const meta = this.metadata[objectId]
 
         return {
             objectId,
-            elemId: this.getListElementId(objectId, index),
+            elemId: getListElementId(meta, index),
         }
     }
 
@@ -825,58 +754,56 @@ export default class Micromerge {
         return { index, visible }
     }
 
-    /**
-     * Scans the list object with ID `objectId` and returns the element ID of the `index`-th
-     * non-deleted element. This is essentially the inverse of `findListElement()`.
-     */
-    private getListElementId(
-        objectId: ObjectId,
-        index: number,
-        options?: { lookAfterTombstones: boolean },
-    ): OperationId {
-        let visible = -1
-        const meta = this.metadata[objectId]
-        if (!meta) {
-            throw new Error(`Object ID not found: ${String(objectId)}`)
-        }
-        if (!Array.isArray(meta)) {
-            throw new Error("Expected array metadata for findListElement")
-        }
-        for (const [metaIndex, element] of meta.entries()) {
-            if (!element.deleted) {
-                visible++
-                if (visible === index) {
-                    if (options?.lookAfterTombstones) {
-                        // Normally in Automerge we insert new characters before any tombstones at the insertion position.
-                        // But when formatting is involved, we sometimes want to insert after some of the tombstones.
-                        // We peek ahead and see if there are any tombstones that have a nonempty markOpsAfter;
-                        // If there are, we want to put this new character after the last such tombstone.
-                        // This ensures that if there are non-growing marks which end at this insertion position,
-                        // this new character is inserted after the span-end.
-                        // See the test case labeled "handles growth behavior for spans where the boundary is a tombstone"
-                        // for a motivating exapmle of why this behavior is needed.
-                        let elemIndex = metaIndex
-                        let peekIndex = metaIndex + 1
-                        let latestIndexAfterTombstone: number | undefined
+}
 
-                        while (meta[peekIndex] && meta[peekIndex].deleted) {
-                            if (meta[peekIndex].markOpsAfter !== undefined) {
-                                latestIndexAfterTombstone = peekIndex
-                            }
-                            peekIndex++
+
+/**
+ * Scans the list object with ID `objectId` and returns the element ID of the `index`-th
+ * non-deleted element. This is essentially the inverse of `findListElement()`.
+ */
+export function getListElementId(
+    meta: Metadata,
+    index: number,
+    options?: { lookAfterTombstones: boolean },
+): OperationId {
+    let visible = -1
+    if (!Array.isArray(meta)) {
+        throw new Error("Expected array metadata for findListElement")
+    }
+    for (const [metaIndex, element] of meta.entries()) {
+        if (!element.deleted) {
+            visible++
+            if (visible === index) {
+                if (options?.lookAfterTombstones) {
+                    // Normally in Automerge we insert new characters before any tombstones at the insertion position.
+                    // But when formatting is involved, we sometimes want to insert after some of the tombstones.
+                    // We peek ahead and see if there are any tombstones that have a nonempty markOpsAfter;
+                    // If there are, we want to put this new character after the last such tombstone.
+                    // This ensures that if there are non-growing marks which end at this insertion position,
+                    // this new character is inserted after the span-end.
+                    // See the test case labeled "handles growth behavior for spans where the boundary is a tombstone"
+                    // for a motivating exapmle of why this behavior is needed.
+                    let elemIndex = metaIndex
+                    let peekIndex = metaIndex + 1
+                    let latestIndexAfterTombstone: number | undefined
+
+                    while (meta[peekIndex] && meta[peekIndex].deleted) {
+                        if (meta[peekIndex].markOpsAfter !== undefined) {
+                            latestIndexAfterTombstone = peekIndex
                         }
-                        if (latestIndexAfterTombstone) {
-                            elemIndex = latestIndexAfterTombstone
-                        }
-                        return meta[elemIndex].elemId
-                    } else {
-                        return element.elemId
+                        peekIndex++
                     }
+                    if (latestIndexAfterTombstone) {
+                        elemIndex = latestIndexAfterTombstone
+                    }
+                    return meta[elemIndex].elemId
+                } else {
+                    return element.elemId
                 }
             }
         }
-        throw new RangeError(`List index out of bounds: ${index}`)
     }
+    throw new RangeError(`List index out of bounds: ${index}`)
 }
 
 /**

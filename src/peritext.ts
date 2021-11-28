@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { isEqual, sortBy } from "lodash"
-import Micromerge, { BaseOperation, compareOpIds, FormatSpanWithText, JsonComposite, ListItemMetadata, ListMetadata, MarkMapWithoutOpIds, Metadata, OperationId, OperationPath, Patch } from "./micromerge"
-import { Marks, MarkType } from "./schema"
+import Micromerge, { BaseOperation, Change, compareOpIds, getListElementId, Json, JsonComposite, ListItemMetadata, ListMetadata, Metadata, ObjectId, OperationId, OperationPath, Patch } from "./micromerge"
+import { Marks, markSpec, MarkType } from "./schema"
 
 export type MarkOperation = AddMarkOperation | RemoveMarkOperation
 
@@ -22,6 +23,19 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     end: BoundaryPosition
     /** Mark to add. */
     markType: M
+}
+
+export type MarkMapWithoutOpIds = {
+    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
+    ? Array<WithoutOpId<MarkValue[K]>>
+    : WithoutOpId<MarkValue[K]>
+}
+
+type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
+
+export interface FormatSpanWithText {
+    text: string
+    marks: MarkMapWithoutOpIds
 }
 
 export type AddMarkOperation = Values<{
@@ -495,5 +509,87 @@ export function addCharactersToSpans(args: {
     } else {
         // Otherwise we create a new span with the characters
         spans.push({ text: characters.join(""), marks })
+    }
+}
+
+
+export function changeMark(
+    inputOp: (AddMarkOperationInputBase<"strong"> & { attrs?: undefined }) | (AddMarkOperationInputBase<"em"> & { attrs?: undefined }) | (AddMarkOperationInputBase<"comment"> & { attrs: Required<Omit<{ id: string; opId: string }, "opId" | "active">> }) | (AddMarkOperationInputBase<"link"> & { attrs: Required<Omit<{ url: string; opId: string; active: true } | { url?: undefined; opId: string; active: false }, "opId" | "active">> }) | (RemoveMarkOperationInputBase<"strong"> & { attrs?: undefined /** Value to set at the given field. */ }) | (RemoveMarkOperationInputBase<"em"> & { attrs?: undefined }) | (RemoveMarkOperationInputBase<"comment"> & { attrs: Omit<{ id: string; opId: string }, "opId"> }) | (RemoveMarkOperationInputBase<"link"> & { attrs?: undefined }),
+    objId: ObjectId,
+    meta: Metadata,
+    obj: Json[] | (Json[] & Record<string, Json>),
+    change: Change,
+    patchesForChange: Patch[],
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    makeNewOp: Function): void {
+    const { action } = inputOp
+
+    // TODO: factor this out to a proper per-mark-type config object somewhere
+    const startGrows = false
+    const endGrows = markSpec[inputOp.markType].inclusive
+
+    let start: BoundaryPosition
+    let end: BoundaryPosition
+
+    if (startGrows) {
+        if (inputOp.startIndex > 0) {
+            start = { type: "after", elemId: getListElementId(meta, inputOp.startIndex - 1) }
+        } else {
+            start = { type: "startOfText" }
+        }
+    } else {
+        start = {
+            type: "before",
+            elemId: getListElementId(meta, inputOp.startIndex),
+        }
+    }
+
+    if (endGrows) {
+        if (inputOp.endIndex < obj.length) {
+            // Because the end index on the input op is exclusive, to attach the end of the op
+            // to the following character we just use the index as-is
+            end = { type: "before", elemId: getListElementId(meta, inputOp.endIndex) }
+        } else {
+            end = { type: "endOfText" }
+        }
+    } else {
+        end = {
+            type: "after",
+            elemId: getListElementId(meta, inputOp.endIndex - 1),
+        }
+    }
+
+    const partialOp = { action, obj: objId, start, end } as const
+
+    if (action === "addMark") {
+        if (inputOp.markType === "comment") {
+            const { markType, attrs } = inputOp
+            const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
+            patchesForChange.push(...patches)
+        } else if (inputOp.markType === "link") {
+            const { markType, attrs } = inputOp
+            const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
+            patchesForChange.push(...patches)
+        } else {
+            const { patches } = makeNewOp(change, { ...partialOp, markType: inputOp.markType })
+            patchesForChange.push(...patches)
+        }
+    } else {
+        if (inputOp.markType === "comment") {
+            const { patches } = makeNewOp(change, {
+                ...partialOp,
+                action,
+                markType: inputOp.markType,
+                attrs: inputOp.attrs,
+            })
+            patchesForChange.push(...patches)
+        } else {
+            const { patches } = makeNewOp(change, {
+                ...partialOp,
+                action,
+                markType: inputOp.markType,
+            })
+            patchesForChange.push(...patches)
+        }
     }
 }

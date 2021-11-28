@@ -2,7 +2,7 @@
  * Logic for interfacing between ProseMirror and CRDT.
  */
 
-import Micromerge, { MarkMapWithoutOpIds, OperationPath, Patch } from "./micromerge"
+import Micromerge, { OperationPath, Patch } from "./micromerge"
 import { EditorState, TextSelection, Transaction } from "prosemirror-state"
 import { EditorView } from "prosemirror-view"
 import { Schema, Slice, Node, Fragment, Mark } from "prosemirror-model"
@@ -16,12 +16,15 @@ import type { Publisher } from "./pubsub"
 import type {
     ActorId,
     Char,
-    FormatSpanWithText,
     Change,
     Operation as InternalOperation,
     InputOperation,
-    MarkValue,
 } from "./micromerge"
+import {
+    MarkMapWithoutOpIds,
+    FormatSpanWithText,
+    MarkValue,
+} from "./peritext"
 import type { Comment, CommentId } from "./comment"
 import { v4 as uuid } from "uuid"
 

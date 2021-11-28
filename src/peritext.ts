@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { isEqual, sortBy } from "lodash"
-import Micromerge, { 
-    Json, 
-    ObjectId, OperationId, OperationPath,
+import Micromerge, {
+    Json, ObjectId, OperationId, OperationPath,
     BaseOperation, Patch,
-    ListItemMetadata, ListMetadata, Metadata, 
-    compareOpIds, getListElementId } from "./micromerge"
+    ListItemMetadata, ListMetadata,
+    compareOpIds, getListElementId
+} from "./micromerge"
 import { Marks, markSpec, MarkType } from "./schema"
 
 export type MarkOperation = AddMarkOperation | RemoveMarkOperation
@@ -180,7 +180,7 @@ type MarkOpState = "BEFORE" | "DURING" | "AFTER"
  */
 type PartialPatch = Omit<AddMarkOperationInput, "endIndex"> | Omit<RemoveMarkOperationInput, "endIndex">
 
-export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Metadata): Patch[] {
+export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: ListMetadata): Patch[] {
     if (!(metadata instanceof Array)) {
         throw new Error(`Expected list metadata for a list`)
     }
@@ -401,7 +401,7 @@ export function opsToMarks(ops: Set<MarkOperation>): MarkMapWithoutOpIds {
  *  (This function avoids the need for a caller to manually stitch together
  *  format spans with a text string.)
  */
-export function getTextWithFormatting(text: Json, metadata: Metadata): Array<FormatSpanWithText> {
+export function getTextWithFormatting(text: Json, metadata: ListMetadata): Array<FormatSpanWithText> {
     // Conveniently print out the metadata array, useful for debugging
     // console.log(
     //     inspect(
@@ -525,7 +525,7 @@ export function addCharactersToSpans(args: {
 export function changeMark(
     inputOp: AddMarkOperationInput | RemoveMarkOperationInput,
     objId: ObjectId,
-    meta: Metadata,
+    meta: ListMetadata,
     obj: Json[] | (Json[] & Record<string, Json>)): unknown {
     const { action, startIndex, endIndex, markType, attrs = undefined } = inputOp
 
@@ -563,5 +563,5 @@ export function changeMark(
         end = { type: "after", elemId: getListElementId(meta, endIndex - 1) }
     }
 
-    return { action, obj: objId, start, end, markType, attrs } 
+    return { action, obj: objId, start, end, markType, attrs }
 }

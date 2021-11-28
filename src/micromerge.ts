@@ -337,7 +337,7 @@ export default class Micromerge {
             }
 
             // Check if the operation is modifying a list object.
-            if (Array.isArray(obj)) {
+            if (Array.isArray(obj) && Array.isArray(meta)) {
                 if (inputOp.action === "insert") {
                     let elemId =
                         inputOp.index === 0
@@ -400,17 +400,11 @@ export default class Micromerge {
                 // The operation is modifying a map object.
                 if (
                     inputOp.action === "makeList" ||
-                    inputOp.action === "makeMap"
+                    inputOp.action === "makeMap" ||
+                    inputOp.action === "del"
                     // TODO: Why can't I handle the "del" case here????
                     // inputOp.action === "del"
                 ) {
-                    const { patches } = this.makeNewOp(change, {
-                        action: inputOp.action,
-                        obj: objId,
-                        key: inputOp.key,
-                    })
-                    patchesForChange.push(...patches)
-                } else if (inputOp.action === "del") {
                     const { patches } = this.makeNewOp(change, {
                         action: inputOp.action,
                         obj: objId,
@@ -563,7 +557,7 @@ export default class Micromerge {
                 }
                 return this.applyListUpdate(op)
             } else if (op.action === "addMark" || op.action === "removeMark") {
-                return applyAddRemoveMark(op, this.objects[op.obj], this.metadata[op.obj])
+                return applyAddRemoveMark(op, obj, metadata)
             } else if (op.action === "makeList" || op.action === "makeMap") {
                 throw new Error("Unimplemented")
             } else {

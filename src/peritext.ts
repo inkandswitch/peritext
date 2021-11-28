@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { isEqual, sortBy } from "lodash"
-import Micromerge, { BaseOperation, Change, compareOpIds, getListElementId, Json, JsonComposite, ListItemMetadata, ListMetadata, Metadata, ObjectId, OperationId, OperationPath, Patch } from "./micromerge"
+import Micromerge, { 
+    Json, 
+    ObjectId, OperationId, OperationPath,
+    BaseOperation, Change, Patch,
+    ListItemMetadata, ListMetadata, Metadata, 
+    compareOpIds, getListElementId } from "./micromerge"
 import { Marks, markSpec, MarkType } from "./schema"
 
 export type MarkOperation = AddMarkOperation | RemoveMarkOperation
@@ -175,8 +180,12 @@ type MarkOpState = "BEFORE" | "DURING" | "AFTER"
  */
 type PartialPatch = Omit<AddMarkOperationInput, "endIndex"> | Omit<RemoveMarkOperationInput, "endIndex">
 
-export function applyAddRemoveMark(op: MarkOperation, object: JsonComposite, metadata: Metadata): Patch[] {
+export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Metadata): Patch[] {
     if (!(metadata instanceof Array)) {
+        throw new Error(`Expected list metadata for a list`)
+    }
+
+    if (!(object instanceof Array)) {
         throw new Error(`Expected list metadata for a list`)
     }
 
@@ -392,7 +401,7 @@ export function opsToMarks(ops: Set<MarkOperation>): MarkMapWithoutOpIds {
  *  (This function avoids the need for a caller to manually stitch together
  *  format spans with a text string.)
  */
-export function getTextWithFormatting(text: JsonComposite, metadata: Metadata): Array<FormatSpanWithText> {
+export function getTextWithFormatting(text: Json, metadata: Metadata): Array<FormatSpanWithText> {
     // Conveniently print out the metadata array, useful for debugging
     // console.log(
     //     inspect(
@@ -512,17 +521,16 @@ export function addCharactersToSpans(args: {
     }
 }
 
-
 export function changeMark(
-    inputOp: (AddMarkOperationInputBase<"strong"> & { attrs?: undefined }) | (AddMarkOperationInputBase<"em"> & { attrs?: undefined }) | (AddMarkOperationInputBase<"comment"> & { attrs: Required<Omit<{ id: string; opId: string }, "opId" | "active">> }) | (AddMarkOperationInputBase<"link"> & { attrs: Required<Omit<{ url: string; opId: string; active: true } | { url?: undefined; opId: string; active: false }, "opId" | "active">> }) | (RemoveMarkOperationInputBase<"strong"> & { attrs?: undefined /** Value to set at the given field. */ }) | (RemoveMarkOperationInputBase<"em"> & { attrs?: undefined }) | (RemoveMarkOperationInputBase<"comment"> & { attrs: Omit<{ id: string; opId: string }, "opId"> }) | (RemoveMarkOperationInputBase<"link"> & { attrs?: undefined }),
+    inputOp: AddMarkOperationInput | RemoveMarkOperationInput,
     objId: ObjectId,
     meta: Metadata,
     obj: Json[] | (Json[] & Record<string, Json>),
     change: Change,
     patchesForChange: Patch[],
-    // eslint-disable-next-line @typescript-eslint/ban-types
+    // eslint-disable-next-line @typescript-eslint/ban-types -- pvh todo: clean this up so the responsibility moves out of here
     makeNewOp: Function): void {
-    const { action } = inputOp
+    const { action, startIndex, endIndex } = inputOp
 
     // TODO: factor this out to a proper per-mark-type config object somewhere
     const startGrows = false
@@ -531,65 +539,36 @@ export function changeMark(
     let start: BoundaryPosition
     let end: BoundaryPosition
 
-    if (startGrows) {
-        if (inputOp.startIndex > 0) {
-            start = { type: "after", elemId: getListElementId(meta, inputOp.startIndex - 1) }
-        } else {
-            start = { type: "startOfText" }
-        }
+    /**
+     *  [start]---["H"]---["e"]---["y"]---[end]
+     *        |   |   |   |   |   |   |   |
+     *        SA  0B  0A  1B  1A  2B  2A  EB
+     *
+     * Spans that grow attach to the next/preceding position, sometimes
+     * on a different character, so if a span ends on character 1 "e" but should 
+     * expand if new text is inserted, we actually attach the end of the span to 
+     * character 2's "before" slot.
+     */
+
+    if (startGrows && inputOp.startIndex == 0) {
+        start = { type: "startOfText" }
+    } else if (startGrows) {
+        start = { type: "after", elemId: getListElementId(meta, startIndex - 1) }
     } else {
-        start = {
-            type: "before",
-            elemId: getListElementId(meta, inputOp.startIndex),
-        }
+        start = { type: "before", elemId: getListElementId(meta, startIndex) }
     }
 
-    if (endGrows) {
-        if (inputOp.endIndex < obj.length) {
-            // Because the end index on the input op is exclusive, to attach the end of the op
-            // to the following character we just use the index as-is
-            end = { type: "before", elemId: getListElementId(meta, inputOp.endIndex) }
-        } else {
-            end = { type: "endOfText" }
-        }
+    if (endGrows && inputOp.endIndex >= obj.length) {
+        end = { type: "endOfText" }
+    } else if (endGrows) {
+        end = { type: "before", elemId: getListElementId(meta, endIndex) }
     } else {
-        end = {
-            type: "after",
-            elemId: getListElementId(meta, inputOp.endIndex - 1),
-        }
+        end = { type: "after", elemId: getListElementId(meta, endIndex - 1) }
     }
 
     const partialOp = { action, obj: objId, start, end } as const
 
-    if (action === "addMark") {
-        if (inputOp.markType === "comment") {
-            const { markType, attrs } = inputOp
-            const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
-            patchesForChange.push(...patches)
-        } else if (inputOp.markType === "link") {
-            const { markType, attrs } = inputOp
-            const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
-            patchesForChange.push(...patches)
-        } else {
-            const { patches } = makeNewOp(change, { ...partialOp, markType: inputOp.markType })
-            patchesForChange.push(...patches)
-        }
-    } else {
-        if (inputOp.markType === "comment") {
-            const { patches } = makeNewOp(change, {
-                ...partialOp,
-                action,
-                markType: inputOp.markType,
-                attrs: inputOp.attrs,
-            })
-            patchesForChange.push(...patches)
-        } else {
-            const { patches } = makeNewOp(change, {
-                ...partialOp,
-                action,
-                markType: inputOp.markType,
-            })
-            patchesForChange.push(...patches)
-        }
-    }
+    const { markType, attrs = undefined } = inputOp
+    const { patches } = makeNewOp(change, { ...partialOp, action, markType, attrs })
+    patchesForChange.push(...patches)
 }

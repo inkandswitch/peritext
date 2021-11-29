@@ -92,7 +92,9 @@ if (aliceNode && aliceEditor && aliceChanges && aliceMarks) {
 const bobNode = document.querySelector("#bob")
 const bobEditor = bobNode?.querySelector(".editor")
 const bobChanges = bobNode?.querySelector(".changes")
-if (bobNode && bobEditor && bobChanges) {
+const bobMarks = bobNode?.querySelector(".marks")
+
+if (bobNode && bobEditor && bobChanges && bobMarks) {
     editors["bob"] = createEditor({
         actorId: "bob",
         editorNode: bobEditor,
@@ -106,7 +108,7 @@ if (bobNode && bobEditor && bobChanges) {
             if (!direct) return false
 
             const marksAtPosition = view.state.doc.resolve(pos).marks()
-            renderMarks(aliceMarks, marksAtPosition)
+            renderMarks(bobMarks, marksAtPosition)
             return false
         },
     })

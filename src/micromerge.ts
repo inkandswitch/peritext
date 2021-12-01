@@ -807,6 +807,7 @@ export function getListElementId(
  * counter values; if the IDs have equal counter values, we lexicographically compare actorIds.
  */
 export function compareOpIds(id1: OperationId, id2: OperationId): -1 | 0 | 1 {
+    // TODO: can we make undefined a valid input?
     if (id1 == id2) return 0
     const regex = /^([0-9]+)@(.*)$/
     const match1 = regex.exec(id1),

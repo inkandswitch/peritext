@@ -20,6 +20,8 @@ export type BoundaryPosition =
     | { type: "startOfText" }
     | { type: "endOfText" }
 
+type MarkOpsPosition = "markOpsBefore" | "markOpsAfter"
+
 interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     action: "addMark"
     /** List element to apply the mark start. */
@@ -30,24 +32,16 @@ interface AddMarkOperationBase<M extends MarkType> extends BaseOperation {
     markType: M
 }
 
-export type MarkMapWithoutOpIds = {
-    [K in MarkType]?: Marks[K]["allowMultiple"] extends true
-    ? Array<WithoutOpId<MarkValue[K]>>
-    : WithoutOpId<MarkValue[K]>
-}
-
-type WithoutOpId<M extends Values<MarkValue>> = Omit<M, "opId">
-
 export interface FormatSpanWithText {
     text: string
-    marks: MarkMapWithoutOpIds
+    marks: MarkMap
 }
 
 export type AddMarkOperation = Values<{
-    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+    [M in MarkType]: keyof Omit<MarkValue[M], "active"> extends never
     ? AddMarkOperationBase<M> & { attrs?: undefined }
     : AddMarkOperationBase<M> & {
-        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+        attrs: Required<Omit<MarkValue[M], "active">>
     }
 }>
 
@@ -66,7 +60,7 @@ export type RemoveMarkOperation =
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
         /** Data attributes for the mark. */
-        attrs: DistributiveOmit<MarkValue["comment"], "opId">
+        attrs: MarkValue["comment"]
     })
     | RemoveMarkOperationBase<"link">
 
@@ -84,10 +78,10 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 
 // TODO: automatically populate attrs type w/o manual enumeration
 export type AddMarkOperationInput = Values<{
-    [M in MarkType]: keyof Omit<MarkValue[M], "opId" | "active"> extends never
+    [M in MarkType]: keyof Omit<MarkValue[M], "active"> extends never
     ? AddMarkOperationInputBase<M> & { attrs?: undefined }
     : AddMarkOperationInputBase<M> & {
-        attrs: Required<Omit<MarkValue[M], "opId" | "active">>
+        attrs: Required<Omit<MarkValue[M], "active">>
     }
 }>
 
@@ -114,48 +108,25 @@ export type RemoveMarkOperationInput =
     })
     | (RemoveMarkOperationInputBase<"comment"> & {
         /** Data attributes for the mark. */
-        attrs: Omit<MarkValue["comment"], "opId">
+        attrs: MarkValue["comment"]
     })
     | (RemoveMarkOperationInputBase<"link"> & {
         /** Data attributes for the mark. */
         attrs?: undefined
     })
 
-type IdMarkValue = {
+type CommentMarkValue = {
     id: string
-    /** A MarkValue should always have the ID of the operation that last modified it. */
-    opId: OperationId
 }
 
-type BooleanMarkValue =
-    | {
-        active: true
-        /** A MarkValue should always have the ID of the operation that last modified it. */
-        opId: OperationId
-    }
-    | {
-        active: false
-        opId: OperationId
-    }
-
-type LinkMarkValue =
-    | {
-        url: string
-        /** A MarkValue should always have the ID of the operation that last modified it. */
-        opId: OperationId
-        active: true
-    }
-    | {
-        url?: undefined
-        opId: OperationId
-        active: false
-    }
+type BooleanMarkValue = { active: boolean }
+type LinkMarkValue = { url: string }
 
 export type MarkValue = Assert<
     {
         strong: BooleanMarkValue
         em: BooleanMarkValue
-        comment: IdMarkValue
+        comment: CommentMarkValue
         link: LinkMarkValue
     },
     { [K in MarkType]: Record<string, unknown> }
@@ -193,7 +164,7 @@ export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Li
     const patches: Patch[] = []
 
     // Make an ordered list of all the document positions, walking from left to right
-    type Positions = [number, "markOpsAfter" | "markOpsBefore", ListItemMetadata][]
+    type Positions = [number, MarkOpsPosition, ListItemMetadata][]
     const positions = Array.from(metadata.entries(), ([i, elMeta]) => [
         [i, "markOpsBefore", elMeta],
         [i, "markOpsAfter", elMeta]
@@ -253,7 +224,7 @@ export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Li
 
 function calculateOpsForPosition(
     op: MarkOperation, currentOps: Set<MarkOperation>,
-    side: "markOpsBefore" | "markOpsAfter",
+    side: MarkOpsPosition,
     elMeta: ListItemMetadata,
     opState: MarkOpState): [opState: MarkOpState, newOps?: Set<MarkOperation>] {
     // Compute an index in the visible characters which will be used for patches.
@@ -315,87 +286,46 @@ function finishPartialPatch(partialPatch: PartialPatch, endIndex: number, length
  *  (The ops can be in arbitrary order and the result is always
  *  the same, because we do op ID comparisons.)
  */
-export function opsToMarks(ops: Set<MarkOperation>): MarkMapWithoutOpIds {
+
+// PVH code comment
+// we could radically simplify this by storing opId separately,
+// giving em/strong a boolean attrs and treating equality as key/attr equality
+// might be worth doing for the AM implementation
+export function opsToMarks(ops: Set<MarkOperation>): MarkMap {
     const markMap: MarkMap = {}
+    const opIdMap: Record<MarkType, OperationId> = {}
 
     // Construct a mark map which stores op IDs
     for (const op of ops) {
-        const existingValue = markMap[op.markType]
+        const existingOpId = opIdMap[op.markType]
         // To ensure convergence, we don't always apply the operation to the mark map.
         // It only gets applied if its opID is greater than the previous op that
         // affected that value
-        if (
-            (op.markType === "strong" || op.markType === "em") &&
-            (existingValue === undefined ||
-                (!(existingValue instanceof Array) && compareOpIds(op.opId, existingValue.opId) === 1))
-        ) {
-            markMap[op.markType] = {
-                active: op.action === "addMark" ? true : false,
-                opId: op.opId,
-            }
-        } else if (
-            op.markType === "comment" &&
-            op.action === "addMark" &&
-            !markMap["comment"]?.find(c => c.id === op.attrs.id)
-        ) {
-            const newMark = {
-                id: op.attrs.id,
-                opId: op.opId,
-            }
-
-            // Keeping the comments in ID-sorted order helps make equality checks easier later
-            // because we can just check mark maps for deep equality
-            markMap["comment"] = sortBy([...(markMap["comment"] || []), newMark], c => c.id)
-        } else if (op.markType === "comment" && op.action === "removeMark") {
-            markMap["comment"] = (markMap["comment"] || []).filter(c => c.id !== op.attrs.id)
-        } else if (
-            op.markType === "link" &&
-            (existingValue === undefined ||
-                (!(existingValue instanceof Array) && compareOpIds(op.opId, existingValue.opId) === 1))
-        ) {
-            if (op.action === "addMark") {
-                markMap["link"] = {
-                    active: true,
-                    opId: op.opId,
-                    url: op.attrs.url,
+        if (!markSpec[op.markType].allowMultiple) {
+            if (existingOpId === undefined || compareOpIds(op.opId, existingOpId) === 1) {
+                opIdMap[op.markType] = op.opId
+                if (op.action === "addMark") {
+                    markMap[op.markType] = {...op.attrs, active: true }
                 }
-            } else {
-                markMap["link"] = {
-                    active: false,
-                    opId: op.opId,
+                else {
+                    delete markMap[op.markType]
                 }
+            }
+        } else {
+            if (op.action === "addMark" && !markMap[op.markType]?.find(c => c.id === op.attrs.id)) {
+                // Keeping the comments in ID-sorted order helps make equality checks easier later
+                // because we can just check mark maps for deep equality
+                markMap[op.markType] = sortBy([...(markMap[op.markType] || []), op.attrs], c => c.id)
+            } else if (op.action === "removeMark") {
+                markMap[op.markType] = (markMap[op.markType] || []).filter(c => c.id !== op.attrs.id)
             }
         }
     }
 
-    // Next, we remove op IDs from the mark map for final output.
-    // This looks somewhat convoluted but we're just removing op IDs
-    // and need to make the Typescript compiler happy...
-    const cleanedMap: MarkMapWithoutOpIds = {}
-
-    for (const [markType, markValue] of Object.entries(markMap)) {
-        if ((markType === "strong" || markType === "em") && !(markValue instanceof Array) && markValue.active) {
-            cleanedMap[markType] = { active: true }
-        } else if (markType === "comment") {
-            cleanedMap[markType] = sortBy(markMap["comment"]!, (c: IdMarkValue) => c.id).map((c: IdMarkValue) => ({
-                id: c.id,
-            }))
-        } else if (markType === "link") {
-            if (markMap["link"]!.active) {
-                cleanedMap["link"] = {
-                    active: true,
-                    url: markMap["link"]!.url,
-                }
-            } else {
-                cleanedMap["link"] = { active: false }
-            }
-        }
-    }
-
-    return cleanedMap
+    return markMap
 }
 
-export function getActiveMarksAtIndex(metadata: ListMetadata, index: number): MarkMapWithoutOpIds {
+export function getActiveMarksAtIndex(metadata: ListMetadata, index: number): MarkMap {
     return opsToMarks(findClosestMarkOpsToLeft({ metadata, index, side: "before" }))
 }
 
@@ -430,11 +360,11 @@ export function getTextWithFormatting(text: Json, metadata: ListMetadata): Array
 
     const spans: FormatSpanWithText[] = []
     let characters: string[] = []
-    let marks: MarkMapWithoutOpIds = {}
+    let marks: MarkMap = {}
     let visible = 0
 
     for (const [index, elMeta] of metadata.entries()) {
-        let newMarks: MarkMapWithoutOpIds | undefined
+        let newMarks: MarkMap | undefined
 
         // Figure out if new formatting became active in the gap before this character:
         // either on the "before" set of this character, or the "after" of previous character.
@@ -472,7 +402,7 @@ export function getTextWithFormatting(text: Json, metadata: ListMetadata): Array
 // - Returns a new Set object that clones the existing one to avoid problems with sharing references.
 // - If no mark operations are found between the beginning of the sequence and this position,
 //
-export function findClosestMarkOpsToLeft(args: {
+function findClosestMarkOpsToLeft(args: {
     index: number
     side: "before" | "after"
     metadata: ListMetadata
@@ -507,7 +437,7 @@ export function findClosestMarkOpsToLeft(args: {
 /** Add some characters with given marks to the end of a list of spans */
 export function addCharactersToSpans(args: {
     characters: string[]
-    marks: MarkMapWithoutOpIds
+    marks: MarkMap
     spans: FormatSpanWithText[]
 }): void {
     const { characters, marks, spans } = args

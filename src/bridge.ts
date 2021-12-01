@@ -21,7 +21,7 @@ import type {
     InputOperation,
 } from "./micromerge"
 import {
-    MarkMapWithoutOpIds,
+    MarkMap,
     FormatSpanWithText,
     MarkValue,
 } from "./peritext"
@@ -373,7 +373,7 @@ function prosemirrorPosFromContentPos(position: number) {
     return position + 1
 }
 
-function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(markMap: T): Mark[] {
+function getProsemirrorMarksForMarkMap<T extends MarkMap>(markMap: T): Mark[] {
     const marks = []
     for (const markType of ALL_MARKS) {
         const markValue = markMap[markType]
@@ -385,7 +385,7 @@ function getProsemirrorMarksForMarkMap<T extends MarkMapWithoutOpIds>(markMap: T
                 marks.push(schema.mark(markType, value))
             }
         } else {
-            if (markValue.active) {
+            if (markValue) {
                 marks.push(schema.mark(markType, markValue))
             }
         }

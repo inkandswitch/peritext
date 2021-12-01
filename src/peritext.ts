@@ -305,7 +305,7 @@ export function opsToMarks(ops: Set<MarkOperation>): MarkMap {
             if (existingOpId === undefined || compareOpIds(op.opId, existingOpId) === 1) {
                 opIdMap[op.markType] = op.opId
                 if (op.action === "addMark") {
-                    markMap[op.markType] = {...op.attrs, active: true }
+                    markMap[op.markType] = op.attrs || { active: true }
                 }
                 else {
                     delete markMap[op.markType]

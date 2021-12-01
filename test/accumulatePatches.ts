@@ -34,8 +34,7 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
                 for (const index of range(patch.startIndex, patch.endIndex - 1)) {
                     if (patch.markType !== "comment") {
                         metadata[index].marks[patch.markType] = {
-                            active: true,
-                            ...patch.attrs,
+                            ...(patch.attrs || { active: true }),
                         }
                     } else {
                         const commentsArray = metadata[index].marks[patch.markType]

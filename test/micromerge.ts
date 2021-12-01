@@ -1,5 +1,6 @@
 import assert from "assert"
-import { FormatSpanWithText, InputOperation, MarkMapWithoutOpIds } from "../src/micromerge"
+import { InputOperation } from "../src/micromerge"
+import { FormatSpanWithText, MarkMap } from "../src/peritext"
 import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { generateDocs } from "./generateDocs"
@@ -20,7 +21,7 @@ export const debug = (obj: any): void => {
  */
 export type TextWithMetadata = Array<{
     character: string
-    marks: MarkMapWithoutOpIds
+    marks: MarkMap
 }>
 
 export const range = (start: number, end: number): number[] => {
@@ -398,7 +399,7 @@ describe.only("Micromerge", () => {
                 //
                 expectedResult: [
                     { marks: {}, text: "The " },
-                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: { link: { url: "inkandswitch.com" } }, text: "Peritext" },
                     { marks: {}, text: "! editor" },
                 ],
             })
@@ -428,7 +429,7 @@ describe.only("Micromerge", () => {
                 //
                 expectedResult: [
                     { marks: {}, text: "The !" },
-                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: { link: { url: "inkandswitch.com" } }, text: "Peritext" },
                     { marks: {}, text: " editor" },
                 ],
             })
@@ -466,7 +467,7 @@ describe.only("Micromerge", () => {
                 expectedResult: [
                     { marks: {}, text: "The " },
                     {
-                        marks: { link: { active: true, url: "inkandswitch.com" }, strong: { active: true } },
+                        marks: { link: { url: "inkandswitch.com" }, strong: { active: true } },
                         text: "Peritext",
                     },
                     { marks: { strong: { active: true } }, text: "!" },
@@ -558,7 +559,7 @@ describe.only("Micromerge", () => {
                 // and the end of the link is on the E tombstone.
                 expectedResult: [
                     { marks: {}, text: "A" },
-                    { marks: { link: { active: true, url: "inkandswitch.com" } }, text: "C" },
+                    { marks: { link: { url: "inkandswitch.com" } }, text: "C" },
                     { marks: {}, text: "FE" },
                 ],
             })
@@ -875,7 +876,7 @@ describe.only("Micromerge", () => {
             ],
             expectedResult: [
                 { marks: {}, text: "A" },
-                { marks: { link: { active: true, url: "A.com" } }, text: "D" },
+                { marks: { link: { url: "A.com" } }, text: "D" },
             ],
         })
     })
@@ -903,7 +904,7 @@ describe.only("Micromerge", () => {
             ],
             expectedResult: [
                 { marks: {}, text: "ABC" },
-                { marks: { link: { active: true, url: "A.com" } }, text: "D" },
+                { marks: { link: { url: "A.com" } }, text: "D" },
             ],
         })
     })
@@ -1165,7 +1166,6 @@ describe.only("Micromerge", () => {
                 {
                     marks: {
                         link: {
-                            active: true,
                             url: "https://inkandswitch.com",
                         },
                     },
@@ -1199,7 +1199,7 @@ describe.only("Micromerge", () => {
                     { marks: {}, text: "The " },
                     {
                         marks: {
-                            link: { active: true, url: "https://google.com" },
+                            link: { url: "https://google.com" },
                         },
                         text: "Peritext",
                     },
@@ -1232,7 +1232,6 @@ describe.only("Micromerge", () => {
                     {
                         marks: {
                             link: {
-                                active: true,
                                 url: "https://inkandswitch.com",
                             },
                         },
@@ -1240,7 +1239,7 @@ describe.only("Micromerge", () => {
                     },
                     {
                         marks: {
-                            link: { active: true, url: "https://google.com" },
+                            link: { url: "https://google.com" },
                         },
                         text: "Peritext editor",
                     },
@@ -1275,7 +1274,7 @@ describe.only("Micromerge", () => {
                     },
                     {
                         marks: {
-                            link: { active: true, url: "https://google.com" },
+                            link: { url: "https://google.com" },
                         },
                         text: "Peritext",
                     },

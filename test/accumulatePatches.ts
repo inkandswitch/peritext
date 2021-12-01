@@ -1,4 +1,5 @@
-import { addCharactersToSpans, FormatSpanWithText, Patch } from "../src/micromerge"
+import { Patch } from "../src/micromerge"
+import { FormatSpanWithText, addCharactersToSpans } from "../src/peritext"
 import { isEqual, sortBy } from "lodash"
 import { TextWithMetadata, range } from "./micromerge"
 
@@ -33,8 +34,7 @@ export const accumulatePatches = (patches: Patch[]): FormatSpanWithText[] => {
                 for (const index of range(patch.startIndex, patch.endIndex - 1)) {
                     if (patch.markType !== "comment") {
                         metadata[index].marks[patch.markType] = {
-                            active: true,
-                            ...patch.attrs,
+                            ...(patch.attrs || { active: true }),
                         }
                     } else {
                         const commentsArray = metadata[index].marks[patch.markType]

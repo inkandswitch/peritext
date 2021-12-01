@@ -13,7 +13,7 @@ function assertUnreachable(x: never): never {
     throw new Error("Didn't expect to get here" + x)
 }
 
-const saveFailedTrace = (data: any) => {
+const saveFailedTrace = (data: unknown) => {
     const filename = `../traces/fail-${uuid()}.json`
     fs.writeFileSync(path.resolve(__dirname, filename), JSON.stringify(data))
     console.log(`wrote failed trace to ${filename}`)
@@ -69,7 +69,7 @@ function addMarkChange(doc: Micromerge) {
 }
 
 function removeMarkChange(doc: Micromerge) {
-    const length = (doc.root.text as any[]).length
+    const length = (doc.root.text as unknown[]).length
     const startIndex = Math.floor(Math.random() * length)
     const endIndex = startIndex + Math.floor(Math.random() * (length - startIndex)) + 1
     const markType = markTypes[Math.floor(Math.random() * markTypes.length)]
@@ -107,7 +107,7 @@ function removeMarkChange(doc: Micromerge) {
 
 const MAX_CHARS = 2
 function insertChange(doc: Micromerge) {
-    const length = (doc.root.text as any[]).length
+    const length = (doc.root.text as unknown[]).length
     const index = Math.floor(Math.random() * length)
     const numChars = Math.floor(Math.random() * MAX_CHARS)
     const values = crypto.randomBytes(numChars).toString("hex").split("")
@@ -123,7 +123,7 @@ function insertChange(doc: Micromerge) {
 }
 
 function removeChange(doc: Micromerge) {
-    const length = (doc.root.text as any[]).length
+    const length = (doc.root.text as unknown[]).length
     // gklitt: this appears to be a real bug! if you delete everything things go wonky
     const index = Math.floor(Math.random() * length) + 1
     const count = Math.ceil(Math.random() * (length - index))

@@ -2,10 +2,15 @@
 import uuid from "uuid"
 import {
     MarkOperation,
-    AddMarkOperation, AddMarkOperationInput,
-    RemoveMarkOperation, RemoveMarkOperationInput,
-    MarkMapWithoutOpIds, FormatSpanWithText,
-    changeMark, applyAddRemoveMark, getActiveMarksAtIndex,
+    AddMarkOperation,
+    AddMarkOperationInput,
+    RemoveMarkOperation,
+    RemoveMarkOperationInput,
+    MarkMapWithoutOpIds,
+    FormatSpanWithText,
+    changeMark,
+    applyAddRemoveMark,
+    getActiveMarksAtIndex,
     getTextWithFormatting,
 } from "./peritext"
 
@@ -748,9 +753,7 @@ export default class Micromerge {
         }
         return { index, visible }
     }
-
 }
-
 
 /**
  * Scans the list object with ID `objectId` and returns the element ID of the `index`-th

@@ -13,20 +13,11 @@ import { ReplaceStep, AddMarkStep, RemoveMarkStep } from "prosemirror-transform"
 import { ChangeQueue } from "./changeQueue"
 import type { DocSchema } from "./schema"
 import type { Publisher } from "./pubsub"
-import type {
-    ActorId,
-    Char,
-    Change,
-    Operation as InternalOperation,
-    InputOperation,
-} from "./micromerge"
-import {
-    MarkMap,
-    FormatSpanWithText,
-    MarkValue,
-} from "./peritext"
+import type { ActorId, Char, Change, Operation as InternalOperation, InputOperation } from "./micromerge"
+import { MarkMap, FormatSpanWithText, MarkValue } from "./peritext"
 import type { Comment, CommentId } from "./comment"
 import { v4 as uuid } from "uuid"
+import { clamp } from "lodash"
 
 export const schema = new Schema(schemaSpec)
 
@@ -355,13 +346,19 @@ export function createEditor(args: {
 /**
  * Converts a position in the Prosemirror doc to an offset in the CRDT content string.
  * For now we only have a single node so this is relatively trivial.
- * When things get more complicated with multiple nodes, we can probably take advantage
+ * In the future when things get more complicated with multiple block nodes,
+ * we can probably take advantage
  * of the additional metadata that Prosemirror can provide by "resolving" the position.
  * @param position : an unresolved Prosemirror position in the doc;
- * @returns
+ * @param doc : the Prosemirror document containing the position
  */
-function contentPosFromProsemirrorPos(position: number) {
-    return position - 1
+function contentPosFromProsemirrorPos(position: number, doc: Node<DocSchema>): number {
+    // The -1 accounts for the extra character at the beginning of the PM doc
+    // containing the beginning of the paragraph.
+    // In some rare cases we can end up with incoming positions outside of the single
+    // paragraph node (e.g., when the user does cmd-A to select all),
+    // so we need to be sure to clamp the resulting position to inside the paragraph node.
+    return clamp(position - 1, 0, doc.textContent.length)
 }
 
 /** Given an index in the text CRDT, convert to an index in the Prosemirror editor.
@@ -432,8 +429,10 @@ export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromer
                     operations.push({
                         path: [Micromerge.contentKey],
                         action: "delete",
-                        index: contentPosFromProsemirrorPos(step.from),
-                        count: step.to - step.from,
+                        index: contentPosFromProsemirrorPos(step.from, txn.before),
+                        count:
+                            contentPosFromProsemirrorPos(step.to, txn.before) -
+                            contentPosFromProsemirrorPos(step.from, txn.before),
                     })
                 }
 
@@ -442,7 +441,7 @@ export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromer
                 operations.push({
                     path: [Micromerge.contentKey],
                     action: "insert",
-                    index: contentPosFromProsemirrorPos(step.from),
+                    index: contentPosFromProsemirrorPos(step.from, txn.before),
                     values: insertedContent.split(""),
                 })
             } else {
@@ -450,8 +449,10 @@ export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromer
                 operations.push({
                     path: [Micromerge.contentKey],
                     action: "delete",
-                    index: contentPosFromProsemirrorPos(step.from),
-                    count: step.to - step.from,
+                    index: contentPosFromProsemirrorPos(step.from, txn.before),
+                    count:
+                        contentPosFromProsemirrorPos(step.to, txn.before) -
+                        contentPosFromProsemirrorPos(step.from, txn.before),
                 })
             }
         } else if (step instanceof AddMarkStep) {
@@ -467,8 +468,8 @@ export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromer
             } = {
                 action: "addMark",
                 path: [Micromerge.contentKey],
-                startIndex: contentPosFromProsemirrorPos(step.from),
-                endIndex: contentPosFromProsemirrorPos(step.to),
+                startIndex: contentPosFromProsemirrorPos(step.from, txn.before),
+                endIndex: contentPosFromProsemirrorPos(step.to, txn.before),
             }
 
             if (step.mark.type.name === "comment") {
@@ -508,8 +509,8 @@ export function applyProsemirrorTransactionToMicromergeDoc(args: { doc: Micromer
             } = {
                 action: "removeMark",
                 path: [Micromerge.contentKey],
-                startIndex: contentPosFromProsemirrorPos(step.from),
-                endIndex: contentPosFromProsemirrorPos(step.to),
+                startIndex: contentPosFromProsemirrorPos(step.from, txn.before),
+                endIndex: contentPosFromProsemirrorPos(step.to, txn.before),
             }
 
             if (step.mark.type.name === "comment") {

@@ -16,13 +16,18 @@ This repo includes:
 To see a basic interactive demo where you can type rich text into two editors and periodically sync them:
 
 `npm install`
+
 `npm run start`
 
 ## Code tour
 
-**Algorithm code**: The main algorithm implementation is in `src/micromerge.ts`. Because the goal of this work is to eventually implement a rich text type in [Automerge](https://github.com/automerge/automerge), we implemented Peritext as an extension to a codebase called `Micromerge`, which is a simplified implementation of Automerge that has mostly the same behavior but is less performance-optimized.
+**Algorithm code**: The main algorithm implementation is in `src/peritext.ts`. Because the goal of this work is to eventually implement a rich text type in [Automerge](https://github.com/automerge/automerge), we implemented Peritext as an extension to a codebase called `Micromerge`, which is a simplified implementation of Automerge that has mostly the same behavior but is less performance-optimized.
 
-The most salient part of the code is the `applyOp` function, which specifies what should happen when we apply an operation to the CRDT. It has cases for applying `AddMarkOperation` and `RemoveMarkOperation` ops, which describe the main behavior of the rich text CRDT.
+The essay describes the algorithm in three main parts:
+
+-   [Generating operations](https://www.inkandswitch.com/peritext/#generating-inline-formatting-operations): happens in `changeMark`
+-   [Applying operations](https://www.inkandswitch.com/peritext/#applying-operations): happens in `applyAddRemoveMark`
+-   [Producing a document](https://www.inkandswitch.com/peritext/#producing-a-final-document): there are two places this logic is defined. `getTextWithFormatting` is a "batch" approach which iterates over the internal document metadata and produces a Prosemirror document. There is also a codepath that produces incremental patches representing changes (which is actually what powers the editor demo); these patches get emitted directly while applying the op, within `applyAddRemoveMark`.
 
 **Prosemirror integration:** `src/bridge.ts` contains the code for the integration between the CRDT and the Prosemirror library. There are two main pieces to the integration:
 

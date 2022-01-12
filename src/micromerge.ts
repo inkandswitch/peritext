@@ -14,9 +14,11 @@ import {
     getTextWithFormatting,
 } from "./peritext"
 
-const CHILDREN = Symbol("children")
-const ROOT = Symbol("_root")
-const HEAD = Symbol("_head")
+import { sia, desia } from "sializer";
+
+const CHILDREN = "children"
+const ROOT = "_root"
+const HEAD = "_head"
 
 /** A patch represents a change to make to a JSON document.
  *  These are a way for Micromerge to notify a listener of incremental changes
@@ -272,23 +274,50 @@ export default class Micromerge {
     /** Map from actorId to last sequence number seen from that actor. */
     public clock: Record<string, number> = {}
     /** Objects, keyed by the ID of the operation that created the object. */
-    private objects: Record<ObjectId, JsonComposite> & Record<typeof ROOT, Record<string, Json>> = {
-        [ROOT]: {},
-    }
+    private objects: Record<ObjectId, JsonComposite> & Record<typeof ROOT, Record<string, Json>>;
     /** Map from object ID to CRDT metadata for each object field. */
-    private metadata: Record<ObjectId, Metadata> = {
-        [ROOT]: { [CHILDREN]: {} },
-    }
+    private metadata: Record<ObjectId, Metadata>;
 
     constructor(actorId: string = uuid.v4()) {
         this.actorId = actorId
+        this.objects = {
+            [ROOT]: {},
+        }
+        this.metadata = {
+            [ROOT]: { [CHILDREN]: {} },
+        }
     }
-
     /**
      * Returns the document root object.
      */
     get root(): Record<string, Json> {
         return this.objects[ROOT]
+    }
+
+    public save(): string {
+        const payload = {
+            actorId: this.actorId,
+            seq: this.seq,
+            maxOp: this.maxOp,
+            clock: this.clock,
+            objects: this.objects,
+            metadata: this.metadata
+        }
+
+        return sia(payload)
+    }
+
+    public static load(json: string): Micromerge {
+        const payload = desia(json)
+        const micromerge = new Micromerge()
+        micromerge.actorId = payload.actorId
+        micromerge.maxOp = payload.maxOp
+        micromerge.seq = payload.seq
+        micromerge.clock = payload.clock
+        micromerge.objects = payload.objects
+        micromerge.metadata = payload.metadata
+        return micromerge
+
     }
 
     /**

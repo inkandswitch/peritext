@@ -101,7 +101,7 @@ const formattingDemo: Trace = [
         startIndex: formatting[0].length + 0,
         endIndex: formatting[0].length + 19,
         markType: "link",
-        attrs: { url: "http://inkandswitch.com" },
+        attrs: { url: "http://example.com" },
     },
     {
         editorId: "bob",
@@ -202,7 +202,7 @@ const expansionDemo: Trace = [
         startIndex: 38 + 4,
         endIndex: 38 + 4 + 5,
         markType: "link",
-        attrs: { url: "https://inkandswitch.com" },
+        attrs: { url: "https://example.com" },
     },
     ...simulateTypingForInputOp({
         editorId: "bob",

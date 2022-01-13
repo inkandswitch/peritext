@@ -387,7 +387,7 @@ describe.only("Micromerge", () => {
                         endIndex: 12,
                         markType: "link",
                         attrs: {
-                            url: "inkandswitch.com",
+                            url: "example.com",
                         },
                     },
                     {
@@ -399,7 +399,7 @@ describe.only("Micromerge", () => {
                 //
                 expectedResult: [
                     { marks: {}, text: "The " },
-                    { marks: { link: { url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: { link: { url: "example.com" } }, text: "Peritext" },
                     { marks: {}, text: "! editor" },
                 ],
             })
@@ -417,7 +417,7 @@ describe.only("Micromerge", () => {
                         endIndex: 12,
                         markType: "link",
                         attrs: {
-                            url: "inkandswitch.com",
+                            url: "example.com",
                         },
                     },
                     {
@@ -429,7 +429,7 @@ describe.only("Micromerge", () => {
                 //
                 expectedResult: [
                     { marks: {}, text: "The !" },
-                    { marks: { link: { url: "inkandswitch.com" } }, text: "Peritext" },
+                    { marks: { link: { url: "example.com" } }, text: "Peritext" },
                     { marks: {}, text: " editor" },
                 ],
             })
@@ -448,7 +448,7 @@ describe.only("Micromerge", () => {
                         endIndex: 12,
                         markType: "link",
                         attrs: {
-                            url: "inkandswitch.com",
+                            url: "example.com",
                         },
                     },
                     {
@@ -467,7 +467,7 @@ describe.only("Micromerge", () => {
                 expectedResult: [
                     { marks: {}, text: "The " },
                     {
-                        marks: { link: { url: "inkandswitch.com" }, strong: { active: true } },
+                        marks: { link: { url: "example.com" }, strong: { active: true } },
                         text: "Peritext",
                     },
                     { marks: { strong: { active: true } }, text: "!" },
@@ -533,7 +533,7 @@ describe.only("Micromerge", () => {
                         startIndex: 1,
                         endIndex: 4,
                         markType: "link",
-                        attrs: { url: "inkandswitch.com" },
+                        attrs: { url: "example.com" },
                     },
                     // Delete B
                     {
@@ -559,7 +559,7 @@ describe.only("Micromerge", () => {
                 // and the end of the link is on the E tombstone.
                 expectedResult: [
                     { marks: {}, text: "A" },
-                    { marks: { link: { url: "inkandswitch.com" } }, text: "C" },
+                    { marks: { link: { url: "example.com" } }, text: "C" },
                     { marks: {}, text: "FE" },
                 ],
             })
@@ -831,7 +831,7 @@ describe.only("Micromerge", () => {
                     startIndex: 2,
                     endIndex: 3,
                     markType: "link",
-                    attrs: { url: "inkandswitch.com" },
+                    attrs: { url: "example.com" },
                 },
             ],
             // The link on the deleted character should not be visible
@@ -1155,7 +1155,7 @@ describe.only("Micromerge", () => {
                     startIndex: 4,
                     endIndex: 12,
                     markType: "link",
-                    attrs: { url: "https://inkandswitch.com" },
+                    attrs: { url: "https://example.com" },
                 },
             ])
 
@@ -1166,7 +1166,7 @@ describe.only("Micromerge", () => {
                 {
                     marks: {
                         link: {
-                            url: "https://inkandswitch.com",
+                            url: "https://example.com",
                         },
                     },
                     text: "Peritext",
@@ -1183,7 +1183,7 @@ describe.only("Micromerge", () => {
                         startIndex: 4,
                         endIndex: 12,
                         markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
+                        attrs: { url: "https://example.com" },
                     },
                 ],
                 inputOps2: [
@@ -1216,7 +1216,7 @@ describe.only("Micromerge", () => {
                         startIndex: 0,
                         endIndex: 12,
                         markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
+                        attrs: { url: "https://example.com" },
                     },
                 ],
                 inputOps2: [
@@ -1232,7 +1232,7 @@ describe.only("Micromerge", () => {
                     {
                         marks: {
                             link: {
-                                url: "https://inkandswitch.com",
+                                url: "https://example.com",
                             },
                         },
                         text: "The ",
@@ -1255,7 +1255,7 @@ describe.only("Micromerge", () => {
                         startIndex: 11,
                         endIndex: 12,
                         markType: "link",
-                        attrs: { url: "https://inkandswitch.com" },
+                        attrs: { url: "https://example.com" },
                     },
                 ],
                 inputOps2: [

@@ -47,7 +47,7 @@ initializeDocs(
             path: [Micromerge.contentKey],
             action: "addMark",
             markType: "link",
-            attrs: { url: "http://inkandswitch.com" },
+            attrs: { url: "http://example.com" },
             startIndex: 120,
             endIndex: 124,
         },

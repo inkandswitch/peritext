@@ -1,10 +1,16 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { isEqual, sortBy } from "lodash"
 import Micromerge, {
-    Json, ObjectId, OperationId, OperationPath,
-    BaseOperation, Patch,
-    ListItemMetadata, ListMetadata,
-    compareOpIds, getListElementId
+    Json,
+    ObjectId,
+    OperationId,
+    OperationPath,
+    BaseOperation,
+    Patch,
+    ListItemMetadata,
+    ListMetadata,
+    compareOpIds,
+    getListElementId,
 } from "./micromerge"
 import { Marks, markSpec, MarkType } from "./schema"
 
@@ -39,10 +45,10 @@ export interface FormatSpanWithText {
 
 export type AddMarkOperation = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "active"> extends never
-    ? AddMarkOperationBase<M> & { attrs?: undefined }
-    : AddMarkOperationBase<M> & {
-        attrs: Required<Omit<MarkValue[M], "active">>
-    }
+        ? AddMarkOperationBase<M> & { attrs?: undefined }
+        : AddMarkOperationBase<M> & {
+              attrs: Required<Omit<MarkValue[M], "active">>
+          }
 }>
 
 interface RemoveMarkOperationBase<M extends MarkType> extends BaseOperation {
@@ -59,9 +65,9 @@ export type RemoveMarkOperation =
     | RemoveMarkOperationBase<"strong">
     | RemoveMarkOperationBase<"em">
     | (RemoveMarkOperationBase<"comment"> & {
-        /** Data attributes for the mark. */
-        attrs: MarkValue["comment"]
-    })
+          /** Data attributes for the mark. */
+          attrs: MarkValue["comment"]
+      })
     | RemoveMarkOperationBase<"link">
 
 interface AddMarkOperationInputBase<M extends MarkType> {
@@ -79,10 +85,10 @@ interface AddMarkOperationInputBase<M extends MarkType> {
 // TODO: automatically populate attrs type w/o manual enumeration
 export type AddMarkOperationInput = Values<{
     [M in MarkType]: keyof Omit<MarkValue[M], "active"> extends never
-    ? AddMarkOperationInputBase<M> & { attrs?: undefined }
-    : AddMarkOperationInputBase<M> & {
-        attrs: Required<Omit<MarkValue[M], "active">>
-    }
+        ? AddMarkOperationInputBase<M> & { attrs?: undefined }
+        : AddMarkOperationInputBase<M> & {
+              attrs: Required<Omit<MarkValue[M], "active">>
+          }
 }>
 
 // TODO: What happens if the mark isn't active at all of the given indices?
@@ -101,19 +107,19 @@ interface RemoveMarkOperationInputBase<M extends MarkType> {
 
 export type RemoveMarkOperationInput =
     | (RemoveMarkOperationInputBase<"strong"> & {
-        attrs?: undefined
-    })
+          attrs?: undefined
+      })
     | (RemoveMarkOperationInputBase<"em"> & {
-        attrs?: undefined
-    })
+          attrs?: undefined
+      })
     | (RemoveMarkOperationInputBase<"comment"> & {
-        /** Data attributes for the mark. */
-        attrs: MarkValue["comment"]
-    })
+          /** Data attributes for the mark. */
+          attrs: MarkValue["comment"]
+      })
     | (RemoveMarkOperationInputBase<"link"> & {
-        /** Data attributes for the mark. */
-        attrs?: undefined
-    })
+          /** Data attributes for the mark. */
+          attrs?: undefined
+      })
 
 type CommentMarkValue = {
     id: string
@@ -167,28 +173,30 @@ export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Li
     type Positions = [number, MarkOpsPosition, ListItemMetadata][]
     const positions = Array.from(metadata.entries(), ([i, elMeta]) => [
         [i, "markOpsBefore", elMeta],
-        [i, "markOpsAfter", elMeta]
-    ]).flat() as Positions;
+        [i, "markOpsAfter", elMeta],
+    ]).flat() as Positions
 
     // set up some initial counters which will keep track of the state of the document.
-    // these are explained where they're used. 
+    // these are explained where they're used.
     let visibleIndex = 0
     let currentOps = new Set<MarkOperation>()
     let opState: MarkOpState = "BEFORE"
     let partialPatch: PartialPatch | undefined
-    const objLength = object.length as number // pvh wonders: why does this not account for deleted items?
+    const objLength = object.length as number
 
     for (const [, side, elMeta] of positions) {
         // First we update the currently known formatting operations affecting this position
         currentOps = elMeta[side] || currentOps
         let changedOps
-        [opState, changedOps] = calculateOpsForPosition(op, currentOps, side, elMeta, opState)
-        if (changedOps) { elMeta[side] = changedOps }
+        ;[opState, changedOps] = calculateOpsForPosition(op, currentOps, side, elMeta, opState)
+        if (changedOps) {
+            elMeta[side] = changedOps
+        }
 
         // Next we need to do patch maintenance.
         // Once we are DURING the operation, we'll start a patch, emitting an intermediate patch
         // any time the formatting changes during that range, and eventually emitting one last patch
-        // at the end of the range (or document.) 
+        // at the end of the range (or document.)
         if (side === "markOpsAfter" && !elMeta.deleted) {
             // We need to keep track of the "visible" index, since the outside world won't know about
             // deleted characters.
@@ -200,7 +208,9 @@ export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Li
             // within the range of characters the formatting operation targets.
             if (partialPatch) {
                 const patch = finishPartialPatch(partialPatch, visibleIndex, objLength)
-                if (patch) { patches.push(patch) }
+                if (patch) {
+                    patches.push(patch)
+                }
                 partialPatch = undefined
             }
 
@@ -210,23 +220,29 @@ export function applyAddRemoveMark(op: MarkOperation, object: Json, metadata: Li
             }
         }
 
-        if (opState == "AFTER") { break }
+        if (opState == "AFTER") {
+            break
+        }
     }
 
     // If we have a partial patch leftover at the end, emit it
     if (partialPatch) {
         const patch = finishPartialPatch(partialPatch, visibleIndex, objLength)
-        if (patch) { patches.push(patch) }
+        if (patch) {
+            patches.push(patch)
+        }
     }
 
     return patches
 }
 
 function calculateOpsForPosition(
-    op: MarkOperation, currentOps: Set<MarkOperation>,
+    op: MarkOperation,
+    currentOps: Set<MarkOperation>,
     side: MarkOpsPosition,
     elMeta: ListItemMetadata,
-    opState: MarkOpState): [opState: MarkOpState, newOps?: Set<MarkOperation>] {
+    opState: MarkOpState,
+): [opState: MarkOpState, newOps?: Set<MarkOperation>] {
     // Compute an index in the visible characters which will be used for patches.
     // If this character is visible and we're on the "after slot", then the relevant
     // index is one to the right of the current visible index.
@@ -248,10 +264,7 @@ function calculateOpsForPosition(
     return [opState, undefined]
 }
 
-function beginPartialPatch(
-    op: MarkOperation,
-    startIndex: number
-): PartialPatch {
+function beginPartialPatch(op: MarkOperation, startIndex: number): PartialPatch {
     const partialPatch: PartialPatch = {
         action: op.action,
         markType: op.markType,
@@ -271,7 +284,9 @@ function finishPartialPatch(partialPatch: PartialPatch, endIndex: number, length
     // but wouldn't make sense to an external caller:
     // - Any patch where the start or end is after the end of the currently visible text
     // - Any patch that is zero width, affecting no visible characters
-    const patch = { ...partialPatch, endIndex: Math.min(endIndex, length) } as AddMarkOperationInput | RemoveMarkOperationInput
+    const patch = { ...partialPatch, endIndex: Math.min(endIndex, length) } as
+        | AddMarkOperationInput
+        | RemoveMarkOperationInput
     const patchIsNotZeroLength = endIndex > partialPatch.startIndex
     const patchAffectsVisibleDocument = partialPatch.startIndex < length
     if (patchIsNotZeroLength && patchAffectsVisibleDocument) {
@@ -280,14 +295,12 @@ function finishPartialPatch(partialPatch: PartialPatch, endIndex: number, length
     return undefined
 }
 
-
 /** Given a set of mark operations for a span, produce a
  *  mark map reflecting the effects of those operations.
  *  (The ops can be in arbitrary order and the result is always
  *  the same, because we do op ID comparisons.)
  */
 
-// PVH code comment
 // we could radically simplify this by storing opId separately,
 // giving em/strong a boolean attrs and treating equality as key/attr equality
 // might be worth doing for the AM implementation
@@ -306,8 +319,7 @@ export function opsToMarks(ops: Set<MarkOperation>): MarkMap {
                 opIdMap[op.markType] = op.opId
                 if (op.action === "addMark") {
                     markMap[op.markType] = op.attrs || { active: true }
-                }
-                else {
+                } else {
                     delete markMap[op.markType]
                 }
             }
@@ -394,7 +406,6 @@ export function getTextWithFormatting(text: Json, metadata: ListMetadata): Array
     return spans
 }
 
-
 // Given a position before or after a character in a list, returns a set of mark operations
 // which represent the closest set of mark ops to the left in the metadata.
 // - The search excludes the passed-in position itself, so if there is metadata at that position
@@ -459,7 +470,8 @@ export function changeMark(
     inputOp: AddMarkOperationInput | RemoveMarkOperationInput,
     objId: ObjectId,
     meta: ListMetadata,
-    obj: Json[] | (Json[] & Record<string, Json>)): DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> {
+    obj: Json[] | (Json[] & Record<string, Json>),
+): DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> {
     const { action, startIndex, endIndex, markType, attrs } = inputOp
 
     // TODO: factor this out to a proper per-mark-type config object somewhere
@@ -475,8 +487,8 @@ export function changeMark(
      *        SA  0B  0A  1B  1A  2B  2A  EB
      *
      * Spans that grow attach to the next/preceding position, sometimes
-     * on a different character, so if a span ends on character 1 "e" but should 
-     * expand if new text is inserted, we actually attach the end of the span to 
+     * on a different character, so if a span ends on character 1 "e" but should
+     * expand if new text is inserted, we actually attach the end of the span to
      * character 2's "before" slot.
      */
 
@@ -496,6 +508,13 @@ export function changeMark(
         end = { type: "after", elemId: getListElementId(meta, endIndex - 1) }
     }
 
-    const partialOp: DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> = { action, obj: objId, start, end, markType, ...(attrs) && { attrs } }
+    const partialOp: DistributiveOmit<AddMarkOperation | RemoveMarkOperation, "opId"> = {
+        action,
+        obj: objId,
+        start,
+        end,
+        markType,
+        ...(attrs && { attrs }),
+    }
     return partialOp
 }

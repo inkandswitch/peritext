@@ -1,8 +1,9 @@
 # Peritext
 
-This is a prototype implementation of Peritext, a CRDT for rich text with inline formatting. If you want to understand the algorithm, you should first read the online essay describing the approach:
+This is a prototype implementation of Peritext, a [CRDT](https://crdt.tech/) for rich text with inline formatting. The algorithm is described in the following publications:
 
-[Peritext: A CRDT for Rich Text Collaboration](https://www.inkandswitch.com/peritext/)
+-   Online essay, [Peritext: A CRDT for Rich Text Collaboration](https://www.inkandswitch.com/peritext/)
+-   Geoffrey Litt, Sarah Lim, Martin Kleppmann, and Peter van Hardenberg. Peritext: A CRDT for Collaborative Rich Text Editing. Proceedings of the ACM on Human-Computer Interaction (PACMHCI), Volume 6, Issue [CSCW2](https://cscw.acm.org/2022/), Article 531, November 2022. [doi:10.1145/3555644](https://doi.org/10.1145/3555644)
 
 This repo includes:
 

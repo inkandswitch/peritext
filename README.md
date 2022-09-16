@@ -3,7 +3,9 @@
 This is a prototype implementation of Peritext, a [CRDT](https://crdt.tech/) for rich text with inline formatting. The algorithm is described in the following publications:
 
 -   Online essay, [Peritext: A CRDT for Rich Text Collaboration](https://www.inkandswitch.com/peritext/)
--   Geoffrey Litt, Sarah Lim, Martin Kleppmann, and Peter van Hardenberg. Peritext: A CRDT for Collaborative Rich Text Editing. Proceedings of the ACM on Human-Computer Interaction (PACMHCI), Volume 6, Issue [CSCW2](https://cscw.acm.org/2022/), Article 531, November 2022. [doi:10.1145/3555644](https://doi.org/10.1145/3555644)
+-   Geoffrey Litt, Sarah Lim, Martin Kleppmann, and Peter van Hardenberg.
+    [Peritext: A CRDT for Collaborative Rich Text Editing](https://www.inkandswitch.com/peritext/static/cscw-publication.pdf).
+    Proceedings of the ACM on Human-Computer Interaction (PACMHCI), Volume 6, Issue [CSCW2](https://cscw.acm.org/2022/), Article 531, November 2022. [doi:10.1145/3555644](https://doi.org/10.1145/3555644)
 
 This repo includes:
 

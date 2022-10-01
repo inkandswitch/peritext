@@ -5,6 +5,7 @@ import type { RootDoc } from "../src/bridge"
 import { inspect } from "util"
 import { generateDocs } from "./generateDocs"
 import { accumulatePatches } from "./accumulatePatches"
+import Micromerge from '../src/micromerge';
 
 const defaultText = "The Peritext editor"
 const textChars = defaultText.split("")
@@ -47,7 +48,9 @@ const testConcurrentWrites = (args: TraceSpec): void => {
     const { initialText = "The Peritext editor", preOps, inputOps1 = [], inputOps2 = [], expectedResult } = args
 
     const { docs, patches } = generateDocs(initialText)
-    const [doc1, doc2] = docs
+    let [doc1, doc2] = docs
+    doc1 = Micromerge.load(doc1.save())
+    doc2 = Micromerge.load(doc2.save())
     let [patchesForDoc1, patchesForDoc2] = patches
 
     if (preOps) {
@@ -1413,6 +1416,18 @@ describe.only("Micromerge", () => {
             const currentIndex = doc1.resolveCursor(cursor)
 
             assert.deepStrictEqual(currentIndex, 0)
+        })
+
+
+        it("de/re-serializes ", () => {
+            const { docs } = generateDocs()
+            const [doc1, doc2] = docs
+
+            let binary = doc1.save()
+            let copy = Micromerge.load(binary)
+
+            assert.deepStrictEqual(copy.getRoot(), doc1.getRoot())
+
         })
     })
 })
